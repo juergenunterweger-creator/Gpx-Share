@@ -105,13 +105,25 @@ with st.expander("⚙️ Optionen", expanded=False):
         c_line = st.color_picker("Routenfarbe", "#8B0000")
         c_fill = st.color_picker("Farbe Profilfüllung", "#8B0000")
 
-# --- ÜBER REITER ---
+# --- REITER: ÜBER GPX SHARE PRO ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=100)
     with c_meta:
-        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
+        st.markdown("### GPX Share Pro XXL")
+        st.markdown("**Copyright: Jürgen Unterweger**")
+        st.markdown("**Version: 1.0**")
+        
+        # --- NEU: PAYPAL DONATION ---
+        paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
+        st.markdown(f"""
+            <a href="{paypal_url}" target="_blank">
+                <img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal Logo" style="width:120px; margin-top:10px;">
+            </a><br>
+            <a href="{paypal_url}" target="_blank" style="text-decoration:none; color:#8b0000; font-weight:bold;">meine Arbeit unterstützen</a>
+        """, unsafe_allow_html=True)
+    
     st.markdown("---")
     
     st.markdown("**📲 Als App installieren:**")
@@ -191,27 +203,20 @@ if up_gpx:
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                
                 if fill_profile: draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
-                
                 if show_grid:
                     try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * font_scale)))
                     except: font_grid = ImageFont.load_default()
-                    grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 140)
-                    
-                    # Horizontale Linien (Meter)
+                    grid_color = (255, 255, 255, 45)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
-                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
-                    
-                    # Vertikale Linien (Kilometer) - WIEDER DA!
+                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
                     for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
-                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
-
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             title_y = int(bh_top * 0.35)
@@ -223,15 +228,12 @@ if up_gpx:
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
             lw = max(3, int(icon_size * 0.08))
             curr_icon_w = icon_size if show_icons else 0
-            
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.055 * data_font_scale), font_path)
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
             total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
-            
             sx = (w - total_w) // 2
             data_y = title_y + data_y_offset 
-            
             if show_icons:
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
@@ -243,11 +245,11 @@ if up_gpx:
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
                 overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(data_y - icon_size // 2)), img_elev)
-
             draw.text((sx + curr_icon_w + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
             if not up_img:
+                mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
