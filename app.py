@@ -5,6 +5,147 @@ from PIL import Image, ImageDraw
 import io
 import math
 
+# --- STYLING & KONFIGURATION ---
+st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
+
+st.markdown("""
+    <style>
+    .stApp { background-color: #080a0f; color: #ffffff; }
+    .title-modern {
+        font-size: 45px; font-weight: 900;
+        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+    .stDownloadButton button {
+        width: 100%; border-radius: 12px; height: 3.5em;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
+        color: white !important; font-weight: bold; border: none;
+        box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+# --- SIDEBAR (ALLE KEYS ÜBERARBEITET) ---
+with st.sidebar:
+    st.markdown("<h1 style='color: #00f2fe;'>GPX Share</h1>", unsafe_allow_html=True)
+    
+    st.markdown("### 🛠️ Einstellungen")
+    # Wir nutzen hier v3_ als Präfix, um sicherzugehen, dass keine ID doppelt ist
+    v_color = st.color_picker("Routenfarbe", "#00F2FE", key="v3_color")
+    v_width = st.slider("Linienstärke", 2, 50, 15, key="v3_width")
+    
+    st.divider()
+    
+    v_name = st.text_input("Tour Bezeichnung", "Meine Tour", key="v3_tourname")
+    v_stats = st.toggle("Daten anzeigen", value=True, key="v3_showstats")
+    v_pos = st.selectbox("Position Box", ["Oben Links", "Oben Rechts", "Unten Links", "Unten Rechts"], key="v3_boxpos")
+    v_alpha = st.slider("Transparenz Box", 0, 255, 180, key="v3_boxalpha")
+
+# --- HAUPTBEREICH ---
+st.markdown("<p class='title-modern'>GPX Share</p>", unsafe_allow_html=True)
+st.write("Erstelle dein individuelles Tour-Bild für WhatsApp oder Instagram.")
+
+col_a, col_b = st.columns(2)
+with col_a:
+    file_img = st.file_uploader("1. Hintergrundbild (JPG/PNG)", type=["jpg", "jpeg", "png"], key="v3_up_img")
+with col_b:
+    file_gpx = st.file_uploader("2. Route (GPX/TXT)", type=["gpx", "xml", "txt"], key="v3_up_gpx")
+
+if file_img and file_gpx:
+    try:
+        # Bild laden
+        img_raw = Image.open(file_img).convert("RGB")
+        w, h = img_raw.size
+        
+        # GPX Daten
+        gpx_raw = file_gpx.read().decode("utf-8")
+        gpx_parsed = gpxpy.parse(gpx_raw)
+        
+        pts = []
+        d_km = 0.0
+        h_m = 0.0
+        prev = None
+        
+        for t in gpx_parsed.tracks:
+            for s in t.segments:
+                for p in s.points:
+                    pts.append((p.latitude, p.longitude))
+                    if prev:
+                        d_km += haversine(prev.latitude, prev.longitude, p.latitude, p.longitude)
+                        if p.elevation and prev.elevation and p.elevation > prev.elevation:
+                            h_m += (p.elevation - prev.elevation)
+                    prev = p
+
+        if pts:
+            # Zeichnen
+            overlay = Image.new('RGBA', img_raw.size, (0,0,0,0))
+            draw = ImageDraw.Draw(overlay)
+            
+            lats, lons = zip(*pts)
+            min_la, max_la, min_lo, max_lo = min(lats), max(lats), min(lons), max(lons)
+            
+            margin = 0.15
+            canvas_w = w * (1 - 2*margin)
+            canvas_h = h * (1 - 2*margin)
+            
+            final_points = []
+            for lat, lon in pts:
+                x = w * margin + (lon - min_lo) / (max_lo - min_lo) * canvas_w
+                y = h * (1 - margin) - (lat - min_la) / (max_la - min_la) * canvas_h
+                final_points.append((x, y))
+            
+            # Farbe
+            c_rgb = tuple(int(v_color[i:i+2], 16) for i in (1, 3, 5))
+            draw.line(final_points, fill=c_rgb + (255,), width=v_width, joint="round")
+
+            if v_stats:
+                # Box
+                bw, bh = int(w * 0.45), int(h * 0.18)
+                offsets = {
+                    "Oben Links": (40, 40), "Oben Rechts": (w-bw-40, 40),
+                    "Unten Links": (40, h-bh-40), "Unten Rechts": (w-bw-40, h-bh-40)
+                }
+                bx, by = offsets[v_pos]
+                draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, v_alpha))
+                
+                # Schriftgröße dynamisch
+                f_size = max(24, int(w / 40))
+                draw.text((bx+30, by+30), v_name, fill="white")
+                draw.text((bx+30, by+30+f_size*1.5), f"{d_km:.1f} km | {int(h_m)} hm", fill=v_color)
+
+            # Fertiges Bild
+            res_img = Image.alpha_composite(img_raw.convert('RGBA'), overlay).convert('RGB')
+            st.image(res_img, use_container_width=True)
+            
+            # Speicher-Button
+            buf = io.BytesIO()
+            res_img.save(buf, format="JPEG", quality=95)
+            st.download_button(
+                label="📥 BILD SPEICHERN",
+                data=buf.getvalue(),
+                file_name="meine_motorradtour.jpg",
+                mime="image/jpeg",
+                key="v3_final_download"
+            )
+
+    except Exception as e:
+        st.error(f"Fehler: {e}")
+else:
+    st.info("Bitte lade Foto und GPX hoch, um das Bild zu erstellen.")
+import streamlit as st
+import gpxpy
+import gpxpy.gpx
+from PIL import Image, ImageDraw
+import io
+import math
+
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
 
