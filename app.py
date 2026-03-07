@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (Basis v1.7 + Erweiterungen) ---
+# --- STANDARDWERTE ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -50,10 +50,13 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
+# --- DER ULTIMATIVE CRASH-SCHUTZ ---
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
+    """Verhindert den Fehler 'x1 must be greater than or equal to x0'"""
     x0, y0, x1, y1 = coords
-    draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], 
-                   fill=fill, outline=outline, width=width)
+    # Sortiert die Punkte so, dass x0 immer <= x1 und y0 immer <= y1 ist
+    clean_coords = [min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)]
+    draw.rectangle(clean_coords, fill=fill, outline=outline, width=width)
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -125,18 +128,9 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
         st.write("**📈 Route & Profil**")
         st.checkbox("Auto-Skalierung", key="route_autoscale")
         st.slider("Abstand Name zu Daten", 50, 400, key="data_y_offset")
-        st.slider("Linienstärke Route", 1, 50, key="w_line")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
     st.button("🔄 Reset", on_click=reset_parameters)
-
-# --- ÜBER REITER ---
-with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | Version: 1.8")
-    st.markdown("**Copyright: Jürgen Unterweger**")
-    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
-
-st.divider()
 
 # --- VERARBEITUNG ---
 if st.session_state.persistent_gpx:
@@ -165,7 +159,7 @@ if st.session_state.persistent_gpx:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # 1. HINTERGRUND (Foto oder OSM)
+            # 1. HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             if st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
@@ -176,7 +170,6 @@ if st.session_state.persistent_gpx:
                 m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
-            # Dimmer anwenden
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
@@ -196,7 +189,7 @@ if st.session_state.persistent_gpx:
             draw.text((w//2, t_y), st.session_state.tour_title, fill="white", font=get_fitted_font(draw, st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale), font_path), anchor="mm")
             draw.text((w//2, t_y + st.session_state.data_y_offset), f"{d_total:.1f} km | {int(a_gain)} m", fill="white", font=get_fitted_font(draw, "000 km", w*0.7, int(w*0.05*st.session_state.data_font_scale), font_path), anchor="mm")
 
-            # Datum Badge (OBERHALB DES PROFILBALKENS)
+            # --- FIX: DATUM BADGE MIT SAFE_RECT ---
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date_size = int(w * 0.028 * st.session_state.font_scale)
                 f_date = ImageFont.truetype(font_path, f_date_size)
@@ -209,7 +202,7 @@ if st.session_state.persistent_gpx:
                 w_icon = draw_smooth_icon(st.session_state.weather, 45)
                 overlay.paste(w_icon, (int(bx1 + 15), int(by1 + 10)), w_icon)
 
-            # Route (Segment-Stabilität)
+            # Route
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -220,6 +213,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_{datetime.now().strftime('%H%M')}.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fixed_{datetime.now().strftime('%H%M')}.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
