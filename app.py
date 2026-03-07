@@ -10,11 +10,12 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.4.0) ---
+# --- STANDARDWERTE (v2.4.1) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "show_date": True,
+    "bg_mode": "Automatisch", # NEU: Modus für Hintergrund
     "weather": "Sonne",
     "bg_opacity": 100,
     "font_scale": 1.5,
@@ -23,11 +24,6 @@ DEFAULTS = {
     "data_y_offset": 150,
     "route_scale": 1.0,
     "route_autoscale": True,
-    "route_x_offset": 0,
-    "route_y_offset": 0,
-    "img_x_offset": 0,
-    "img_y_offset": 0,
-    "img_zoom": 1.0,
     "w_line": 9,
     "b_alpha": 160,
     "r_alpha": 255,
@@ -88,7 +84,7 @@ def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="bla
     draw.text((int(x+offset), int(y+offset)), text, fill=shadow_color, font=font, anchor=anchor)
     draw.text((int(x), int(y)), text, fill=fill, font=font, anchor=anchor)
 
-st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .install-box { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff0000; margin-top: 10px; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -112,16 +108,16 @@ with c_up2:
 with st.expander("⚙️ Optionen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        st.write("**📝 Texte & Stimmung**")
-        new_title = st.text_input("Tour Name", value=st.session_state.tour_title)
-        new_date = st.text_input("Datum", value=st.session_state.tour_date)
-        if st.button("✅ Übernehmen"):
-            st.session_state.tour_title, st.session_state.tour_date = new_title, new_date
-            st.rerun()
+        st.write("**🖼️ Hintergrund**")
+        st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        st.checkbox("Raster im Höhenprofil", key="show_grid")
+        st.write("**📝 Texte**")
+        new_title = st.text_input("Tour Name", value=st.session_state.tour_title)
+        if st.button("✅ Name übernehmen"):
+            st.session_state.tour_title = new_title
+            st.rerun()
     with col_opt2:
-        st.write("**📐 Abstände & Skalierung**")
+        st.write("**📐 Skalierung & Farbe**")
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
         st.slider("Vertikaler Abstand Daten", 50, 450, key="data_y_offset")
         st.color_picker("Routenfarbe", key="c_line")
@@ -134,12 +130,9 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     with col_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=120)
     with col_text:
-        st.markdown("### GPX Share Pro XXL | v2.4.0")
+        st.markdown("### GPX Share Pro XXL | v2.4.1")
         st.markdown("**Copyright: Jürgen Unterweger**")
         st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="100"></a>', unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("**📲 App installieren:**")
-    st.markdown("""<div class="install-box"><strong>iPhone:</strong> Teilen -> 'Zum Home-Bildschirm'<br><strong>Android:</strong> Menü -> 'App installieren'</div>""", unsafe_allow_html=True)
     st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
 st.divider()
@@ -170,14 +163,15 @@ if st.session_state.persistent_gpx:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # --- HINTERGRUND (FIX: HTTPS OSM) ---
+            # --- HINTERGRUND-LOGIK (v2.4.1: SWITCH) ---
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
-            if st.session_state.persistent_img:
+            use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
+            
+            if not use_map and st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
                 bg_img = ImageOps.fit(bg_img, (w, h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (0, 0))
             else:
-                # HTTPS URL für Kachel-Server nutzen
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
                 m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
@@ -199,7 +193,7 @@ if st.session_state.persistent_gpx:
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
             draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), f"{d_total:.1f} km | {int(a_gain)} m", get_fitted_font("X km", w*0.7, int(w*0.05*st.session_state.data_font_scale)))
 
-            # ROUTE (SEGMENT-STABIL)
+            # ROUTE
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -211,6 +205,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fix.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_custom.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
