@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE ---
+# --- STANDARDWERTE (v2.3.5: Default Offset auf 150) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -20,7 +20,7 @@ DEFAULTS = {
     "font_scale": 1.5,
     "data_font_scale": 1.2,
     "grid_font_scale": 1.5,
-    "data_y_offset": 180, # Erhöhter Standardwert für mehr Abstand
+    "data_y_offset": 150, # NEU: Standard auf 150 gesetzt
     "route_scale": 1.0,
     "route_autoscale": True,
     "route_x_offset": 0,
@@ -131,7 +131,7 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
             st.rerun()
         st.selectbox("Wetter", ["Sonne", "Wolken", "Regen"], key="weather")
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        st.checkbox("Höhenprofil Raster anzeigen", key="show_grid")
+        st.checkbox("Raster im Höhenprofil", key="show_grid")
         st.checkbox("Profil ausfüllen", key="fill_profile")
     with col_opt2:
         st.write("**📐 Abstände & Skalierung**")
@@ -169,7 +169,7 @@ if st.session_state.persistent_gpx:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # 1. HINTERGRUND
+            # HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             if st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
@@ -177,13 +177,13 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (0, 0))
             else:
                 m = StaticMap(w, h, url_template="http://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
+                m.add_line(MapLine(list(zip(lons, lats)), st.session_state.c_line, 0))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
-            # 2. OVERLAY & BALKEN
+            # OVERLAY
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
@@ -191,7 +191,7 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # --- HÖHENPROFIL + RASTER ---
+            # HÖHENPROFIL RASTER
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -200,12 +200,12 @@ if st.session_state.persistent_gpx:
                 
                 if st.session_state.show_grid:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
-                    for i in range(1, 4): # Horizontal (METER)
+                    for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
                         val_m = int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)
                         draw.text((w*0.01, gy-2), f"{val_m}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
-                    for i in range(1, 8): # Vertikal (KM)
+                    for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         draw.text((gx+5, grid_y_start+5), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
@@ -215,7 +215,7 @@ if st.session_state.persistent_gpx:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
-            # 3. TITEL & DATEN (OFFSET GEFIXED)
+            # TITEL & DATEN
             t_y = int(bh_top * 0.35)
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
@@ -224,7 +224,7 @@ if st.session_state.persistent_gpx:
             f_data = get_fitted_font(txt_data, w*0.7, int(w*0.05*st.session_state.data_font_scale))
             draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), txt_data, f_data)
 
-            # DATUM BADGE & LOGO
+            # DATUM BADGE
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
@@ -233,12 +233,7 @@ if st.session_state.persistent_gpx:
                 draw.text((bx2 - 20, by2 - 35), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
                 overlay.paste(draw_smooth_icon(st.session_state.weather, 45), (int(bx2 - tw - 90), int(by2 - 58)), draw_smooth_icon(st.session_state.weather, 45))
 
-            if st.session_state.show_logo_on_img and os.path.exists("logo.png"):
-                logo = Image.open("logo.png").convert("RGBA")
-                logo.thumbnail((150, 150), Image.Resampling.LANCZOS)
-                overlay.paste(logo, (w - 170, 20), logo)
-
-            # 4. ROUTE (SEGMENT-STABIL)
+            # ROUTE
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -249,6 +244,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_custom_v234.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
