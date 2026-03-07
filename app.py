@@ -8,7 +8,6 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# HIER IST DIE ÄNDERUNG: Hintergrund Weiß (#ffffff), Text Schwarz (#000000)
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -161,9 +160,33 @@ if up_img and up_gpx:
             d_elev.line([(ax, icon_size*0.8), (ax, icon_size*0.1)], fill="white", width=lw) 
             d_elev.polygon([(ax, 0), (ax-icon_size*0.15, icon_size*0.2), (ax+icon_size*0.15, icon_size*0.2)], fill="white")
 
-            # --- TEXTE ---
+            # --- TEXTE & LIVE GEZEICHNETES LOGO ---
+            # Titel oben
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
+            # --- LOGO LIVE ZEICHNEN ---
+            l_size = max(40, int(w * 0.12)) # Logo Größe automatisch
+            img_logo = Image.new('RGBA', (l_size, l_size), (0,0,0,0))
+            d_logo = ImageDraw.Draw(img_logo)
+            # Sonne
+            d_logo.ellipse([l_size*0.7, l_size*0.1, l_size*0.9, l_size*0.3], fill="white")
+            # Berge
+            d_logo.polygon([(0, l_size*0.8), (l_size*0.3, l_size*0.3), (l_size*0.6, l_size*0.8)], fill="white")
+            d_logo.polygon([(l_size*0.4, l_size*0.8), (l_size*0.7, l_size*0.5), (l_size*1.0, l_size*0.8)], fill="white")
+            # "A"
+            a_path = l_size * 0.3
+            font_a = ImageFont.truetype(font_path, max(15, int(l_size * 0.4))) 
+            d_logo.text((l_size*0.35, l_size*0.35), "A", fill="white", font=font_a, anchor="mm")
+            # "AUSTRIA"
+            font_austria = ImageFont.truetype(font_path, max(10, int(l_size * 0.15))) 
+            d_logo.text((l_size//2, l_size*0.9), "AUSTRIAN ALP", fill="white", font=font_austria, anchor="mm")
+            
+            # Logo oben rechts positionieren
+            logo_x = w - l_size - max(15, int(w*0.01))
+            logo_y = max(15, int(h*0.01))
+            overlay.paste(img_logo, (int(logo_x), int(logo_y)), img_logo)
+
+            # Unten
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
             w_dist = draw.textlength(txt_dist, font=font_d)
