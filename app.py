@@ -76,6 +76,8 @@ with st.expander("⚙️ Optionen", expanded=False):
         show_grid = st.checkbox("Raster im Höhenprofil", value=True)
         show_icons = st.checkbox("Icons in Infobox", value=True)
         show_units = st.checkbox("Einheiten anzeigen", value=True)
+        # NEU: Füllung an/aus
+        fill_profile = st.checkbox("Füllung Höhenprofil", value=True)
     with col_opt2:
         font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
@@ -84,6 +86,8 @@ with st.expander("⚙️ Optionen", expanded=False):
         r_alpha = st.slider("Routen-Transparenz", 0, 255, 255)
         bg_alpha = st.slider("Hintergrund Transparenz", 0, 255, 255)
         c_line = st.color_picker("Routenfarbe", "#8B0000")
+        # NEU: Eigene Farbe für die Füllung
+        c_fill = st.color_picker("Farbe Profilfüllung", "#8B0000")
 
 st.divider()
 
@@ -128,7 +132,10 @@ if up_gpx:
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
+            
+            # Farben vorbereiten
             rgb_route = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            rgb_fill = tuple(int(c_fill[1:3], 16) if i==0 else int(c_fill[3:5], 16) if i==1 else int(c_fill[5:7], 16) for i in range(3))
             
             bh_top, bh_bot = int(h * b_height_adj), int(h * (b_height_adj + 0.02))
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
@@ -136,13 +143,12 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL ZEICHNEN ---
+            # --- HÖHENPROFIL ---
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 
-                # Raster & Beschriftung
                 try:
                     font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale)))
                 except: font_grid = ImageFont.load_default()
@@ -159,9 +165,13 @@ if up_gpx:
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
 
-                # Profilfläche
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_route + (int(r_alpha * 0.5),))
+                
+                # Füllung nur zeichnen wenn aktiviert
+                if fill_profile:
+                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
+                
+                # Weiße Oberkante bleibt
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- TEXTE & ICONS ---
@@ -183,13 +193,12 @@ if up_gpx:
             sx, y_p = (w - total_w) // 2, h - int(bh_bot * 0.35)
 
             if show_icons:
-                # Tacho zeichnen
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
                 d_i.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
                 d_i.line([icon_size//2, icon_size//2, icon_size//2 + math.cos(math.radians(240))*icon_size*0.35, icon_size//2 + math.sin(math.radians(240))*icon_size*0.35], fill="white", width=lw)
                 overlay.paste(img_dist, (int(sx), int(y_p - icon_size // 2)), img_dist)
-                # Berg zeichnen
+                
                 img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
