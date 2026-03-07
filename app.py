@@ -8,13 +8,12 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# PWA Meta-Tags für iOS und Android (lässt die Website wie eine App wirken)
+# PWA Meta-Tags für iOS und Android
 st.markdown("""
     <head>
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="GPX Share">
-        <link rel="apple-touch-icon" href="https://your-link-to-logo.png">
     </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -114,18 +113,16 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     with c_meta:
         st.markdown("### GPX Share Pro XXL")
         st.markdown("**Copyright: Jürgen Unterweger**")
+        st.markdown("**Version: 1.0**") # --- NEU: VERSION ---
     
     st.markdown("---")
     
-    # --- APP INSTALLIEREN (PWA ASSISTENT) ---
+    # --- APP INSTALLIEREN ---
     st.markdown("**📲 Als App installieren:**")
     st.markdown("""
         <div class="install-box">
-        <strong>iPhone / iPad:</strong><br>
-        1. Tippe unten auf das <strong>Teilen-Icon</strong> (Quadrat mit Pfeil nach oben).<br>
-        2. Scrolle nach unten und wähle <strong>'Zum Home-Bildschirm'</strong>.<br><br>
-        <strong>Android:</strong><br>
-        Tippe auf die drei Punkte oben rechts und wähle <strong>'App installieren'</strong> oder <strong>'Zum Startbildschirm hinzufügen'</strong>.
+        <strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br>
+        <strong>Android:</strong> Menü (Drei Punkte) -> 'App installieren'
         </div>
     """, unsafe_allow_html=True)
     
@@ -228,6 +225,7 @@ if up_gpx:
 
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
+            
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
@@ -238,6 +236,7 @@ if up_gpx:
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
             total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
             sx, y_p = (w - total_w) // 2, h - int(bh_bot * 0.35)
+
             if show_icons:
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
@@ -249,13 +248,16 @@ if up_gpx:
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
                 overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(y_p - icon_size // 2)), img_elev)
+
             draw.text((sx + curr_icon_w + i_gap, y_p), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, y_p), txt_elev, fill="white", font=font_d, anchor="lm")
+
             if draw_line_manually:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
+
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
