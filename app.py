@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE ---
+# --- STANDARDWERTE (v2.3.8) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -141,26 +141,19 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
         st.color_picker("Balkenfarbe", key="c_box")
     st.button("🔄 Reset", on_click=reset_parameters)
 
-# --- NEU: DER RESTAURIERTE INFO REITER ---
+# --- INFO REITER (RESTAURIERT) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     col_logo, col_text = st.columns([1, 2])
     with col_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=120)
     with col_text:
         st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 2.3.7**")
+        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 2.3.8**")
         st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
     st.markdown("---")
     st.markdown("**📲 App installieren:**")
-    st.markdown("""<div class="install-box"><strong>iPhone (Safari):</strong> Teilen-Icon -> 'Zum Home-Bildschirm'<br><strong>Android (Chrome):</strong> Menü-Drei-Punkte -> 'App installieren'</div>""", unsafe_allow_html=True)
-    
-    st.markdown("**Folge mir:**")
-    c_ig, c_fb = st.columns(2)
-    with c_ig: st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
-    with c_fb: st.markdown("👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
-    st.markdown("**Web-App URL:**")
-    st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
+    st.markdown("""<div class="install-box"><strong>iPhone (Safari):</strong> Teilen-Icon -> 'Zum Home-Bildschirm'<br><strong>Android (Chrome):</strong> Menü -> 'App installieren'</div>""", unsafe_allow_html=True)
+    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
 st.divider()
 
@@ -190,7 +183,7 @@ if st.session_state.persistent_gpx:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # HINTERGRUND
+            # --- HINTERGRUND-LOGIK (FOTO ODER OSM) ---
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             if st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
@@ -198,13 +191,13 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (0, 0))
             else:
                 m = StaticMap(w, h, url_template="http://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                m.add_line(MapLine(list(zip(lons, lats)), st.session_state.c_line, 0))
+                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0)) # Zoom-Berechnung
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
-            # OVERLAY
+            # OVERLAY & BALKEN
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
@@ -239,7 +232,7 @@ if st.session_state.persistent_gpx:
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
             draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), f"{d_total:.1f} km | {int(a_gain)} m", get_fitted_font("X km", w*0.7, int(w*0.05*st.session_state.data_font_scale)))
 
-            # DATUM BOX & LOGO
+            # DATUM BADGE & LOGO
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
@@ -247,6 +240,11 @@ if st.session_state.persistent_gpx:
                 safe_rect(draw, [bx2 - tw - 100, by2 - 70, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
                 draw.text((bx2 - 20, by2 - 35), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
                 overlay.paste(draw_smooth_icon(st.session_state.weather, 45), (int(bx2 - tw - 90), int(by2 - 58)), draw_smooth_icon(st.session_state.weather, 45))
+
+            if st.session_state.show_logo_on_img and os.path.exists("logo.png"):
+                logo = Image.open("logo.png").convert("RGBA")
+                logo.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                overlay.paste(logo, (w - 170, 20), logo)
 
             # ROUTE
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
@@ -259,6 +257,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final_v237.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
