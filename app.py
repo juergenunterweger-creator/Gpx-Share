@@ -141,42 +141,32 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL BERECHNUNG ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
-                
-                # Profil schmal (90%), Raster volle Breite (100%)
                 profile_margin = w * 0.05
                 p_width = w - (2 * profile_margin)
                 profile_pts = [((i/len(elevs))*p_width + profile_margin, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 
-                # 1. Raster (Hintergrund, Volle Breite)
+                if fill_profile:
+                    draw.polygon(profile_pts + [(w - profile_margin, h), (profile_margin, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
+                
                 if show_grid:
                     try:
                         font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale)))
                     except: font_grid = ImageFont.load_default()
                     grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 160)
-                    
-                    # Horizontale Linien (Volle Breite)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
                         draw.text((w * 0.01, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
-                    
-                    # Vertikale Linien (Gleichmäßig verteilt über volle Breite)
                     for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
 
-                # 2. Füllung (Über dem Raster)
-                if fill_profile:
-                    draw.polygon(profile_pts + [(w - profile_margin, h), (profile_margin, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
-                
-                # 3. Weiße Oberkante
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- TEXTE & ICONS ---
@@ -186,11 +176,13 @@ if up_gpx:
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             
-            icon_size = int(w * 0.07 * 1.3 * font_scale)
+            # Icons passend zur neuen Schriftgröße
+            icon_size = int(w * 0.055 * 1.3 * font_scale) 
             lw = max(3, int(icon_size * 0.08))
             curr_icon_w = icon_size if show_icons else 0
             
-            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.07 * font_scale), font_path)
+            # NEUE KLEINERE SCHRIFTBASIS (0.055 statt 0.07)
+            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.055 * font_scale), font_path)
             
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
@@ -223,5 +215,4 @@ if up_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
-    except Exception as e: st.error(f"Fehler: {e}")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final
