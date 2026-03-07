@@ -37,13 +37,14 @@ with st.sidebar:
     # --- APP LOGO INTEGRATION ---
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
-        st.markdown("<br>", unsafe_allow_html=True) # Kleiner Abstand darunter
+        st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Design-Setup</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     
-    show_logo = st.checkbox("Zeige eigenes Logo auf Foto", value=True)
+    # HIER IST DIE ÄNDERUNG: value=False gesetzt
+    show_logo = st.checkbox("Zeige eigenes Logo auf Foto", value=False)
     logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     st.divider()
 
