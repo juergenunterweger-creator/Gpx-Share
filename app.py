@@ -38,8 +38,7 @@ with st.sidebar:
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     
-    # NEU: Logo-Schalter
-    show_logo = st.checkbox("Zeige Logo (unten rechts)", value=True)
+    show_logo = st.checkbox("Zeige eigenes Logo", value=True)
     st.divider()
 
     font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
@@ -195,17 +194,17 @@ if up_img and up_gpx:
             if show_logo and os.path.exists("logo.png"):
                 try:
                     user_logo = Image.open("logo.png").convert("RGBA")
-                    # Logo Größe: Max 12% der Bildhöhe
-                    max_logo_h = int(h * 0.12)
+                    # Logo Größe: Max 10% der Bildhöhe
+                    max_logo_h = int(h * 0.10)
                     l_w, l_h = user_logo.size
                     ratio = max_logo_h / l_h
                     new_size = (int(l_w * ratio), int(l_h * ratio))
                     user_logo = user_logo.resize(new_size, Image.LANCZOS)
                     
-                    # Position unten rechts (mit Abstand zum Rand)
+                    # Position: OBERHALB der unteren Infobox (h - bh_bot), rechtsbündig
                     padding = int(w * 0.02)
                     logo_x = w - new_size[0] - padding
-                    logo_y = h - new_size[1] - padding
+                    logo_y = (h - bh_bot) - new_size[1] - padding
                     
                     overlay.paste(user_logo, (logo_x, logo_y), user_logo)
                 except Exception as e:
