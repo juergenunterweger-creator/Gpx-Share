@@ -34,7 +34,6 @@ def calc_dist(lat1, lon1, lat2, lon2):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    # --- APP LOGO INTEGRATION ---
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -43,7 +42,6 @@ with st.sidebar:
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     
-    # HIER IST DIE ÄNDERUNG: value=False gesetzt
     show_logo = st.checkbox("Zeige eigenes Logo auf Foto", value=False)
     logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     st.divider()
@@ -60,18 +58,14 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    up_img = st.file_uploader("📸 1. Foto wählen", type=["jpg", "jpeg", "png"])
+    up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
 with c2:
-    up_gpx = st.file_uploader("📍 2. GPX Datei (Tour)")
+    # Foto ist jetzt "Optional"
+    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
 
-if up_img and up_gpx:
+# Code startet jetzt, sobald eine GPX da ist
+if up_gpx:
     try:
-        base_img = Image.open(up_img).convert("RGB")
-        w, h = base_img.size
-        
-        auto_f_title = int(w * 0.08 * font_scale)
-        auto_f_data = int(w * 0.045 * font_scale)
-
         up_gpx.seek(0)
         gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
         
@@ -93,6 +87,46 @@ if up_img and up_gpx:
                     last, last_elev = [p.latitude, p.longitude], p.elevation
 
         if pts:
+            lats, lons = zip(*pts)
+            draw_line_manually = False
+            
+            # --- BILD- ODER KARTENGENERIERUNG ---
+            if up_img:
+                base_img = Image.open(up_img).convert("RGB")
+                w, h = base_img.size
+                draw_line_manually = True
+            else:
+                try:
+                    from staticmap import StaticMap, Line, CircleMarker
+                except ImportError:
+                    st.error("🚨 Fehler: Für die OSM Karte fehlt das Paket 'staticmap'. Bitte öffne dein Terminal und tippe: pip install staticmap")
+                    st.stop()
+                
+                with st.spinner("Lade OpenStreetMap Karte... 🌍"):
+                    w, h = 1920, 1080
+                    m = StaticMap(w, h, url_template='https://tile.openstreetmap.org/{z}/{x}/{y}.png')
+                    
+                    # Route hinzufügen
+                    line = Line(list(zip(lons, lats)), c_line, w_line)
+                    m.add_line(line)
+                    
+                    # Padding hinzufügen, damit Route nicht von den schwarzen Balken überdeckt wird
+                    mi_la, ma_la = min(lats), max(lats)
+                    pad_la = (ma_la - mi_la) * 0.3
+                    m.add_marker(CircleMarker((lons[0], ma_la + pad_la), '#00000000', 1))
+                    m.add_marker(CircleMarker((lons[0], mi_la - pad_la), '#00000000', 1))
+                    
+                    # Start und Ziel markieren
+                    point_size = max(6, int(w * 0.005))
+                    m.add_marker(CircleMarker((lons[0], lats[0]), '#FFFFFF', point_size))
+                    m.add_marker(CircleMarker((lons[-1], lats[-1]), c_line, point_size))
+                    
+                    base_img = m.render().convert("RGB")
+
+            # --- UI LAYER ZEICHNEN ---
+            auto_f_title = int(w * 0.08 * font_scale)
+            auto_f_data = int(w * 0.045 * font_scale)
+            
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
@@ -171,21 +205,22 @@ if up_img and up_gpx:
             overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
             draw.text((x_elev + icon_size + 20, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
             
-            lats, lons = zip(*pts)
-            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-            margin = 0.20
-            scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
-                           h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
-            draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
-            
-            if len(scaled_pts) > 1:
-                point_size = max(6, int(w * 0.008)) 
-                start = scaled_pts[0]
-                draw.ellipse([start[0]-point_size, start[1]-point_size, start[0]+point_size, start[1]+point_size], fill="white")
-                end = scaled_pts[-1]
-                draw.ellipse([end[0]-point_size, end[1]-point_size, end[0]+point_size, end[1]+point_size], fill=c_line)
+            # --- ROUTE MANUELL ZEICHNEN (NUR WENN FOTO GEWÄHLT) ---
+            if draw_line_manually:
+                mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+                margin = 0.20
+                scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
+                               h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
+                draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
+                
+                if len(scaled_pts) > 1:
+                    point_size = max(6, int(w * 0.008)) 
+                    start = scaled_pts[0]
+                    draw.ellipse([start[0]-point_size, start[1]-point_size, start[0]+point_size, start[1]+point_size], fill="white")
+                    end = scaled_pts[-1]
+                    draw.ellipse([end[0]-point_size, end[1]-point_size, end[0]+point_size, end[1]+point_size], fill=c_line)
 
-            # --- EIGENES LOGO SAUBER ABRUNDEN (FÜR DAS FOTO) ---
+            # --- EIGENES LOGO ---
             if show_logo and os.path.exists("logo.png"):
                 try:
                     user_logo = Image.open("logo.png").convert("RGBA")
