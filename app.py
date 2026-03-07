@@ -173,7 +173,7 @@ with st.expander("⚙️ Optionen", expanded=False):
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.7**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.8**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -184,11 +184,14 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 
 st.divider()
 
+# Platzhalter für die Bildanzeige (verhindert iPhone-Überlagerung)
+image_container = st.empty()
+
 # --- VERARBEITUNG ---
 if st.session_state.persistent_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-        segments_pts = [] 
+        segments_pts = [] # Reset der Segmente
         elevs = []
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
@@ -239,6 +242,7 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
+            # --- HÖHENPROFIL ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -259,6 +263,7 @@ if st.session_state.persistent_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
+            # --- ROUTE ---
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             
@@ -287,10 +292,13 @@ if st.session_state.persistent_gpx:
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
             
-            # --- VORSCHAU ---
-            st.image(final, use_container_width=True)
+            # Die Leinwand vorher leeren und dann das neue Bild reinzeichnen
+            image_container.image(final, use_container_width=True)
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
+            
+            # Speicher freigeben
+            del gpx, segments_pts, all_pts, final
     except Exception as e: st.error(f"Fehler: {e}")
