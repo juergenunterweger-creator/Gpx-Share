@@ -92,42 +92,42 @@ if up_img and up_gpx:
             icon_size = int(auto_f_data * 1.5)
             lw = max(3, int(icon_size * 0.08)) # Liniendicke für Icons
 
-            # 1. Distanz Icon (Lineal & Pfeile)
+            # 1. Distanz Icon
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_dist = ImageDraw.Draw(img_dist)
             ry = icon_size * 0.85
-            d_dist.line([(0, ry), (icon_size, ry)], fill="white", width=lw) # Lineal-Boden
+            d_dist.line([(0, ry), (icon_size, ry)], fill="white", width=lw) 
             for i in range(5):
                 x = i * (icon_size / 4)
-                d_dist.line([(x, ry), (x, ry - icon_size*0.15)], fill="white", width=lw) # Striche
+                d_dist.line([(x, ry), (x, ry - icon_size*0.15)], fill="white", width=lw) 
             cx, cy = icon_size * 0.5, icon_size * 0.65
-            d_dist.line([(cx, cy), (cx, icon_size*0.15)], fill="white", width=lw) # Mitte
+            d_dist.line([(cx, cy), (cx, icon_size*0.15)], fill="white", width=lw) 
             d_dist.polygon([(cx, 0), (cx-icon_size*0.15, icon_size*0.2), (cx+icon_size*0.15, icon_size*0.2)], fill="white")
-            d_dist.line([(cx, cy), (icon_size*0.2, icon_size*0.4)], fill="white", width=lw) # Links
+            d_dist.line([(cx, cy), (icon_size*0.2, icon_size*0.4)], fill="white", width=lw) 
             d_dist.polygon([(0, icon_size*0.4), (icon_size*0.2, icon_size*0.25), (icon_size*0.25, icon_size*0.5)], fill="white")
-            d_dist.line([(cx, cy), (icon_size*0.8, icon_size*0.4)], fill="white", width=lw) # Rechts
+            d_dist.line([(cx, cy), (icon_size*0.8, icon_size*0.4)], fill="white", width=lw) 
             d_dist.polygon([(icon_size, icon_size*0.4), (icon_size*0.8, icon_size*0.25), (icon_size*0.75, icon_size*0.5)], fill="white")
 
-            # 2. Höhen Icon (Berge & Pfeil)
+            # 2. Höhen Icon
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
-            d_elev.polygon([(0, icon_size*0.85), (icon_size*0.35, icon_size*0.2), (icon_size*0.7, icon_size*0.85)], fill="white") # Berg 1
-            d_elev.polygon([(icon_size*0.4, icon_size*0.85), (icon_size*0.65, icon_size*0.4), (icon_size*0.9, icon_size*0.85)], fill="white") # Berg 2
+            d_elev.polygon([(0, icon_size*0.85), (icon_size*0.35, icon_size*0.2), (icon_size*0.7, icon_size*0.85)], fill="white") 
+            d_elev.polygon([(icon_size*0.4, icon_size*0.85), (icon_size*0.65, icon_size*0.4), (icon_size*0.9, icon_size*0.85)], fill="white") 
             ax = icon_size * 0.9
-            d_elev.line([(ax, icon_size*0.8), (ax, icon_size*0.1)], fill="white", width=lw) # Pfeil hoch
+            d_elev.line([(ax, icon_size*0.8), (ax, icon_size*0.1)], fill="white", width=lw) 
             d_elev.polygon([(ax, 0), (ax-icon_size*0.15, icon_size*0.2), (ax+icon_size*0.15, icon_size*0.2)], fill="white")
 
             # --- TEXTE & ICONS POSITIONIEREN ---
-            draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
+            # Titel oben jetzt in dynamischem Blutrot (rgb)
+            draw.text((w//2, bh_top//2), tour_title, fill=rgb + (255,), font=font_t, anchor="mm")
             
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
             
             w_dist = draw.textlength(txt_dist, font=font_d)
             w_elev = draw.textlength(txt_elev, font=font_d)
-            spacing = int(w * 0.1) # Abstand zwischen den Blöcken
+            spacing = int(w * 0.1) 
             
-            # Gesamtbreite berechnen um alles schön zu zentrieren
             total_w = icon_size + 20 + w_dist + spacing + icon_size + 20 + w_elev
             start_x = (w - total_w) // 2
             y_pos = h - bh_bot // 2
