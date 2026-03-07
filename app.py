@@ -55,6 +55,7 @@ with c1:
     up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
     if up_gpx is not None:
         raw_name = up_gpx.name.rsplit('.', 1)[0]
+        # Automatischer Name: Unterstriche/Bindestriche weg
         st.session_state.tour_name_val = raw_name.replace('_', ' ').replace('-', ' ')
 with c2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
@@ -71,6 +72,7 @@ with st.expander("⚙️ Optionen", expanded=False):
         show_units = st.checkbox("Einheiten anzeigen (km/m)", value=True)
         logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     with col_opt2:
+        # XL-Standardwert: 1.5
         font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -123,12 +125,14 @@ if up_gpx:
                 m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
                 src_img = m.render().convert("RGB")
 
+            # Hintergrund Transparenz
             base_img = Image.new('RGB', (w, h), "white")
             src_img_rgba = src_img.convert("RGBA")
             alpha_band = src_img_rgba.split()[3].point(lambda p: int(p * bg_alpha / 255))
             src_img_rgba.putalpha(alpha_band)
             base_img.paste(src_img_rgba, (0, 0), src_img_rgba)
 
+            # XL SCHRIFTWERTE
             auto_f_title = int(w * 0.10 * font_scale)
             auto_f_data = int(w * 0.07 * font_scale) 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
@@ -170,36 +174,24 @@ if up_gpx:
 
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- PREMIUM TACHO ICON (DISTANZ) ---
+            # --- TACHO ICON ---
             icon_size = int(w * 0.07 * 1.3 * font_scale)
             lw = max(3, int(icon_size * 0.08))
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_dist = ImageDraw.Draw(img_dist)
-            # Tachobogen mit Teilstrichen
             d_dist.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
-            for angle_deg in range(150, 420, 30):
-                rad = math.radians(angle_deg)
-                x1 = icon_size//2 + math.cos(rad) * (icon_size//2 - lw*3)
-                y1 = icon_size//2 + math.sin(rad) * (icon_size//2 - lw*3)
-                x2 = icon_size//2 + math.cos(rad) * (icon_size//2 - lw)
-                y2 = icon_size//2 + math.sin(rad) * (icon_size//2 - lw)
-                d_dist.line([(x1, y1), (x2, y2)], fill="white", width=max(1, lw//2))
-            # Zeiger
             center = icon_size // 2
-            z_rad = math.radians(240)
-            d_dist.line([(center, center), (center + math.cos(z_rad)*icon_size*0.35, center + math.sin(z_rad)*icon_size*0.35)], fill="white", width=lw)
+            zeiger_len = icon_size * 0.35
+            angle = math.radians(240)
+            d_dist.line([(center, center), (center + math.cos(angle)*zeiger_len, center + math.sin(angle)*zeiger_len)], fill="white", width=lw)
             d_dist.ellipse([center-lw, center-lw, center+lw, center+lw], fill="white")
             
-            # --- PREMIUM BERG ICON (HM) ---
+            # Berg Icon
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
-            # Berg mit Schneekappe
             d_elev.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
-            d_elev.polygon([(icon_size*0.3, icon_size*0.37), (icon_size*0.4, icon_size*0.2), (icon_size*0.5, icon_size*0.37), (icon_state_x:=icon_size*0.4, icon_size*0.45)], fill="#CCCCCC")
-            # Pfeil nach oben
-            p_x = icon_size * 0.9
-            d_elev.line([(p_x, icon_size*0.85), (p_x, icon_size*0.1)], fill="white", width=lw)
-            d_elev.polygon([(p_x, icon_size*0.05), (p_x-lw*1.5, icon_size*0.25), (p_x+lw*1.5, icon_size*0.25)], fill="white")
+            d_elev.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
+            d_elev.polygon([(icon_size*0.9, 0), (icon_size*0.8, icon_size*0.2), (icon_size, icon_size*0.2)], fill="white")
 
             # --- TEXTE & ZENTRIERUNG ---
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
@@ -224,10 +216,6 @@ if up_gpx:
                 margin = 0.20
                 scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
                 draw.line(scaled_pts, fill=rgb + (r_alpha,), width=w_line, joint="round")
-                if len(scaled_pts) > 1:
-                    p_s = max(6, int(w * 0.008)) 
-                    draw.ellipse([scaled_pts[0][0]-p_s, scaled_pts[0][1]-p_s, scaled_pts[0][0]+p_s, scaled_pts[0][1]+p_s], fill=(255,255,255, r_alpha))
-                    draw.ellipse([scaled_pts[-1][0]-p_s, scaled_pts[-1][1]-p_s, scaled_pts[-1][0]+p_s, scaled_pts[-1][1]+p_s], fill=rgb + (r_alpha,))
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
