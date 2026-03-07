@@ -97,9 +97,16 @@ with st.expander("⚙️ Optionen", expanded=False):
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
         data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 160)
+        st.write("**Position Route:**")
+        route_x_offset = st.slider("Horizontaler Versatz Route", -500, 500, 0)
         route_y_offset = st.slider("Vertikaler Versatz Route", -500, 500, 0)
-        # NEU: Slider für die Größe der Route
         route_scale = st.slider("Route Skalierung", 0.1, 2.0, 1.0)
+        
+        if up_img:
+            st.write("**Position Hintergrundfoto:**")
+            img_x_offset = st.slider("Horizontaler Versatz Foto", -1000, 1000, 0)
+            img_y_offset = st.slider("Vertikaler Versatz Foto", -1000, 1000, 0)
+        
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -156,20 +163,27 @@ if up_gpx:
         if pts:
             lats, lons = zip(*pts)
             if up_img:
-                src_img = Image.open(up_img).convert("RGB")
+                src_img = Image.open(up_img).convert("RGBA")
                 w, h = src_img.size
             else:
                 from staticmap import StaticMap, Line
                 w, h = 1080, 1920 
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
                 m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
-                src_img = m.render().convert("RGB")
+                src_img = m.render().convert("RGBA")
 
-            base_img = Image.new('RGB', (w, h), "white")
-            src_img_rgba = src_img.convert("RGBA")
-            alpha_band = src_img_rgba.split()[3].point(lambda p: int(p * bg_alpha / 255))
-            src_img_rgba.putalpha(alpha_band)
-            base_img.paste(src_img_rgba, (0, 0), src_img_rgba)
+            base_img = Image.new('RGBA', (w, h), (255, 255, 255, 255))
+            
+            # Hintergrundfoto mit Versatz einfügen
+            x_pos = img_x_offset if up_img else 0
+            y_pos = img_y_offset if up_img else 0
+            
+            # Alpha-Kanal für Hintergrundtransparenz anpassen
+            src_img_with_alpha = src_img.copy()
+            alpha = src_img_with_alpha.split()[3].point(lambda p: int(p * bg_alpha / 255))
+            src_img_with_alpha.putalpha(alpha)
+            
+            base_img.paste(src_img_with_alpha, (x_pos, y_pos), src_img_with_alpha)
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
@@ -211,12 +225,11 @@ if up_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE (MIT SKALIERUNG & VERSATZ) ---
+            # --- ROUTE (MIT HORIZONTALEM & VERTIKALEM VERSATZ) ---
             if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-                # Grund-Skalierung basierend auf dem Slider
                 base_margin = 0.5 * (1.0 - (0.6 * route_scale))
-                scaled = [(w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin), 
+                scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + route_x_offset, 
                            (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + route_y_offset)
                           for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
@@ -244,7 +257,7 @@ if up_gpx:
                 draw.text((sx, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
                 draw.text((sx + w_d + spacing, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
-            final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
+            final = Image.alpha_composite(base_img, overlay).convert('RGB')
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
