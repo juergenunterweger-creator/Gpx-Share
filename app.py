@@ -40,6 +40,7 @@ DEFAULTS = {
     "selected_track_idx": 0 
 }
 
+# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -52,6 +53,11 @@ if "persistent_gpx" not in st.session_state:
 def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
+    st.rerun()
+
+def full_app_reset():
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
     st.rerun()
 
 st.markdown("""
@@ -113,8 +119,8 @@ with c_up1:
     if up_gpx:
         new_gpx_data = up_gpx.read()
         if st.session_state.persistent_gpx != new_gpx_data:
-            st.session_state.selected_track_idx = 0
             st.session_state.persistent_gpx = new_gpx_data
+            st.session_state.selected_track_idx = 0
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
             st.rerun()
 
@@ -138,7 +144,7 @@ with st.expander("⚙️ Optionen", expanded=False):
                 temp_gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
                 if len(temp_gpx.tracks) > 1:
                     track_names = [f"{t.name if t.name else 'Spur ' + str(i+1)}" for i, t in enumerate(temp_gpx.tracks)]
-                    st.selectbox("📍 Gewünschte Spur wählen", range(len(track_names)), 
+                    st.selectbox("📍 Spur wählen", range(len(track_names)), 
                                  format_func=lambda x: track_names[x], key="selected_track_idx")
             except: pass
         
@@ -168,39 +174,43 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Farbe Profilfüllung", key="c_fill")
         st.color_picker("Farbe Infoboxen", key="c_box")
-    st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
+    
+    st.divider()
+    c_res1, c_res2 = st.columns(2)
+    with c_res1:
+        st.button("🔄 Design zurücksetzen", on_click=reset_parameters)
+    with c_res2:
+        # NEU: Der Rettungsanker für hängende Iphones
+        st.button("🗑️ Alle Daten & Cache löschen", on_click=full_app_reset)
 
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.8**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.9**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    st.markdown("---")
-    col_ig, col_fb = st.columns(2)
-    with col_ig: st.markdown(f"📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
-    with col_fb: st.markdown(f"👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
     st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
 
 st.divider()
 
-# Platzhalter für die Bildanzeige (verhindert iPhone-Überlagerung)
-image_container = st.empty()
+# Platzhalter leeren
+image_slot = st.empty()
 
 # --- VERARBEITUNG ---
 if st.session_state.persistent_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-        segments_pts = [] # Reset der Segmente
+        segments_pts = [] 
         elevs = []
         d_total, a_gain = 0.0, 0.0
-        last, last_elev = None, None
         
         if len(gpx.tracks) > 0:
             idx = min(st.session_state.selected_track_idx, len(gpx.tracks)-1)
             target_track = gpx.tracks[idx]
             for seg in target_track.segments:
                 current_seg = []
+                # WICHTIG: Nach jedem Segment die Berechnungspunkte nullen!
+                last, last_elev = None, None
                 for p in seg.points:
                     current_seg.append([p.latitude, p.longitude])
                     elevs.append(p.elevation if p.elevation is not None else 0)
@@ -242,7 +252,6 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -257,10 +266,6 @@ if st.session_state.persistent_gpx:
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
                         draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
-                    for i in range(1, 8):
-                        gx = i * (w / 8)
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
-                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- ROUTE ---
@@ -291,14 +296,10 @@ if st.session_state.persistent_gpx:
                 draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
-            
-            # Die Leinwand vorher leeren und dann das neue Bild reinzeichnen
-            image_container.image(final, use_container_width=True)
+            image_slot.image(final, use_container_width=True)
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
             
-            # Speicher freigeben
-            del gpx, segments_pts, all_pts, final
     except Exception as e: st.error(f"Fehler: {e}")
