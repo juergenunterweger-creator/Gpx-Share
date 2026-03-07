@@ -135,7 +135,6 @@ if up_gpx:
 
             # --- UI LAYER ZEICHNEN ---
             auto_f_title = int(w * 0.08 * font_scale)
-            # HIER DIE ÄNDERUNG: Daten-Schrift ist jetzt größer (0.06 statt 0.045)
             auto_f_data = int(w * 0.06 * font_scale) 
             
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
@@ -151,7 +150,6 @@ if up_gpx:
             try:
                 font_t = ImageFont.truetype(font_path, auto_f_title)
                 font_d = ImageFont.truetype(font_path, auto_f_data)
-                # Raster-Schrift etwas kleiner machen, damit sie durch die größere Hauptschrift nicht zu riesig wird
                 font_grid = ImageFont.truetype(font_path, max(10, int(auto_f_title * 0.25))) 
             except:
                 font_t = font_d = font_grid = ImageFont.load_default()
@@ -177,7 +175,7 @@ if up_gpx:
                 draw.line(profile_pts, fill="white", width=max(3, int(w*0.003)), joint="round")
 
             # --- ICONS ---
-            icon_size = int(auto_f_data * 1.3) # Icons proportional leicht angepasst
+            icon_size = int(auto_f_data * 1.3)
             lw = max(3, int(icon_size * 0.08)) 
             
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
@@ -205,25 +203,24 @@ if up_gpx:
             
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- ZENTRIERTE TEXT-PLATZIERUNG ---
+            # --- ZENTRIERTE & NACH UNTEN VERSCHOBENE TEXT-PLATZIERUNG ---
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
             w_dist = draw.textlength(txt_dist, font=font_d)
             w_elev = draw.textlength(txt_elev, font=font_d)
             
-            spacing = int(w * 0.12) # Platz zwischen KM und HM Block
-            icon_gap = int(w * 0.02) # Sauberer Abstand zwischen Icon und Text
+            spacing = int(w * 0.12)
+            icon_gap = int(w * 0.02) 
             
-            # Gesamtbreite des Blocks berechnen für perfekte Zentrierung
             total_w = icon_size + icon_gap + w_dist + spacing + icon_size + icon_gap + w_elev
             start_x = (w - total_w) // 2
-            y_pos = h - bh_bot // 2
             
-            # KM einfügen
+            # HIER DIE ÄNDERUNG: Zieht die Daten im Balken weiter nach unten (Faktor 0.35 statt 0.50)
+            y_pos = h - int(bh_bot * 0.35) 
+            
             overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
             draw.text((start_x + icon_size + icon_gap, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
             
-            # HM einfügen
             x_elev = start_x + icon_size + icon_gap + w_dist + spacing
             overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
             draw.text((x_elev + icon_size + icon_gap, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
