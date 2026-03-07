@@ -34,11 +34,16 @@ def calc_dist(lat1, lon1, lat2, lon2):
 
 # --- SIDEBAR ---
 with st.sidebar:
+    # --- APP LOGO INTEGRATION ---
+    if os.path.exists("logo.png"):
+        st.image("logo.png", use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True) # Kleiner Abstand darunter
+
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Design-Setup</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     
-    show_logo = st.checkbox("Zeige eigenes Logo", value=True)
+    show_logo = st.checkbox("Zeige eigenes Logo auf Foto", value=True)
     logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     st.divider()
 
@@ -179,7 +184,7 @@ if up_img and up_gpx:
                 end = scaled_pts[-1]
                 draw.ellipse([end[0]-point_size, end[1]-point_size, end[0]+point_size, end[1]+point_size], fill=c_line)
 
-            # --- EIGENES LOGO SAUBER ABRUNDEN ---
+            # --- EIGENES LOGO SAUBER ABRUNDEN (FÜR DAS FOTO) ---
             if show_logo and os.path.exists("logo.png"):
                 try:
                     user_logo = Image.open("logo.png").convert("RGBA")
@@ -195,7 +200,6 @@ if up_img and up_gpx:
                         d_mask = ImageDraw.Draw(mask)
                         d_mask.rounded_rectangle([0, 0, new_size[0], new_size[1]], fill=255, radius=radius)
                         
-                        # Transparenz sauber verheiraten
                         if 'A' in user_logo.getbands():
                             alpha = user_logo.split()[3]
                             mask = ImageChops.darker(mask, alpha)
@@ -207,7 +211,7 @@ if up_img and up_gpx:
                     
                     overlay.paste(user_logo, (logo_x, logo_y), user_logo)
                 except Exception as e:
-                    st.warning(f"Konnte Logo nicht laden: {e}")
+                    st.warning(f"Konnte Logo im Bild nicht einfügen: {e}")
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
