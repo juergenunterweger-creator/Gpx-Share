@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageChops
 import io
 import math
 import os
@@ -128,7 +128,7 @@ if up_gpx:
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
-            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            rgb_route = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             
             bh_top, bh_bot = int(h * b_height_adj), int(h * (b_height_adj + 0.02))
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
@@ -136,11 +136,38 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # Titel mit Auto-Scale
+            # --- HÖHENPROFIL ZEICHNEN ---
+            if len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = e_max - e_min if e_max > e_min else 1
+                grid_y_start = h - bh_bot
+                
+                # Raster & Beschriftung
+                try:
+                    font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale)))
+                except: font_grid = ImageFont.load_default()
+
+                if show_grid:
+                    grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 160)
+                    for i in range(1, 4):
+                        gy = grid_y_start + i * (bh_bot / 4)
+                        draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
+                        ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
+                        draw.text((w * 0.01, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
+                    for i in range(1, 8):
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
+
+                # Profilfläche
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_route + (int(r_alpha * 0.5),))
+                draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
+
+            # --- TEXTE & ICONS ---
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
 
-            # Infobox mit Auto-Scale
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             
@@ -148,8 +175,7 @@ if up_gpx:
             lw = max(3, int(icon_size * 0.08))
             curr_icon_w = icon_size if show_icons else 0
             
-            max_data_w = (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15))
-            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, max_data_w, int(w * 0.07 * font_scale), font_path)
+            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.07 * font_scale), font_path)
             
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
@@ -157,13 +183,13 @@ if up_gpx:
             sx, y_p = (w - total_w) // 2, h - int(bh_bot * 0.35)
 
             if show_icons:
-                # Tacho
+                # Tacho zeichnen
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
                 d_i.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
                 d_i.line([icon_size//2, icon_size//2, icon_size//2 + math.cos(math.radians(240))*icon_size*0.35, icon_size//2 + math.sin(math.radians(240))*icon_size*0.35], fill="white", width=lw)
                 overlay.paste(img_dist, (int(sx), int(y_p - icon_size // 2)), img_dist)
-                # Berg
+                # Berg zeichnen
                 img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
@@ -177,7 +203,7 @@ if up_gpx:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
-                draw.line(scaled, fill=rgb + (r_alpha,), width=w_line, joint="round")
+                draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
