@@ -97,6 +97,8 @@ with st.expander("⚙️ Optionen", expanded=False):
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
         data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 160)
+        # NEU: Slider für den vertikalen Versatz der Route
+        route_y_offset = st.slider("Vertikaler Versatz Route", -500, 500, 0)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -180,7 +182,7 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- EIGENES LOGO AUF BILD (WIEDER AKTIVIERT) ---
+            # --- EIGENES LOGO ---
             if show_logo and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 l_w = int(w * 0.12)
@@ -210,17 +212,18 @@ if up_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE ---
+            # --- ROUTE (MIT VERTIAKLER POSITIONIERUNG) ---
             if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
-                scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
+                scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
+                           (h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) + route_y_offset) # Offset angewendet
+                          for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
 
             title_y = int(bh_top * 0.35)
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.085 * font_scale), font_path)
             draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
-            
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
