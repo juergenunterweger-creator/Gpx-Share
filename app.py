@@ -67,11 +67,11 @@ with st.expander("⚙️ Optionen", expanded=False):
         map_style = st.selectbox("Karten-Stil (wenn kein Foto)", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"])
         show_logo = st.checkbox("Zeige eigenes Logo auf Foto/Karte", value=False)
         show_grid = st.checkbox("Raster im Höhenprofil", value=True)
-        # NEU: Icons ein/aus
         show_icons = st.checkbox("Icons in Infobox", value=True)
+        show_units = st.checkbox("Einheiten anzeigen (km/m)", value=True)
         logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     with col_opt2:
-        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
+        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -80,7 +80,7 @@ with st.expander("⚙️ Optionen", expanded=False):
         c_line = st.color_picker("Routenfarbe", "#8B0000")
 
 with st.expander("ℹ️ Über GPX Share", expanded=False):
-    st.markdown("### Willkommen bei GPX Share Pro! 🏍️")
+    st.markdown("### Willkommen bei GPX Share Pro! 🏍️\nLade einfach eine `.gpx` Datei hoch.")
 
 st.divider()
 
@@ -123,15 +123,14 @@ if up_gpx:
                 m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
                 src_img = m.render().convert("RGB")
 
-            # Hintergrund Transparenz
             base_img = Image.new('RGB', (w, h), "white")
             src_img_rgba = src_img.convert("RGBA")
             alpha_band = src_img_rgba.split()[3].point(lambda p: int(p * bg_alpha / 255))
             src_img_rgba.putalpha(alpha_band)
             base_img.paste(src_img_rgba, (0, 0), src_img_rgba)
 
-            auto_f_title = int(w * 0.08 * font_scale)
-            auto_f_data = int(w * 0.06 * font_scale) 
+            auto_f_title = int(w * 0.10 * font_scale)
+            auto_f_data = int(w * 0.07 * font_scale) 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
@@ -141,11 +140,11 @@ if up_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             try:
                 font_t = ImageFont.truetype(font_path, auto_f_title)
                 font_d = ImageFont.truetype(font_path, auto_f_data)
-                font_grid = ImageFont.truetype(font_path, max(12, int(auto_f_title * 0.22))) 
+                font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale))) 
             except:
                 font_t = font_d = font_grid = ImageFont.load_default()
 
@@ -171,52 +170,55 @@ if up_gpx:
 
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- ICONS GENERIEREN ---
-            icon_size = int(auto_f_data * 1.3)
+            # --- PREMIUM TACHO ICON (DISTANZ) ---
+            icon_size = int(w * 0.07 * 1.3 * font_scale)
             lw = max(3, int(icon_size * 0.08))
-            
-            # Distanz Icon
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_dist = ImageDraw.Draw(img_dist)
-            ry = icon_size * 0.85
-            d_dist.line([(0, ry), (icon_size, ry)], fill="white", width=lw)
-            for i in range(5):
-                x = i * (icon_size / 4)
-                d_dist.line([(x, ry), (x, ry - icon_size*0.15)], fill="white", width=lw)
-            d_dist.line([(icon_size//2, ry), (icon_size//2, icon_size*0.1)], fill="white", width=lw)
+            # Tachobogen mit Teilstrichen
+            d_dist.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
+            for angle_deg in range(150, 420, 30):
+                rad = math.radians(angle_deg)
+                x1 = icon_size//2 + math.cos(rad) * (icon_size//2 - lw*3)
+                y1 = icon_size//2 + math.sin(rad) * (icon_size//2 - lw*3)
+                x2 = icon_size//2 + math.cos(rad) * (icon_size//2 - lw)
+                y2 = icon_size//2 + math.sin(rad) * (icon_size//2 - lw)
+                d_dist.line([(x1, y1), (x2, y2)], fill="white", width=max(1, lw//2))
+            # Zeiger
+            center = icon_size // 2
+            z_rad = math.radians(240)
+            d_dist.line([(center, center), (center + math.cos(z_rad)*icon_size*0.35, center + math.sin(z_rad)*icon_size*0.35)], fill="white", width=lw)
+            d_dist.ellipse([center-lw, center-lw, center+lw, center+lw], fill="white")
             
-            # Höhenmeter Icon
+            # --- PREMIUM BERG ICON (HM) ---
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
+            # Berg mit Schneekappe
             d_elev.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
-            d_elev.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
-            d_elev.polygon([(icon_size*0.9, 0), (icon_size*0.8, icon_size*0.2), (icon_size, icon_size*0.2)], fill="white")
+            d_elev.polygon([(icon_size*0.3, icon_size*0.37), (icon_size*0.4, icon_size*0.2), (icon_size*0.5, icon_size*0.37), (icon_state_x:=icon_size*0.4, icon_size*0.45)], fill="#CCCCCC")
+            # Pfeil nach oben
+            p_x = icon_size * 0.9
+            d_elev.line([(p_x, icon_size*0.85), (p_x, icon_size*0.1)], fill="white", width=lw)
+            d_elev.polygon([(p_x, icon_size*0.05), (p_x-lw*1.5, icon_size*0.25), (p_x+lw*1.5, icon_size*0.25)], fill="white")
 
-            # --- INFOTEXT & ZENTRIERUNG ---
-            txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
+            # --- TEXTE & ZENTRIERUNG ---
+            txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
+            txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             w_dist = draw.textlength(txt_dist, font=font_d)
             w_elev = draw.textlength(txt_elev, font=font_d)
-            
-            spacing = int(w * 0.12)
-            icon_gap = int(w * 0.02) if show_icons else 0
+            spacing, icon_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
             curr_icon_w = icon_size if show_icons else 0
-            
             total_w = (curr_icon_w + icon_gap + w_dist) + spacing + (curr_icon_w + icon_gap + w_elev)
-            start_x = (w - total_w) // 2
-            y_pos = h - int(bh_bot * 0.35) 
+            start_x, y_pos = (w - total_w) // 2, h - int(bh_bot * 0.35) 
             
-            # KM Block
             if show_icons:
                 overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
             draw.text((start_x + curr_icon_w + icon_gap, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
-            
-            # HM Block
             x_elev = start_x + curr_icon_w + icon_gap + w_dist + spacing
             if show_icons:
                 overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
             draw.text((x_elev + curr_icon_w + icon_gap, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
             
-            # Route auf Foto
             if draw_line_manually:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
@@ -226,16 +228,6 @@ if up_gpx:
                     p_s = max(6, int(w * 0.008)) 
                     draw.ellipse([scaled_pts[0][0]-p_s, scaled_pts[0][1]-p_s, scaled_pts[0][0]+p_s, scaled_pts[0][1]+p_s], fill=(255,255,255, r_alpha))
                     draw.ellipse([scaled_pts[-1][0]-p_s, scaled_pts[-1][1]-p_s, scaled_pts[-1][0]+p_s, scaled_pts[-1][1]+p_s], fill=rgb + (r_alpha,))
-
-            if show_logo and os.path.exists("logo.png"):
-                u_l = Image.open("logo.png").convert("RGBA")
-                new_h = int(h * 0.10)
-                u_l = u_l.resize((int(u_l.size[0] * (new_h/u_l.size[1])), new_h), Image.LANCZOS)
-                if (rad := int(u_l.size[1] * (logo_radius/200))) > 0:
-                    msk = Image.new('L', u_l.size, 0)
-                    ImageDraw.Draw(msk).rounded_rectangle([0, 0, u_l.size[0], u_l.size[1]], fill=255, radius=rad)
-                    u_l.putalpha(ImageChops.darker(msk, u_l.split()[3]) if 'A' in u_l.getbands() else msk)
-                overlay.paste(u_l, (w - u_l.size[0] - int(w*0.02), (h - bh_bot) - u_l.size[1] - int(w*0.02)), u_l)
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
