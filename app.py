@@ -6,7 +6,7 @@ import math
 import os
 
 # --- APP KONFIGURATION ---
-st.set_page_config(page_title="GPX Share Pro", page_icon="🏍️", layout="centered")
+st.set_page_config(page_title="GPX Share XXL", page_icon="🏍️", layout="centered")
 
 st.markdown("""
     <style>
@@ -33,27 +33,27 @@ def calc_dist(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(math.sqrt(a))
 
 # --- HAUPTBEREICH ---
-st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
+st.markdown("<p class='title-modern'>GPX Share Pro XXL</p>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    up_img = st.file_uploader("📸 Foto wählen", type=["jpg", "jpeg", "png"], key="v23_img")
+    up_img = st.file_uploader("📸 Foto wählen", type=["jpg", "jpeg", "png"], key="v24_img")
 with c2:
-    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v23_gpx")
+    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v24_gpx")
 
 with st.sidebar:
-    st.markdown("<h1 style='color: #ff0000;'>⚙️ Text & Design</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #ff0000;'>💥 XXL-SCHRIFT SETUP</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
-    # NEU: Regler für die Schriftgröße
-    f_size_title = st.slider("Größe Titel", 20, 300, 100)
-    f_size_data = st.slider("Größe Daten", 20, 250, 80)
-    # NEU: Regler für die vertikale Ausrichtung (Feintuning)
-    text_y_adj = st.slider("Text Position (hoch/runter)", -100, 100, 0)
+    # Massive Schriften möglich bis 500 Pixel
+    f_size_title = st.slider("Schriftgröße Titel", 50, 500, 150)
+    f_size_data = st.slider("Schriftgröße Daten", 50, 400, 110)
+    # Balkenhöhe anpassen
+    b_height_factor = st.slider("Balken-Dicke", 0.05, 0.30, 0.15)
     st.divider()
-    c_line = st.color_picker("Routenfarbe", "#8B0000")
-    w_line = st.slider("Linienstärke Route", 5, 80, 15)
-    b_alpha = st.slider("Balken Deckkraft", 0, 255, 180)
+    c_line = st.color_picker("Routenfarbe (Blutrot)", "#8B0000")
+    w_line = st.slider("Routenstärke", 5, 100, 20)
+    b_alpha = st.slider("Balken Deckkraft", 0, 255, 200)
 
 if up_img and up_gpx:
     try:
@@ -87,46 +87,49 @@ if up_img and up_gpx:
             # Route skalieren & zeichnen
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-            margin = 0.18
+            margin = 0.20
             scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
                            h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
             
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
-            # Balken
-            bh_top, bh_bot = int(h * 0.12), int(h * 0.14)
+            # Dynamische Balken basierend auf h * b_height_factor
+            bh_top = int(h * b_height_factor)
+            bh_bot = int(h * (b_height_factor + 0.02))
+            
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # Höhenprofil (Dezent im Hintergrund)
+            # Höhenprofil (Im Hintergrund des unteren Balkens)
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.8)-((ev-e_min)/e_range)*(bh_bot*0.6)) for i, ev in enumerate(elevs)]
-                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (50,))
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (70,))
 
-            # Texte schreiben (Hier greifen die neuen Slider)
+            # Massive Schriftarten laden
             try:
+                # DejaVuSans-Bold ist die fetteste verfügbare System-Schrift
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
                 font_t = ImageFont.truetype(f_path, f_size_title)
                 font_d = ImageFont.truetype(f_path, f_size_data)
             except:
                 font_t = font_d = ImageFont.load_default()
 
-            # Oben: Tour Name (Zentriert + manueller Offset)
-            draw.text((w//2, (bh_top//2) + text_y_adj), tour_title, fill="white", font=font_t, anchor="mm")
+            # Oben: Tour Name (Zentriert in den Balken)
+            draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # Unten: Daten
+            # Unten: Daten mit fetten Icons
             stats_text = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
-            draw.text((w//2, (h - bh_bot//2) + text_y_adj), stats_text, fill="white", font=font_d, anchor="mm")
+            draw.text((w//2, h - bh_bot//2), stats_text, fill="white", font=font_d, anchor="mm")
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share_pro.jpg", "image/jpeg")
+            st.download_button("🚀 XXL-BILD SPEICHERN", buf.getvalue(), "gpx_xxl.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
