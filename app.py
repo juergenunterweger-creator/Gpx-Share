@@ -51,6 +51,23 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
+# --- ROBUSTE FONT-LADEEINHEIT ---
+def load_font(size):
+    """Sucht nach einer Schriftart und verhindert 'cannot open resource'"""
+    paths = [
+        "font.ttf", 
+        "DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf"
+    ]
+    for p in paths:
+        try:
+            return ImageFont.truetype(p, int(size))
+        except:
+            continue
+    return ImageFont.load_default()
+
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
     x0, y0, x1, y1 = coords
     draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], 
@@ -63,15 +80,24 @@ def calc_dist(lat1, lon1, lat2, lon2):
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-def get_fitted_font(draw, text, max_width, start_size, font_path):
+def get_fitted_font(text, max_width, start_size):
     size = int(start_size)
-    try: font = ImageFont.truetype(font_path, size)
-    except: font = ImageFont.load_default()
-    while draw.textlength(text, font=font) > max_width and size > 10:
-        size -= 2
-        try: font = ImageFont.truetype(font_path, size)
-        except: break
+    font = load_font(size)
+    # Wenn default font geladen wurde, hat er kein textlength-Attribut bei alten PIL Versionen
+    # Wir prüfen das hier sicherheitshalber
+    try:
+        while ImageDraw.Draw(Image.new('RGB', (1,1))).textlength(text, font=font) > max_width and size > 10:
+            size -= 2
+            font = load_font(size)
+    except:
+        pass
     return font
+
+def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="black", offset=3):
+    """Zeichnet Text mit einem Schatten für bessere Lesbarkeit"""
+    x, y = pos
+    draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor="mm")
+    draw.text((x, y), text, fill=fill, font=font, anchor="mm")
 
 def draw_smooth_icon(mode, size, color="white"):
     res = 4
@@ -125,7 +151,6 @@ with c_up2:
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        st.write("**📝 Texte & Stimmung**")
         new_title = st.text_input("Tour Name", value=st.session_state.tour_title)
         new_date = st.text_input("Datum", value=st.session_state.tour_date)
         if st.button("✅ Übernehmen"):
@@ -136,36 +161,25 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.checkbox("Logo auf Bild einblenden", key="show_logo_on_img")
         
     with col_opt2:
-        st.write("**📐 Skalierung & Farbe**")
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
         st.slider("Abstand Name zu Daten", 50, 400, key="data_y_offset")
         st.checkbox("Route Auto-Skalierung", key="route_autoscale")
-        if not st.session_state.route_autoscale:
-            st.slider("Manuelle Route-Größe", 0.1, 2.5, key="route_scale")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
-    st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
+    st.button("🔄 Reset", on_click=reset_parameters)
 
-# --- DER VERMISSTE INFO REITER ---
+# --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     col_logo, col_text = st.columns([1, 2])
     with col_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=120)
     with col_text:
         st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 2.3.2**")
-        st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
+        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 2.3.3**")
     st.markdown("---")
     st.markdown("**📲 App installieren:**")
-    st.markdown("""<div class="install-box"><strong>iPhone (Safari):</strong> Teilen-Icon -> 'Zum Home-Bildschirm'<br><strong>Android (Chrome):</strong> Menü-Drei-Punkte -> 'App installieren'</div>""", unsafe_allow_html=True)
-    
-    st.markdown("**Folge mir:**")
-    c_ig, c_fb = st.columns(2)
-    with c_ig: st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
-    with c_fb: st.markdown("👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
-    st.markdown("**App teilen:**")
-    st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
+    st.markdown('<div class="install-box"><strong>iPhone:</strong> Teilen -> "Zum Home-Bildschirm"<br><strong>Android:</strong> Menü -> "App installieren"</div>', unsafe_allow_html=True)
+    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
 st.divider()
 
@@ -217,23 +231,24 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-            
-            # TITEL
+            # TITEL MIT SCHATTEN
             t_y = int(bh_top * 0.35)
-            draw.text((w//2, t_y), st.session_state.tour_title, fill="white", font=get_fitted_font(draw, st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale), font_path), anchor="mm")
-            draw.text((w//2, t_y + st.session_state.data_y_offset), f"{d_total:.1f} km | {int(a_gain)} m", fill="white", font=get_fitted_font(draw, "000 km", w*0.7, int(w*0.05*st.session_state.data_font_scale), font_path), anchor="mm")
+            f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
+            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
+            
+            # DATEN
+            txt_data = f"{d_total:.1f} km | {int(a_gain)} m"
+            f_data = get_fitted_font(txt_data, w*0.7, int(w*0.05*st.session_state.data_font_scale))
+            draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), txt_data, f_data)
 
-            # LOGO AUF BILD
+            # LOGO & DATUM
             if st.session_state.show_logo_on_img and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 logo_img.thumbnail((150, 150), Image.Resampling.LANCZOS)
                 overlay.paste(logo_img, (w - 170, 20), logo_img)
 
-            # DATUM BADGE
             if st.session_state.show_date and st.session_state.tour_date:
-                f_date_size = int(w * 0.028 * st.session_state.font_scale)
-                f_date = ImageFont.truetype(font_path, f_date_size)
+                f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
                 bx2, by2 = w - 25, h - bh_bot - 20
                 safe_rect(draw, [bx2 - tw - 100, by2 - 70, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
@@ -252,6 +267,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_{datetime.now().strftime('%H%M')}.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fix.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
