@@ -180,6 +180,14 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
+            # --- EIGENES LOGO AUF BILD (WIEDER AKTIVIERT) ---
+            if show_logo and os.path.exists("logo.png"):
+                logo_img = Image.open("logo.png").convert("RGBA")
+                l_w = int(w * 0.12)
+                l_h = int(logo_img.height * (l_w / logo_img.width))
+                logo_img = logo_img.resize((l_w, l_h), Image.Resampling.LANCZOS)
+                overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
+
             # --- HÖHENPROFIL ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
@@ -202,8 +210,8 @@ if up_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE ÜBER FOTO (JETZT KORREKT AKTIVIERT) ---
-            if up_img:
+            # --- ROUTE ---
+            if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
@@ -212,6 +220,7 @@ if up_gpx:
             title_y = int(bh_top * 0.35)
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.085 * font_scale), font_path)
             draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
+            
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
@@ -222,7 +231,6 @@ if up_gpx:
             sx, data_y = (w - total_w) // 2, title_y + data_y_offset 
             
             if show_icons:
-                # Icons zeichnen
                 i_y = int(data_y - icon_size // 2)
                 draw.arc([sx, i_y, sx+icon_size, i_y+icon_size], 150, 390, fill="white", width=max(2, int(icon_size*0.08)))
                 draw.text((sx + icon_size + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
