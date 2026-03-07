@@ -173,7 +173,7 @@ with st.expander("⚙️ Optionen", expanded=False):
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.6**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.7**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -194,7 +194,6 @@ if st.session_state.persistent_gpx:
         last, last_elev = None, None
         
         if len(gpx.tracks) > 0:
-            # Sicherheitscheck für Index
             idx = min(st.session_state.selected_track_idx, len(gpx.tracks)-1)
             target_track = gpx.tracks[idx]
             for seg in target_track.segments:
@@ -288,8 +287,8 @@ if st.session_state.persistent_gpx:
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
             
-            # CACHE-BUSTER: Eindeutige ID für das Bild am iPhone
-            st.image(final, use_container_width=True, key=f"img_preview_{int(time.time())}")
+            # --- VORSCHAU ---
+            st.image(final, use_container_width=True)
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
