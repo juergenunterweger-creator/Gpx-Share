@@ -191,20 +191,30 @@ if up_gpx:
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                
                 if fill_profile: draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
+                
                 if show_grid:
                     try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * font_scale)))
                     except: font_grid = ImageFont.load_default()
-                    grid_color = (255, 255, 255, 45)
+                    grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    
+                    # Horizontale Linien (Meter)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
-                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
+                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
+                    
+                    # Vertikale Linien (Kilometer) - WIEDER DA!
+                    for i in range(1, 8):
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
+
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             title_y = int(bh_top * 0.35)
-            # BASISGRÖSSE REDUZIERT AUF 0.085 (statt 0.10)
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.085 * font_scale), font_path)
             draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
 
@@ -232,7 +242,7 @@ if up_gpx:
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
-                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(y_p := data_y - icon_size // 2)), img_elev)
+                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(data_y - icon_size // 2)), img_elev)
 
             draw.text((sx + curr_icon_w + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
