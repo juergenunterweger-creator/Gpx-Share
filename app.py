@@ -80,4 +80,44 @@ if up_img and up_gpx:
             draw = ImageDraw.Draw(overlay)
             
             lats, lons = zip(*pts)
-            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(l
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            m = 0.20
+            cw, ch = w * (1 - 2*m), h * (1 - 2*m)
+            
+            scaled = []
+            for lat, lon in pts:
+                x = w * m + (lon - mi_lo) / (ma_lo - mi_lo) * cw
+                y = h * (1 - m) - (lat - mi_la) / (ma_la - mi_la) * ch
+                scaled.append((x, y))
+            
+            # Route zeichnen
+            rgb = tuple(int(c_route[i:i+2], 16) for i in (1, 3, 5))
+            draw.line(scaled, fill=rgb + (255,), width=w_route, joint="round")
+
+            # INFO BOX (Werte fixieren)
+            bw, bh = int(w * 0.85), int(h * 0.14)
+            bx = (w - bw) // 2
+            if b_pos == "Oben": by = 80
+            elif b_pos == "Mitte": by = (h - bh) // 2
+            else: by = h - bh - 100
+            
+            draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
+            
+            # Text einfügen - mit Fallback falls keine Daten da sind
+            fs = max(35, int(w / 22))
+            val_text = f"{dist_total:.1f} km  |  {int(alt_gain)} hm"
+            
+            draw.text((bx+45, by+35), t_name, fill="white")
+            draw.text((bx+45, by+35+fs*1.3), val_text, fill=c_route)
+
+            res = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+            st.image(res, use_container_width=True)
+            
+            buf = io.BytesIO()
+            res.save(buf, format="JPEG", quality=95)
+            st.download_button("💾 BILD SPEICHERN", buf.getvalue(), "motorrad_tour.jpg", "image/jpeg", key="v6_dl_btn")
+
+    except Exception as e:
+        st.error(f"Fehler beim Auslesen: {e}")
+else:
+    st.info("Bitte Foto und GPX-Datei hochladen. Dann erscheinen hier die Werte!")
