@@ -55,7 +55,6 @@ with c1:
     up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
     if up_gpx is not None:
         raw_name = up_gpx.name.rsplit('.', 1)[0]
-        # Automatischer Name: Unterstriche/Bindestriche weg
         st.session_state.tour_name_val = raw_name.replace('_', ' ').replace('-', ' ')
 with c2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
@@ -72,7 +71,6 @@ with st.expander("⚙️ Optionen", expanded=False):
         show_units = st.checkbox("Einheiten anzeigen (km/m)", value=True)
         logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     with col_opt2:
-        # XL-Standardwert: 1.5
         font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -82,7 +80,7 @@ with st.expander("⚙️ Optionen", expanded=False):
         c_line = st.color_picker("Routenfarbe", "#8B0000")
 
 with st.expander("ℹ️ Über GPX Share", expanded=False):
-    st.markdown("### Willkommen bei GPX Share Pro! 🏍️\nLade einfach eine `.gpx` Datei hoch.")
+    st.markdown("### Willkommen bei GPX Share Pro! 🏍️")
 
 st.divider()
 
@@ -125,14 +123,12 @@ if up_gpx:
                 m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
                 src_img = m.render().convert("RGB")
 
-            # Hintergrund Transparenz
             base_img = Image.new('RGB', (w, h), "white")
             src_img_rgba = src_img.convert("RGBA")
             alpha_band = src_img_rgba.split()[3].point(lambda p: int(p * bg_alpha / 255))
             src_img_rgba.putalpha(alpha_band)
             base_img.paste(src_img_rgba, (0, 0), src_img_rgba)
 
-            # XL SCHRIFTWERTE
             auto_f_title = int(w * 0.10 * font_scale)
             auto_f_data = int(w * 0.07 * font_scale) 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
@@ -144,7 +140,12 @@ if up_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            # --- SCHRIFTART WIEDER AUF FONT.TTF ---
+            font_path = "font.ttf"
+            if not os.path.exists(font_path):
+                # Fallback für Linux-Umgebungen/Server
+                font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            
             try:
                 font_t = ImageFont.truetype(font_path, auto_f_title)
                 font_d = ImageFont.truetype(font_path, auto_f_data)
@@ -174,9 +175,10 @@ if up_gpx:
 
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- TACHO ICON ---
+            # --- ICONS ---
             icon_size = int(w * 0.07 * 1.3 * font_scale)
             lw = max(3, int(icon_size * 0.08))
+            
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_dist = ImageDraw.Draw(img_dist)
             d_dist.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
@@ -186,14 +188,12 @@ if up_gpx:
             d_dist.line([(center, center), (center + math.cos(angle)*zeiger_len, center + math.sin(angle)*zeiger_len)], fill="white", width=lw)
             d_dist.ellipse([center-lw, center-lw, center+lw, center+lw], fill="white")
             
-            # Berg Icon
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
             d_elev.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
             d_elev.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
             d_elev.polygon([(icon_size*0.9, 0), (icon_size*0.8, icon_size*0.2), (icon_size, icon_size*0.2)], fill="white")
 
-            # --- TEXTE & ZENTRIERUNG ---
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             w_dist = draw.textlength(txt_dist, font=font_d)
