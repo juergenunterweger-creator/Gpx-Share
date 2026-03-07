@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont, ImageChops
+from PIL import Image, ImageDraw, ImageFont
 import io
 import math
 import os
@@ -35,15 +35,12 @@ def calc_dist(lat1, lon1, lat2, lon2):
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-# Hilfsfunktion zur automatischen Schriftgrößen-Anpassung
 def get_fitted_font(draw, text, max_width, start_size, font_path):
-    size = start_size
+    size = int(start_size)
     try:
         font = ImageFont.truetype(font_path, size)
     except:
         font = ImageFont.load_default()
-    
-    # Verkleinern, bis der Text passt
     while draw.textlength(text, font=font) > max_width and size > 10:
         size -= 2
         try:
@@ -79,7 +76,6 @@ with st.expander("⚙️ Optionen", expanded=False):
         show_grid = st.checkbox("Raster im Höhenprofil", value=True)
         show_icons = st.checkbox("Icons in Infobox", value=True)
         show_units = st.checkbox("Einheiten anzeigen", value=True)
-        logo_radius = st.slider("Logo-Ecken Radius", 0, 100, 20)
     with col_opt2:
         font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
@@ -124,7 +120,6 @@ if up_gpx:
                 m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
                 src_img = m.render().convert("RGB")
 
-            # Hintergrundvorbereitung
             base_img = Image.new('RGB', (w, h), "white")
             src_img_rgba = src_img.convert("RGBA")
             alpha_band = src_img_rgba.split()[3].point(lambda p: int(p * bg_alpha / 255))
@@ -141,50 +136,43 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- DYNAMISCHE SCHRIFTANPASSUNG OBEN (TITEL) ---
-            max_title_w = w * 0.9
-            font_t = get_fitted_font(draw, tour_title, max_title_w, int(w * 0.10 * font_scale), font_path)
+            # Titel mit Auto-Scale
+            font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
 
-            # --- DYNAMISCHE SCHRIFTANPASSUNG UNTEN (DATEN) ---
+            # Infobox mit Auto-Scale
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             
-            # Icons vorbereiten
             icon_size = int(w * 0.07 * 1.3 * font_scale)
             lw = max(3, int(icon_size * 0.08))
+            curr_icon_w = icon_size if show_icons else 0
             
-            # Font für Daten anpassen (Platzbedarf berechnen: 2x Icons + Spacing + Texte)
-            max_data_w = (w * 0.85) - (2 * icon_size if show_icons else 0) - (int(w * 0.20))
+            max_data_w = (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15))
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, max_data_w, int(w * 0.07 * font_scale), font_path)
             
-            # Layoutberechnung mit der angepassten Font
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
-            curr_i_w = icon_size if show_icons else 0
-            total_w = (curr_i_w + i_gap + w_d) + spacing + (curr_i_w + i_gap + w_e)
+            total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
             sx, y_p = (w - total_w) // 2, h - int(bh_bot * 0.35)
 
-            # Icons zeichnen & Texte platzieren
             if show_icons:
-                # Tacho Icon
+                # Tacho
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
                 d_i.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
                 d_i.line([icon_size//2, icon_size//2, icon_size//2 + math.cos(math.radians(240))*icon_size*0.35, icon_size//2 + math.sin(math.radians(240))*icon_size*0.35], fill="white", width=lw)
                 overlay.paste(img_dist, (int(sx), int(y_p - icon_size // 2)), img_dist)
-                
-                # Berg Icon
+                # Berg
                 img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
-                overlay.paste(img_elev, (int(sx + curr_i_w + i_gap + w_d + spacing), int(y_p - icon_size // 2)), img_elev)
+                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(y_p - icon_size // 2)), img_elev)
 
             draw.text((sx + curr_icon_w + i_gap, y_p), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, y_p), txt_elev, fill="white", font=font_d, anchor="lm")
 
-            # Route & Speichern wie gehabt...
             if draw_line_manually:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
