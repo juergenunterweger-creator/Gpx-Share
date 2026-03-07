@@ -113,7 +113,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     with c_meta:
         st.markdown("### GPX Share Pro XXL")
         st.markdown("**Copyright: Jürgen Unterweger**")
-        st.markdown("**Version: 1.0**") # --- NEU: VERSION ---
+        st.markdown("**Version: 1.0**")
     
     st.markdown("---")
     
@@ -138,9 +138,10 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 
     st.markdown("---")
     
-    # --- APP TEILEN ---
+    # --- APP TEILEN MIT KORREKTEM LINK ---
     st.markdown("**App teilen:**")
-    app_url = "https://gpx-share-pro.streamlit.app"
+    app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
+    
     col_qr, col_link = st.columns([1, 2])
     with col_qr:
         qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={app_url}"
