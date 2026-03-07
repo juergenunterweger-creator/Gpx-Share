@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.3.5: Default Offset auf 150) ---
+# --- STANDARDWERTE (v2.3.6: Fokus auf Stabilität) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -20,7 +20,7 @@ DEFAULTS = {
     "font_scale": 1.5,
     "data_font_scale": 1.2,
     "grid_font_scale": 1.5,
-    "data_y_offset": 150, # NEU: Standard auf 150 gesetzt
+    "data_y_offset": 150,
     "route_scale": 1.0,
     "route_autoscale": True,
     "route_x_offset": 0,
@@ -60,9 +60,12 @@ def load_font(size):
         except: continue
     return ImageFont.load_default()
 
+# --- DIE RETTER-FUNKTION (GEGEN X1 < X0 FEHLER) ---
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
+    """Sortiert Koordinaten automatisch um Abstürze zu verhindern."""
     x0, y0, x1, y1 = coords
-    draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], fill=fill, outline=outline, width=width)
+    sorted_coords = [min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)]
+    draw.rectangle(sorted_coords, fill=fill, outline=outline, width=width)
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -188,10 +191,12 @@ if st.session_state.persistent_gpx:
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
             bh_top, bh_bot = int(h * st.session_state.b_height_adj), int(h * 0.12)
+            
+            # Balken mit Safe_Rect
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # HÖHENPROFIL RASTER
+            # Höhenprofil Raster
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -215,7 +220,7 @@ if st.session_state.persistent_gpx:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
-            # TITEL & DATEN
+            # Titel & Daten
             t_y = int(bh_top * 0.35)
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
@@ -224,16 +229,18 @@ if st.session_state.persistent_gpx:
             f_data = get_fitted_font(txt_data, w*0.7, int(w*0.05*st.session_state.data_font_scale))
             draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), txt_data, f_data)
 
-            # DATUM BADGE
+            # --- DATUM BADGE MIT ABSOLUTEM COORDINATE FIX ---
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
                 bx2, by2 = w - 25, h - bh_bot - 20
-                safe_rect(draw, [bx2 - tw - 100, by2 - 70, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
+                bx1, by1 = bx2 - tw - 100, by2 - 70
+                # Hier greift safe_rect, falls bx1 > bx2 (was nie sein sollte, aber sicher ist sicher)
+                safe_rect(draw, [bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
                 draw.text((bx2 - 20, by2 - 35), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
                 overlay.paste(draw_smooth_icon(st.session_state.weather, 45), (int(bx2 - tw - 90), int(by2 - 58)), draw_smooth_icon(st.session_state.weather, 45))
 
-            # ROUTE
+            # Route
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
