@@ -10,7 +10,6 @@ from streamlit_folium import folium_static
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="centered")
 
-# Modernes CSS für App & Schwebende Info-Box auf der Karte
 st.markdown("""
     <style>
     .stApp { background-color: #080a0f; color: #ffffff; }
@@ -19,18 +18,6 @@ st.markdown("""
         background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         text-align: center; margin-bottom: 10px;
-    }
-    /* Style für die Info-Box über der Karte */
-    .map-info-box {
-        position: absolute; 
-        top: 10px; left: 50px; 
-        z-index: 1000; 
-        background: rgba(0, 0, 0, 0.7); 
-        padding: 15px; 
-        border-radius: 10px; 
-        border: 1px solid #00f2fe;
-        color: white;
-        font-family: sans-serif;
     }
     .stDownloadButton button {
         width: 100%; border-radius: 25px; height: 4.5em;
@@ -52,23 +39,22 @@ st.markdown("<p class='title-modern'>GPX Share</p>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 with col1:
-    up_img = st.file_uploader("📸 Foto (Optional)", type=["jpg", "jpeg", "png"], key="v10_img")
+    up_img = st.file_uploader("📸 Foto (Optional)", type=["jpg", "jpeg", "png"], key="v11_img")
 with col2:
-    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v10_gpx")
+    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v11_gpx")
 
-# Tour-Name Vorschlag
 default_name = "Meine Tour"
 if up_gpx:
     default_name = os.path.splitext(up_gpx.name)[0].replace("_", " ").replace("-", " ")
 
 with st.sidebar:
     st.markdown("<h1 style='color: #00f2fe;'>⚙️ Menü</h1>", unsafe_allow_html=True)
-    tour_title = st.text_input("Tour Name", value=default_name, key="v10_title")
+    tour_title = st.text_input("Tour Name", value=default_name, key="v11_title")
     st.divider()
-    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v10_c")
-    w_line = st.slider("Linienstärke (Foto)", 5, 80, 25, key="v10_w")
-    b_pos = st.selectbox("Position der Box", ["Unten", "Oben", "Mitte"], key="v10_pos")
-    b_alpha = st.slider("Box Deckkraft", 0, 255, 170, key="v10_alpha")
+    c_line = st.color_picker("Linienfarbe", "#00F2FE", key="v11_c")
+    w_line = st.slider("Linienstärke", 5, 80, 25, key="v11_w")
+    b_pos = st.selectbox("Position der Box", ["Unten", "Oben", "Mitte"], key="v11_pos")
+    b_alpha = st.slider("Box Deckkraft", 0, 255, 170, key="v11_alpha")
 
 if up_gpx:
     try:
@@ -91,58 +77,52 @@ if up_gpx:
                     last_elev = p.elevation
 
         if pts:
-            # FALL 1: MIT FOTO
+            # Falls kein Bild da ist, erstellen wir ein dunkles Hintergrundbild (1080x1920 - Hochformat)
             if up_img:
                 img = Image.open(up_img).convert("RGB")
-                w, h = img.size
-                overlay = Image.new('RGBA', img.size, (0,0,0,0))
-                draw = ImageDraw.Draw(overlay)
-                
-                lats, lons = zip(*pts)
-                mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-                margin = 0.22
-                
-                scaled_pts = []
-                for lat, lon in pts:
-                    x = w * margin + (lon - mi_lo) / (ma_lo - mi_lo) * w * (1 - 2*margin)
-                    y = h * (1 - margin) - (lat - mi_la) / (ma_la - mi_la) * h * (1 - 2*margin)
-                    scaled_pts.append((x, y))
-                
-                rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
-                draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
-
-                bw, bh = int(w * 0.88), int(h * 0.14)
-                bx = (w - bw) // 2
-                by = 100 if b_pos == "Oben" else (h - bh) // 2 if b_pos == "Mitte" else h - bh - 120
-                draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
-                
-                draw.text((bx+50, by+35), f"Tour: {tour_title}", fill="white")
-                draw.text((bx+50, by+35+60), f"Distanz: {d_total:.1f} km  |  Höhe: {int(a_gain)} m", fill=c_line)
-
-                final = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
-                st.image(final, use_container_width=True)
-                
-                buf = io.BytesIO()
-                final.save(buf, format="JPEG", quality=95)
-                st.download_button("🚀 BILD FÜR WHATSAPP SPEICHERN", buf.getvalue(), "tour.jpg", "image/jpeg")
-
-            # FALL 2: NUR KARTE
             else:
-                # Schwebende Info-Box HTML für die Karte
-                info_html = f"""
-                <div class="map-info-box">
-                    <b style="font-size: 16px;">Tour: {tour_title}</b><br>
-                    <span style="color: {c_line}; font-weight: bold;">{d_total:.1f} km | {int(a_gain)} m</span>
-                </div>
-                """
-                st.markdown(info_html, unsafe_allow_html=True)
-                
+                img = Image.new('RGB', (1080, 1920), color=(15, 15, 20))
+                st.info("Kein Foto gewählt - verwende Standard-Hintergrund für den Download.")
+            
+            w, h = img.size
+            overlay = Image.new('RGBA', img.size, (0,0,0,0))
+            draw = ImageDraw.Draw(overlay)
+            
+            lats, lons = zip(*pts)
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            margin = 0.22
+            
+            scaled_pts = []
+            for lat, lon in pts:
+                x = w * margin + (lon - mi_lo) / (ma_lo - mi_lo) * w * (1 - 2*margin)
+                y = h * (1 - margin) - (lat - mi_la) / (ma_la - mi_la) * h * (1 - 2*margin)
+                scaled_pts.append((x, y))
+            
+            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
+
+            bw, bh = int(w * 0.88), int(h * 0.14)
+            bx = (w - bw) // 2
+            by = 100 if b_pos == "Oben" else (h - bh) // 2 if b_pos == "Mitte" else h - bh - 120
+            draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
+            
+            draw.text((bx+50, by+35), f"Tour: {tour_title}", fill="white")
+            draw.text((bx+50, by+35+60), f"Distanz: {d_total:.1f} km  |  Höhe: {int(a_gain)} m", fill=c_line)
+
+            final = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+            
+            # Zeige Karte (Interaktiv) wenn kein Foto da ist, sonst das Bild
+            if not up_img:
                 m = folium.Map(tiles="OpenStreetMap")
                 folium.PolyLine(pts, color=c_line, weight=5, opacity=0.8).add_to(m)
                 m.fit_bounds([min(pts), max(pts)])
-                
                 folium_static(m, width=700, height=500)
-                st.info("Lade ein Foto hoch für das finale Share-Bild!")
+            
+            st.image(final, use_container_width=True, caption="Vorschau für den Download")
+            
+            buf = io.BytesIO()
+            final.save(buf, format="JPEG", quality=95)
+            st.download_button("🚀 BILD (MIT ROUTE & INFO) SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
