@@ -8,7 +8,13 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
+# PWA Meta-Tags für iOS und Android
 st.markdown("""
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="GPX Share">
+    </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
@@ -90,8 +96,8 @@ with st.expander("⚙️ Optionen", expanded=False):
     with col_opt2:
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
-        # NEU: Regler für die Position der Daten unter dem Titel
-        data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 120)
+        # Standardwert auf 160 geändert
+        data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 160)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -108,11 +114,22 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     with c_meta:
         st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
     st.markdown("---")
+    
+    st.markdown("**📲 Als App installieren:**")
+    st.markdown("""
+        <div class="install-box">
+        <strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br>
+        <strong>Android:</strong> Menü -> 'App installieren'
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown("---")
+    
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
     st.markdown("---")
+    
     st.markdown("**App teilen:**")
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     col_qr, col_link = st.columns([1, 2])
@@ -164,13 +181,12 @@ if up_gpx:
             rgb_route = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             rgb_fill = tuple(int(c_fill[1:3], 16) if i==0 else int(c_fill[3:5], 16) if i==1 else int(c_fill[5:7], 16) for i in range(3))
             
-            bh_top, bh_bot = int(h * b_height_adj), int(h * 0.12) # Unten jetzt schmaler fixiert
+            bh_top, bh_bot = int(h * b_height_adj), int(h * 0.12)
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
@@ -188,12 +204,10 @@ if up_gpx:
                         draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- TITEL (ZENTRIERT OBEN) ---
             title_y = int(bh_top * 0.35)
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
             draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
 
-            # --- DATEN (JETZT UNTER DEM TITEL) ---
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
@@ -206,16 +220,14 @@ if up_gpx:
             total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
             
             sx = (w - total_w) // 2
-            data_y = title_y + data_y_offset # Position abhängig vom Offset-Slider
+            data_y = title_y + data_y_offset 
             
             if show_icons:
-                # Tacho Icon
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
                 d_i.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
                 d_i.line([icon_size//2, icon_size//2, icon_size//2 + math.cos(math.radians(240))*icon_size*0.35, icon_size//2 + math.sin(math.radians(240))*icon_size*0.35], fill="white", width=lw)
                 overlay.paste(img_dist, (int(sx), int(data_y - icon_size // 2)), img_dist)
-                # Berg Icon
                 img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
@@ -225,7 +237,7 @@ if up_gpx:
             draw.text((sx + curr_icon_w + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
-            if not up_img: # Route nur bei Karten-Modus
+            if not up_img:
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
@@ -235,4 +247,4 @@ if up_gpx:
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
-    except Exception as e: st.error(f"Fehler: {e}")
+    except Exception as e: st.error(f"Fehler: {e}")#
