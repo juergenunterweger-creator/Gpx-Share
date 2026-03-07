@@ -35,10 +35,10 @@ DEFAULTS = {
     "show_grid": True,
     "show_icons": True,
     "show_units": True,
-    "fill_profile": True
+    "fill_profile": True,
+    "selected_track_idx": 0 # NEU: Index für Spurwahl
 }
 
-# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -52,7 +52,6 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
-# Styling
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -111,7 +110,6 @@ with c_up1:
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
     if up_gpx:
         st.session_state.persistent_gpx = up_gpx.read()
-        # Automatischer Name nur beim ersten Upload
         if st.session_state.tour_title == "Meine Tour":
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
 with c_up2:
@@ -122,13 +120,21 @@ with c_up2:
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        # NEU: Tourname mit Bestätigungs-Button
         new_title = st.text_input("Tour Name eingeben", value=st.session_state.tour_title)
         if st.button("✅ Name übernehmen"):
             st.session_state.tour_title = new_title
             st.rerun()
             
         st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
+        
+        # --- TRACK SELECTOR (WENN MEHRERE SPUREN) ---
+        if st.session_state.persistent_gpx:
+            temp_gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
+            if len(temp_gpx.tracks) > 1:
+                track_names = [f"{t.name if t.name else 'Spur ' + str(i+1)}" for i, t in enumerate(temp_gpx.tracks)]
+                st.selectbox("📍 Gewünschte Spur wählen", range(len(track_names)), 
+                             format_func=lambda x: track_names[x], key="selected_track_idx")
+        
         st.checkbox("Zeige eigenes Logo", key="show_logo")
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
         st.checkbox("Raster im Höhenprofil", key="show_grid")
@@ -160,7 +166,7 @@ with st.expander("⚙️ Optionen", expanded=False):
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.3**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -178,8 +184,11 @@ if st.session_state.persistent_gpx:
         pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
-        for tr in gpx.tracks:
-            for seg in tr.segments:
+        
+        # Nur die ausgewählte Spur verarbeiten
+        if len(gpx.tracks) > 0:
+            target_track = gpx.tracks[st.session_state.selected_track_idx]
+            for seg in target_track.segments:
                 for p in seg.points:
                     pts.append([p.latitude, p.longitude])
                     elevs.append(p.elevation if p.elevation is not None else 0)
@@ -218,6 +227,7 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
+            # --- HÖHENPROFIL ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -238,12 +248,14 @@ if st.session_state.persistent_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
+            # --- ROUTE ---
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
                        (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
             draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
+            # --- TITEL & DATEN ---
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
