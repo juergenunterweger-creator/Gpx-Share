@@ -55,7 +55,8 @@ with st.expander("⚙️ Optionen", expanded=False):
         show_icons = st.checkbox("Icons in Infobox", value=True)
         logo_radius = st.slider("Logo-Ecken Radius", 0, 100, 20)
     with col_opt2:
-        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
+        # HIER DIE ÄNDERUNG: Standard auf 1.5 gesetzt
+        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -120,9 +121,10 @@ if up_gpx:
 
             font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             try:
-                font_t = ImageFont.truetype(font_path, int(w * 0.08 * font_scale))
-                font_d = ImageFont.truetype(font_path, int(w * 0.06 * font_scale))
-                font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.02 * font_scale))) 
+                # GRÖSSERE SCHRIFT-BASISWERTE
+                font_t = ImageFont.truetype(font_path, int(w * 0.10 * font_scale)) # 0.10 statt 0.08
+                font_d = ImageFont.truetype(font_path, int(w * 0.07 * font_scale)) # 0.07 statt 0.06
+                font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale))) 
             except: font_t = font_d = font_grid = ImageFont.load_default()
 
             if len(elevs) > 1:
@@ -146,8 +148,8 @@ if up_gpx:
 
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # Icons (Lineal & Berg)
-            icon_size = int(w * 0.06 * 1.3 * font_scale)
+            # Icons
+            icon_size = int(w * 0.07 * 1.3 * font_scale) # Icons vergrößert passend zur Schrift
             lw = max(3, int(icon_size * 0.08))
             
             # Distanz Icon (Lineal)
@@ -167,7 +169,7 @@ if up_gpx:
 
             txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
             w_dist, w_elev = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
-            spacing, i_gap = int(w*0.12), int(w*0.02) if show_icons else 0
+            spacing, i_gap = int(w*0.15), int(w*0.02) if show_icons else 0 # Spacing erhöht
             curr_i_w = icon_size if show_icons else 0
             total_w = (curr_i_w + i_gap + w_dist) + spacing + (curr_i_w + i_gap + w_elev)
             start_x, y_pos = (w - total_w) // 2, h - int(bh_bot * 0.35) 
