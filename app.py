@@ -35,10 +35,10 @@ DEFAULTS = {
     "show_grid": True,
     "show_icons": True,
     "show_units": True,
-    "fill_profile": True,
-    "selected_track_idx": 0 
+    "fill_profile": True
 }
 
+# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -53,6 +53,7 @@ def reset_parameters():
         st.session_state[key] = val
     st.rerun()
 
+# Styling
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -66,6 +67,10 @@ st.markdown("""
         width: 100%; border-radius: 20px;
         background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
         color: white !important; font-weight: bold; border: none; height: 3em;
+    }
+    .install-box {
+        background-color: #f0f2f6; padding: 15px; border-radius: 10px;
+        border-left: 5px solid #ff0000; margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -122,22 +127,13 @@ with c_up2:
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
+        # Bestätigungs-Logik für den Titel
         new_title = st.text_input("Tour Name eingeben", value=st.session_state.tour_title)
         if st.button("✅ Name übernehmen"):
             st.session_state.tour_title = new_title
             st.rerun()
             
         st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
-        
-        if st.session_state.persistent_gpx:
-            try:
-                temp_gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-                if len(temp_gpx.tracks) > 1:
-                    track_names = [f"{t.name if t.name else 'Spur ' + str(i+1)}" for i, t in enumerate(temp_gpx.tracks)]
-                    st.selectbox("📍 Gewünschte Spur wählen", range(len(track_names)), 
-                                 format_func=lambda x: track_names[x], key="selected_track_idx")
-            except: pass
-        
         st.checkbox("Zeige eigenes Logo", key="show_logo")
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
         st.checkbox("Raster im Höhenprofil", key="show_grid")
@@ -168,14 +164,24 @@ with st.expander("⚙️ Optionen", expanded=False):
 
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.4**")
-    paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-    st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    c_logo, c_meta = st.columns([1, 3])
+    with c_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=100)
+    with c_meta:
+        st.markdown("### GPX Share Pro XXL")
+        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2**")
+        paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
+        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    
     st.markdown("---")
+    st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
+    
+    st.markdown("---")
+    st.markdown("**📲 Als App installieren:**")
+    st.markdown('<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> "Zum Home-Bildschirm"</div>', unsafe_allow_html=True)
     st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
 
 st.divider()
@@ -188,9 +194,8 @@ if st.session_state.persistent_gpx:
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
         
-        if len(gpx.tracks) > 0:
-            target_track = gpx.tracks[min(st.session_state.selected_track_idx, len(gpx.tracks)-1)]
-            for seg in target_track.segments:
+        for tr in gpx.tracks:
+            for seg in tr.segments:
                 for p in seg.points:
                     pts.append([p.latitude, p.longitude])
                     elevs.append(p.elevation if p.elevation is not None else 0)
@@ -245,5 +250,5 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_1-4_restored.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_1-2_restored.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
