@@ -117,7 +117,7 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei")
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
     if up_gpx:
         st.session_state.persistent_gpx = up_gpx.read()
         st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
@@ -159,7 +159,7 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Farbe Infoboxen", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- RESTAURIERTER INFO REITER ---
+# --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
@@ -167,7 +167,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     with c_meta:
         st.markdown("### GPX Share Pro XXL")
         st.markdown("**Copyright: Jürgen Unterweger**")
-        st.markdown("**Version: 1.0**")
+        st.markdown("**Version: 1.1**")
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
         st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     
@@ -255,11 +255,11 @@ if st.session_state.persistent_gpx:
                 if st.session_state.show_grid:
                     font_grid = get_fitted_font(draw, "0m", int(w*0.02), int(w*0.02), font_path)
                     grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 140)
-                    for i in range(1, 4): # Meter
+                    for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=text_color, font=font_grid, anchor="ld")
-                    for i in range(1, 8): # Kilometer Raster
+                    for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=text_color, font=font_grid, anchor="lt")
