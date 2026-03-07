@@ -34,16 +34,23 @@ def calc_dist(lat1, lon1, lat2, lon2):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    # --- APP LOGO INTEGRATION ---
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Design-Setup</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
+    
+    # --- NEU: KARTEN OPTIONEN ---
+    map_style = st.selectbox("Karten-Stil (wenn kein Foto)", [
+        "Dark Mode", 
+        "Satellit", 
+        "Light Mode", 
+        "OSM Standard"
+    ])
     st.divider()
     
-    show_logo = st.checkbox("Zeige eigenes Logo auf Foto", value=False)
+    show_logo = st.checkbox("Zeige eigenes Logo auf Foto/Karte", value=False)
     logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     st.divider()
 
@@ -98,13 +105,21 @@ if up_gpx:
                 try:
                     from staticmap import StaticMap, Line, CircleMarker
                 except ImportError:
-                    st.error("🚨 Fehler: Für die OSM Karte fehlt das Paket 'staticmap'. Bitte öffne dein Terminal und tippe: pip install staticmap")
+                    st.error("🚨 Fehler: Für die Karte fehlt das Paket 'staticmap'. Bitte öffne dein Terminal und tippe: pip install staticmap")
                     st.stop()
                 
-                with st.spinner("Lade OpenStreetMap Karte... 🌍"):
-                    # HIER IST DIE ÄNDERUNG: Hochformat (Portrait)
+                with st.spinner(f"Lade {map_style} Karte... 🌍"):
                     w, h = 1080, 1920 
-                    m = StaticMap(w, h, url_template='https://tile.openstreetmap.org/{z}/{x}/{y}.png')
+                    
+                    # --- KARTEN URLS MAPPEN ---
+                    tile_urls = {
+                        "OSM Standard": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                        "Satellit": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                        "Dark Mode": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png",
+                        "Light Mode": "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png"
+                    }
+                    
+                    m = StaticMap(w, h, url_template=tile_urls[map_style])
                     
                     # Route hinzufügen
                     line = Line(list(zip(lons, lats)), c_line, w_line)
@@ -258,3 +273,4 @@ if up_gpx:
 
     except Exception as e:
         st.error(f"Fehler: {e}")
+        
