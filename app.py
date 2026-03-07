@@ -53,9 +53,10 @@ if "persistent_gpx" not in st.session_state:
     st.session_state.persistent_gpx = None
 
 def reset_parameters():
+    """Setzt alle Werte auf Standard zurück. st.rerun() ist hier ein No-Op."""
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
-    st.rerun()
+    # Kein st.rerun() nötig, da dies ein Callback ist!
 
 # Styling
 st.markdown("""
@@ -96,22 +97,6 @@ def get_fitted_font(draw, text, max_width, start_size, font_path):
         except: break
     return font
 
-def draw_smooth_icon(mode, size, color="white"):
-    res = 4
-    img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
-    d = ImageDraw.Draw(img)
-    lw = max(4, int(size*res*0.07))
-    if mode == "dist":
-        d.arc([lw, lw, size*res-lw, size*res-lw], 140, 400, fill=color, width=lw)
-        cx, cy = size*res//2, size*res//2
-        ex, ey = cx + math.cos(math.radians(300))*(cx*0.7), cy + math.sin(math.radians(300))*(cy*0.7)
-        d.line([cx, cy, ex, ey], fill=color, width=lw)
-        d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
-    elif mode == "elev":
-        d.polygon([(lw, size*res-lw), (size*res*0.5, lw*2), (size*res*0.9, size*res-lw)], fill=color)
-        d.polygon([(size*res*0.4, size*res-lw), (size*res*0.75, size*res*0.4), (size*res-lw, size*res-lw)], fill=color, outline="black")
-    return img.resize((size, size), Image.Resampling.LANCZOS)
-
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -130,7 +115,7 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen", type=["jpg", "jpeg", "png"])
     if up_img: st.session_state.persistent_img = up_img.read()
 
-# --- OPTIONEN (V1.2.8 Style) ---
+# --- OPTIONEN ---
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
@@ -139,40 +124,30 @@ with st.expander("⚙️ Optionen", expanded=False):
         if st.button("✅ Daten übernehmen"):
             st.session_state.tour_title = new_title
             st.session_state.tour_date = new_date
-            st.rerun()
+            st.rerun() # Hier nötig, da kein Callback!
         st.checkbox("Datum anzeigen", key="show_date")
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
-        st.checkbox("Raster im Profil", key="show_grid")
+        st.checkbox("Raster anzeigen", key="show_grid")
     with col_opt2:
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
         st.slider("Profil-Beschriftung", 0.5, 3.0, key="grid_font_scale")
         st.slider("Daten-Größe", 0.5, 3.0, key="data_font_scale")
         st.color_picker("Routenfarbe", key="c_line")
-        st.color_picker("Infobox-Farbe", key="c_box")
+        st.color_picker("Balken-Farbe", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- ÜBER REITER (FULL RESTORED) ---
+# --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.8**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.11**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("**📲 Als App installieren:**")
-    st.markdown("""
-    <div class="install-box">
-    <strong>iPhone / iPad (Safari):</strong> Teilen -> "Zum Home-Bildschirm"<br>
-    <strong>Android (Chrome):</strong> Menü -> "App installieren"
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("**Folge mir auf meinen Kanälen:**")
+    st.markdown('<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> "Zum Home-Bildschirm"</div>', unsafe_allow_html=True)
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown("👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
-    st.markdown("---")
-    st.markdown("**App teilen:**")
-    st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
 
 st.divider()
 
@@ -204,11 +179,8 @@ if st.session_state.persistent_gpx:
                 src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
                 w, h = src_img.size
             else:
-                from staticmap import StaticMap, Line
                 w, h = 1080, 1920
-                m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                m.add_line(Line(list(zip(lons, lats)), st.session_state.c_line, st.session_state.w_line))
-                src_img = m.render().convert("RGBA")
+                src_img = Image.new('RGBA', (w, h), (200, 200, 200, 255))
 
             base_img = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             base_img.paste(src_img, (0, 0), src_img)
@@ -226,7 +198,7 @@ if st.session_state.persistent_gpx:
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             
-            # DATUM BOX (ÜBER PROFIL)
+            # DATUM BOX
             if st.session_state.show_date and st.session_state.tour_date:
                 date_font_size = int(w * 0.028 * st.session_state.font_scale)
                 try: font_date = ImageFont.truetype(font_path, date_font_size)
@@ -239,7 +211,7 @@ if st.session_state.persistent_gpx:
                 draw.rectangle([bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=1)
                 draw.text((bx1 + pad, by1 + pad), date_text, fill="white", font=font_date)
             
-            # PROFIL
+            # PROFIL & RASTER
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -262,15 +234,11 @@ if st.session_state.persistent_gpx:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # INFOS & ROUTE
-            txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
-            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
-            draw.text((w//2, int(bh_top * 0.35) + st.session_state.data_y_offset), txt_dist + "   |   " + txt_elev, fill="white", font=font_d, anchor="mm")
+            draw.text((w//2, int(bh_top * 0.35) + st.session_state.data_y_offset), f"{d_total:.1f} km   |   {int(a_gain)} m", fill="white", font=get_fitted_font(draw, "X km | Y m", w*0.7, int(w*0.055*st.session_state.data_font_scale), font_path), anchor="mm")
             
-            base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
+            base_margin = 0.20
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
-            scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
-                       (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
+            scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)), (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin))) for lat, lon in pts]
             draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
@@ -278,6 +246,5 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_share_{datetime.now().strftime('%H%M%S')}.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final_{datetime.now().strftime('%H%M%S')}.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
-        
