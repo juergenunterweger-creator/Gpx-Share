@@ -97,15 +97,18 @@ with st.expander("⚙️ Optionen", expanded=False):
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
         data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 160)
-        st.write("**Position Route:**")
+        
+        st.write("**Position & Skala Route:**")
         route_x_offset = st.slider("Horizontaler Versatz Route", -500, 500, 0)
         route_y_offset = st.slider("Vertikaler Versatz Route", -500, 500, 0)
         route_scale = st.slider("Route Skalierung", 0.1, 2.0, 1.0)
         
         if up_img:
-            st.write("**Position Hintergrundfoto:**")
-            img_x_offset = st.slider("Horizontaler Versatz Foto", -1000, 1000, 0)
-            img_y_offset = st.slider("Vertikaler Versatz Foto", -1000, 1000, 0)
+            st.write("**Foto Einstellungen:**")
+            img_x_offset = st.slider("Horizontaler Versatz Foto", -2000, 2000, 0)
+            img_y_offset = st.slider("Vertikaler Versatz Foto", -2000, 2000, 0)
+            # NEU: Zoom-Regler für das Hintergrundfoto
+            img_zoom = st.slider("Foto Zoom", 0.1, 5.0, 1.0)
         
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -162,27 +165,36 @@ if up_gpx:
 
         if pts:
             lats, lons = zip(*pts)
+            # Basis-Dimensionen (HD Porträt Standard)
+            w, h = 1080, 1920 
+            
             if up_img:
                 src_img = Image.open(up_img).convert("RGBA")
-                w, h = src_img.size
+                img_orig_w, img_orig_h = src_img.size
+                # Foto skalieren basierend auf Zoom
+                new_w = int(img_orig_w * img_zoom)
+                new_h = int(img_orig_h * img_zoom)
+                src_img = src_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                # Leinwandgröße bleibt das Original-Foto-Format oder 1080x1920?
+                # Wir fixieren die Leinwand auf die Größe des (gezoomten) Fotos für volle Flexibilität:
+                w, h = img_orig_w, img_orig_h 
             else:
                 from staticmap import StaticMap, Line
-                w, h = 1080, 1920 
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
                 m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
                 src_img = m.render().convert("RGBA")
 
             base_img = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             
-            # Hintergrundfoto mit Versatz einfügen
+            # Alpha-Kanal für Transparenz
+            alpha_val = int(bg_alpha)
+            src_img_with_alpha = src_img.copy()
+            alpha_band = src_img_with_alpha.split()[3].point(lambda p: int(p * alpha_val / 255))
+            src_img_with_alpha.putalpha(alpha_band)
+            
+            # Einfügen mit Zoom & Offset
             x_pos = img_x_offset if up_img else 0
             y_pos = img_y_offset if up_img else 0
-            
-            # Alpha-Kanal für Hintergrundtransparenz anpassen
-            src_img_with_alpha = src_img.copy()
-            alpha = src_img_with_alpha.split()[3].point(lambda p: int(p * bg_alpha / 255))
-            src_img_with_alpha.putalpha(alpha)
-            
             base_img.paste(src_img_with_alpha, (x_pos, y_pos), src_img_with_alpha)
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
@@ -225,7 +237,6 @@ if up_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE (MIT HORIZONTALEM & VERTIKALEM VERSATZ) ---
             if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 base_margin = 0.5 * (1.0 - (0.6 * route_scale))
@@ -237,6 +248,7 @@ if up_gpx:
             title_y = int(bh_top * 0.35)
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.085 * font_scale), font_path)
             draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
+            
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
