@@ -5,7 +5,6 @@ import io
 import math
 import os
 import random
-import time
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
@@ -51,12 +50,17 @@ if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = N
 if "uploader_key" not in st.session_state: st.session_state.uploader_key = 0
 
 def full_app_reset():
-    # Komplette Vernichtung des States
+    """Löscht alle Daten. Rerun erfolgt automatisch nach dem Callback."""
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.session_state.uploader_key = random.randint(1, 9999)
-    st.rerun()
 
+def reset_parameters():
+    """Setzt Design auf Standard zurück."""
+    for key, val in DEFAULTS.items():
+        st.session_state[key] = val
+
+# Styling
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -107,7 +111,7 @@ def draw_smooth_icon(mode, size, color="white"):
         d.polygon([(size*res*0.4, size*res-lw), (size*res*0.75, size*res*0.4), (size*res-lw, size*res-lw)], fill=color, outline="black")
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-st.markdown("<p class='title-modern'>GPX Share Pro 2.0</p>", unsafe_allow_html=True)
+st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -119,7 +123,7 @@ with c_up1:
             st.session_state.persistent_gpx = new_gpx_data
             st.session_state.selected_track_idx = 0
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-            st.rerun()
+            st.rerun() # Außerhalb von Callback erlaubt/nötig
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen", type=["jpg", "jpeg", "png"], key=f"img_up_{st.session_state.uploader_key}")
@@ -142,7 +146,6 @@ with st.expander("⚙️ Optionen & Reset", expanded=False):
                     st.selectbox("📍 Aktive Spur", range(len(track_names)), format_func=lambda x: track_names[x], key="selected_track_idx")
             except: pass
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
-        st.checkbox("Raster anzeigen", key="show_grid")
         st.checkbox("Icons anzeigen", key="show_icons")
     with col_opt2:
         st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
@@ -153,24 +156,24 @@ with st.expander("⚙️ Optionen & Reset", expanded=False):
         st.color_picker("Infobox-Farbe", key="c_box")
     
     st.divider()
-    st.button("🗑️ KOMPLETT-RESET (iPhone Fix)", on_click=full_app_reset)
+    c_res1, c_res2 = st.columns(2)
+    with c_res1: st.button("🔄 Design zurücksetzen", on_click=reset_parameters)
+    with c_res2: st.button("🗑️ KOMPLETT-RESET", on_click=full_app_reset)
 
 # --- INFO ---
 with st.expander("ℹ️ Über"):
-    st.markdown(f"**Copyright: Jürgen Unterweger** | **Version: 2.0**")
+    st.markdown(f"**Copyright: Jürgen Unterweger** | **Version: 2.1**")
     st.markdown(f'[PayPal Spende](https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG)')
 
 st.divider()
 
-# --- ATOMIC PROCESSING ---
+# --- PROCESSING ---
 if st.session_state.persistent_gpx:
     try:
-        # Radikales Leeren vor dem Start
-        segments_pts, elevs = None, None
+        gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
         segments_pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         
-        gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
         if len(gpx.tracks) > 0:
             idx = min(st.session_state.selected_track_idx, len(gpx.tracks)-1)
             target_track = gpx.tracks[idx]
@@ -192,7 +195,6 @@ if st.session_state.persistent_gpx:
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
-            # Bildaufbau
             if st.session_state.persistent_img:
                 src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
                 w, h = src_img.size
@@ -209,13 +211,11 @@ if st.session_state.persistent_gpx:
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             
-            # BOXEN
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
             bh_top, bh_bot = int(h * st.session_state.b_height_adj), int(h * 0.12)
             draw.rectangle([0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             draw.rectangle([0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # ROUTE ZEICHNEN
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -223,7 +223,6 @@ if st.session_state.persistent_gpx:
                           (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in seg]
                 if len(s_seg) > 1: draw.line(s_seg, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
-            # TEXT & ICONS
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
@@ -233,7 +232,6 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            # UNIQUE FILENAME für iPhone Galerie-Refresh
             fname = f"tour_{random.randint(1000,9999)}.jpg"
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), fname, "image/jpeg")
 
