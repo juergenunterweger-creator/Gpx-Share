@@ -21,11 +21,11 @@ with st.sidebar:
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
-    b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.18)
+    b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.20)
     st.divider()
     c_line = st.color_picker("Routenfarbe", "#8B0000")
-    w_line = st.slider("Linienstärke Route", 1, 50, 9)
-    b_alpha = st.slider("Balken Deckkraft", 0, 255, 200)
+    w_line = st.slider("Linienstärke Route", 1, 100, 9)
+    b_alpha = st.slider("Balken Deckkraft", 0, 255, 210)
 
 # --- HAUPTBEREICH ---
 st.markdown("<h1 style='text-align: center;'>GPX Share Pro</h1>", unsafe_allow_html=True)
@@ -81,29 +81,67 @@ if up_img and up_gpx:
                 draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (60,))
 
             # Schrift laden
-            font_t = None
-            possible_fonts = ["font.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
-            for fpath in possible_fonts:
-                if os.path.exists(fpath):
-                    font_t = ImageFont.truetype(fpath, auto_f_title)
-                    font_d = ImageFont.truetype(fpath, auto_f_data)
-                    break
-            
-            if font_t is None:
+            font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            try:
+                font_t = ImageFont.truetype(font_path, auto_f_title)
+                font_d = ImageFont.truetype(font_path, auto_f_data)
+            except:
                 font_t = font_d = ImageFont.load_default()
 
-            # Texte schreiben
+            # --- ICONS LIVE ZEICHNEN ---
+            icon_size = int(auto_f_data * 1.5)
+            lw = max(3, int(icon_size * 0.08)) # Liniendicke für Icons
+
+            # 1. Distanz Icon (Lineal & Pfeile)
+            img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
+            d_dist = ImageDraw.Draw(img_dist)
+            ry = icon_size * 0.85
+            d_dist.line([(0, ry), (icon_size, ry)], fill="white", width=lw) # Lineal-Boden
+            for i in range(5):
+                x = i * (icon_size / 4)
+                d_dist.line([(x, ry), (x, ry - icon_size*0.15)], fill="white", width=lw) # Striche
+            cx, cy = icon_size * 0.5, icon_size * 0.65
+            d_dist.line([(cx, cy), (cx, icon_size*0.15)], fill="white", width=lw) # Mitte
+            d_dist.polygon([(cx, 0), (cx-icon_size*0.15, icon_size*0.2), (cx+icon_size*0.15, icon_size*0.2)], fill="white")
+            d_dist.line([(cx, cy), (icon_size*0.2, icon_size*0.4)], fill="white", width=lw) # Links
+            d_dist.polygon([(0, icon_size*0.4), (icon_size*0.2, icon_size*0.25), (icon_size*0.25, icon_size*0.5)], fill="white")
+            d_dist.line([(cx, cy), (icon_size*0.8, icon_size*0.4)], fill="white", width=lw) # Rechts
+            d_dist.polygon([(icon_size, icon_size*0.4), (icon_size*0.8, icon_size*0.25), (icon_size*0.75, icon_size*0.5)], fill="white")
+
+            # 2. Höhen Icon (Berge & Pfeil)
+            img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
+            d_elev = ImageDraw.Draw(img_elev)
+            d_elev.polygon([(0, icon_size*0.85), (icon_size*0.35, icon_size*0.2), (icon_size*0.7, icon_size*0.85)], fill="white") # Berg 1
+            d_elev.polygon([(icon_size*0.4, icon_size*0.85), (icon_size*0.65, icon_size*0.4), (icon_size*0.9, icon_size*0.85)], fill="white") # Berg 2
+            ax = icon_size * 0.9
+            d_elev.line([(ax, icon_size*0.8), (ax, icon_size*0.1)], fill="white", width=lw) # Pfeil hoch
+            d_elev.polygon([(ax, 0), (ax-icon_size*0.15, icon_size*0.2), (ax+icon_size*0.15, icon_size*0.2)], fill="white")
+
+            # --- TEXTE & ICONS POSITIONIEREN ---
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- DATENZEILE MIT SYMBOLEN (Statt Text-Labeln) ---
-            # ➟ steht für Distanz, ▲ steht für Höhe
-            icon_dist = "➟ " 
-            icon_elev = "▲ "
-            full_stat_text = f"{icon_dist}{d_total:.1f} km     {icon_elev}{int(a_gain)} m"
+            txt_dist = f"{d_total:.1f} km"
+            txt_elev = f"{int(a_gain)} m"
             
-            draw.text((w//2, h - bh_bot//2), full_stat_text, fill="white", font=font_d, anchor="mm")
+            w_dist = draw.textlength(txt_dist, font=font_d)
+            w_elev = draw.textlength(txt_elev, font=font_d)
+            spacing = int(w * 0.1) # Abstand zwischen den Blöcken
+            
+            # Gesamtbreite berechnen um alles schön zu zentrieren
+            total_w = icon_size + 20 + w_dist + spacing + icon_size + 20 + w_elev
+            start_x = (w - total_w) // 2
+            y_pos = h - bh_bot // 2
+            
+            # Distanz einfügen
+            overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
+            draw.text((start_x + icon_size + 20, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
+            
+            # Höhe einfügen
+            x_elev = start_x + icon_size + 20 + w_dist + spacing
+            overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
+            draw.text((x_elev + icon_size + 20, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
 
-            # Route (Stärke 9)
+            # Route zeichnen
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             margin = 0.20
@@ -116,7 +154,7 @@ if up_img and up_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro.jpg", "image/jpeg")
+            st.download_button("🚀 BILD MIT PROFI-ICONS SPEICHERN", buf.getvalue(), "ride_pro.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
