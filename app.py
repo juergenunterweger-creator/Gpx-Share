@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont, ImageChops
+from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import io
 import math
 import os
@@ -30,11 +30,12 @@ DEFAULTS = {
     "w_line": 9,
     "b_alpha": 160,
     "r_alpha": 255,
+    "bg_alpha": 255,
     "c_line": "#8B0000",
     "c_fill": "#8B0000",
     "c_box": "#000000",
     "map_style": "OSM Standard",
-    "show_logo": False,
+    "show_logo": True,
     "show_profile": True,
     "show_grid": True,
     "show_icons": True,
@@ -53,7 +54,11 @@ if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = N
 def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
-    st.rerun()
+
+def safe_rect(draw, coords, fill=None, outline=None, width=1):
+    x0, y0, x1, y1 = coords
+    draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], 
+                   fill=fill, outline=outline, width=width)
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -89,8 +94,12 @@ def draw_smooth_icon(mode, size, color="white"):
         d.ellipse([size*res*0.3, size*res*0.3, size*res*0.7, size*res*0.7], fill=color)
         for i in range(0, 360, 45):
             rad = math.radians(i)
-            d.line([size*res*0.5+math.cos(rad)*size*res*0.25, size*res*0.5+math.sin(rad)*size*res*0.25,
-                    size*res*0.5+math.cos(rad)*size*res*0.45, size*res*0.5+math.sin(rad)*size*res*0.45], fill=color, width=lw)
+            d.line([size*res*0.5+math.cos(rad)*size*res*0.22, size*res*0.5+math.sin(rad)*size*res*0.22,
+                    size*res*0.5+math.cos(rad)*size*res*0.42], fill=color, width=lw)
+    elif mode == "Wolken":
+        d.ellipse([size*res*0.2, size*res*0.4, size*res*0.5, size*res*0.7], fill=color)
+        d.ellipse([size*res*0.4, size*res*0.3, size*res*0.8, size*res*0.7], fill=color)
+        d.rectangle([size*res*0.35, size*res*0.55, size*res*0.6, size*res*0.7], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
@@ -167,8 +176,8 @@ if st.session_state.persistent_gpx:
             # Hintergrund
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             if st.session_state.persistent_img:
-                bg_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
-                bg_img = bg_img.resize((int(bg_img.width * (w/bg_img.width)), int(bg_img.height * (w/bg_img.width))), Image.Resampling.LANCZOS)
+                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
+                bg_img = ImageOps.fit(bg_img, (w, h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (0, 0))
             else:
                 from staticmap import StaticMap, Line
@@ -177,14 +186,15 @@ if st.session_state.persistent_gpx:
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
-                canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
+                blend_bg = Image.new('RGBA', (w, h), (255, 255, 255, 255))
+                canvas = Image.blend(blend_bg, canvas, st.session_state.bg_opacity / 100)
 
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
             bh_top, bh_bot = int(h * st.session_state.b_height_adj), int(h * 0.12)
-            draw.rectangle([0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
-            draw.rectangle([0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
+            safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
+            safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
             font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
@@ -198,13 +208,14 @@ if st.session_state.persistent_gpx:
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = ImageFont.truetype(font_path, int(w*0.03*st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
+                pad = 20
                 bx2, by2 = w - 25, h - bh_bot - 20
-                draw.rectangle([bx2 - tw - 80, by2 - 60, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
-                draw.text((bx2 - 15, by2 - 30), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
-                w_icon = draw_smooth_icon(st.session_state.weather, 40)
-                overlay.paste(w_icon, (int(bx2 - tw - 70), int(by2 - 50)), w_icon)
+                safe_rect(draw, [bx2 - tw - 100, by2 - 70, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
+                draw.text((bx2 - 20, by2 - 35), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
+                w_icon = draw_smooth_icon(st.session_state.weather, 45)
+                overlay.paste(w_icon, (int(bx2 - tw - 90), int(by2 - 58)), w_icon)
 
-            # Route & Profil
+            # Route
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
