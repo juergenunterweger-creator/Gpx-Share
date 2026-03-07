@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import gpxpy
 from PIL import Image, ImageDraw, ImageFont
 import io
