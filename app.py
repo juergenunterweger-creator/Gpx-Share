@@ -104,18 +104,16 @@ with st.expander("⚙️ Optionen", expanded=False):
         bg_alpha = st.slider("Hintergrund Transparenz", 0, 255, 255)
         c_line = st.color_picker("Routenfarbe", "#8B0000")
         c_fill = st.color_picker("Farbe Profilfüllung", "#8B0000")
+        # NEU: Farbe für die Infoboxen
+        c_box = st.color_picker("Farbe Infoboxen", "#000000")
 
-# --- REITER: ÜBER GPX SHARE PRO ---
+# --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=100)
     with c_meta:
-        st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger**")
-        st.markdown("**Version: 1.0**")
-        
-        # --- NEU: PAYPAL DONATION ---
+        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
         st.markdown(f"""
             <a href="{paypal_url}" target="_blank">
@@ -123,24 +121,12 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
             </a><br>
             <a href="{paypal_url}" target="_blank" style="text-decoration:none; color:#8b0000; font-weight:bold;">meine Arbeit unterstützen</a>
         """, unsafe_allow_html=True)
-    
     st.markdown("---")
-    
-    st.markdown("**📲 Als App installieren:**")
-    st.markdown("""
-        <div class="install-box">
-        <strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br>
-        <strong>Android:</strong> Menü -> 'App installieren'
-        </div>
-    """, unsafe_allow_html=True)
-    st.markdown("---")
-    
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
     st.markdown("---")
-    
     st.markdown("**App teilen:**")
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     col_qr, col_link = st.columns([1, 2])
@@ -189,12 +175,16 @@ if up_gpx:
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
+            
             rgb_route = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             rgb_fill = tuple(int(c_fill[1:3], 16) if i==0 else int(c_fill[3:5], 16) if i==1 else int(c_fill[5:7], 16) for i in range(3))
+            # Konvertierung der Box-Farbe
+            rgb_box = tuple(int(c_box[1:3], 16) if i==0 else int(c_box[3:5], 16) if i==1 else int(c_box[5:7], 16) for i in range(3))
             
             bh_top, bh_bot = int(h * b_height_adj), int(h * 0.12)
-            draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
-            draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
+            # Boxen mit der gewählten Farbe zeichnen
+            draw.rectangle([0, 0, w, bh_top], fill=rgb_box + (b_alpha,))
+            draw.rectangle([0, h - bh_bot, w, h], fill=rgb_box + (b_alpha,))
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
@@ -228,6 +218,7 @@ if up_gpx:
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
             lw = max(3, int(icon_size * 0.08))
             curr_icon_w = icon_size if show_icons else 0
+            
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.055 * data_font_scale), font_path)
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
