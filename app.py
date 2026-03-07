@@ -1,6 +1,144 @@
 import streamlit as st
 import gpxpy
 import gpxpy.gpx
+from PIL import Image, ImageDraw
+import io
+import math
+
+# --- APP KONFIGURATION ---
+st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
+
+# Modernes CSS Styling
+st.markdown("""
+    <style>
+    .stApp { background-color: #080a0f; color: #ffffff; }
+    .main-title {
+        font-size: 40px; font-weight: 800;
+        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    div.stFileUploader { background-color: #161b22; border-radius: 15px; border: 1px solid #30363d; }
+    /* Stylishen Download Button erzwingen */
+    .stDownloadButton button {
+        width: 100%; border-radius: 12px; height: 3em;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
+        color: white !important; font-weight: bold; border: none;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+# --- SIDEBAR: EINZELNE IDs DURCH 'key' ---
+with st.sidebar:
+    st.markdown("<h1 style='color: #00f2fe;'>GPX Share</h1>", unsafe_allow_html=True)
+    
+    st.markdown("### 🎨 Design")
+    l_color = st.color_picker("Linienfarbe", "#00F2FE", key="k_col")
+    l_width = st.slider("Linienstärke", 2, 40, 15, key="k_wid")
+    
+    st.markdown("### 📝 Tour-Infos")
+    # Nur EINMAL hier definiert:
+    tour_name_input = st.text_input("Tour Name", "Ranna Stausee", key="k_name")
+    show_stats = st.toggle("Statistiken anzeigen", value=True, key="k_stats")
+    box_pos = st.selectbox("Position", ["Oben Links", "Oben Rechts", "Unten Links", "Unten Rechts"], key="k_pos")
+    box_alpha = st.slider("Box Deckkraft", 0, 255, 180, key="k_alpha")
+
+# --- HAUPTBEREICH ---
+st.markdown("<p class='main-title'>GPX Share</p>", unsafe_allow_html=True)
+
+c1, c2 = st.columns(2)
+with c1:
+    img_file = st.file_uploader("📸 1. Foto hochladen", type=["jpg", "jpeg", "png"], key="k_img_up")
+with c2:
+    gpx_file = st.file_uploader("📍 2. GPX Datei wählen", type=["gpx", "xml", "txt"], key="k_gpx_up")
+
+if img_file and gpx_file:
+    try:
+        # Bild laden
+        base_img = Image.open(img_file).convert("RGB")
+        w, h = base_img.size
+        
+        # GPX verarbeiten
+        gpx_data = gpx_file.read().decode("utf-8")
+        gpx = gpxpy.parse(gpx_data)
+        points = []
+        d_tot, a_tot = 0.0, 0.0
+        lp = None
+        
+        for track in gpx.tracks:
+            for seg in track.segments:
+                for p in seg.points:
+                    points.append((p.latitude, p.longitude))
+                    if lp:
+                        d_tot += haversine(lp.latitude, lp.longitude, p.latitude, p.longitude)
+                        if p.elevation and lp.elevation and p.elevation > lp.elevation:
+                            a_tot += (p.elevation - lp.elevation)
+                    lp = p
+
+        if points:
+            # Overlay Ebene erstellen (für Transparenz)
+            overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
+            draw = ImageDraw.Draw(overlay)
+            
+            # Route skalieren
+            lats, lons = zip(*points)
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            mar = 0.15 # 15% Rand
+            
+            scaled_pts = []
+            for lat, lon in points:
+                x = w * mar + (lon - mi_lo) / (ma_lo - mi_lo) * w * (1 - 2*mar)
+                y = h * (1 - mar) - (lat - mi_la) / (ma_la - mi_la) * h * (1 - 2*mar)
+                scaled_pts.append((x, y))
+            
+            # Farbe umrechnen
+            rgb = tuple(int(l_color[i:i+2], 16) for i in (1, 3, 5))
+            draw.line(scaled_pts, fill=rgb + (255,), width=l_width, joint="round")
+
+            if show_stats:
+                # Box Maße & Position
+                bw, bh = int(w * 0.45), int(h * 0.18)
+                pos_map = {
+                    "Oben Links": (40, 40), "Oben Rechts": (w-bw-40, 40),
+                    "Unten Links": (40, h-bh-40), "Unten Rechts": (w-bw-40, h-bh-40)
+                }
+                bx, by = pos_map[box_pos]
+                draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, box_alpha))
+                
+                # Text (einfacher Font-Fallback)
+                fs = max(24, int(w / 40))
+                draw.text((bx+30, by+30), tour_name_input, fill="white")
+                draw.text((bx+30, by+30+fs*1.5), f"{d_tot:.1f} km | {int(a_tot)} hm", fill=l_color)
+
+            # Zusammenfügen
+            final_img = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
+            
+            # ANZEIGE
+            st.image(final_img, use_container_width=True)
+            
+            # DOWNLOAD (Hier ist der Button!)
+            buf = io.BytesIO()
+            final_img.save(buf, format="JPEG", quality=95)
+            st.download_button(
+                label="📥 BILD SPEICHERN",
+                data=buf.getvalue(),
+                file_name="gpx_share_tour.jpg",
+                mime="image/jpeg",
+                key="k_download_btn" # Eindeutige ID für den Button
+            )
+
+    except Exception as e:
+        st.error(f"Hoppla, da stimmt was nicht: {e}")
+else:
+    st.info("Bitte lade oben ein Foto und eine GPX-Datei hoch, um zu starten!")
+import streamlit as st
+import gpxpy
+import gpxpy.gpx
 from PIL import Image, ImageDraw, ImageFont
 import io
 import math
