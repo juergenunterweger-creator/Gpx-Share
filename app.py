@@ -36,7 +36,7 @@ def calc_dist(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(math.sqrt(a))
 
 def get_fitted_font(draw, text, max_width, start_size, font_path):
-    size = int(max(10, start_size))
+    size = int(start_size)
     try:
         font = ImageFont.truetype(font_path, size)
     except:
@@ -58,6 +58,7 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 if 'tour_name_val' not in st.session_state:
     st.session_state.tour_name_val = "Meine Tour"
 
+# --- UPLOAD BEREICH ---
 c1, c2 = st.columns(2)
 with c1:
     up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
@@ -67,6 +68,7 @@ with c1:
 with c2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
 
+# --- OPTIONEN REITER ---
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
@@ -80,7 +82,6 @@ with st.expander("⚙️ Optionen", expanded=False):
         fill_profile = st.checkbox("Füllung Höhenprofil", value=True)
     with col_opt2:
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
-        # NEUER SLIDER FÜR DIE DATEN
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -89,6 +90,46 @@ with st.expander("⚙️ Optionen", expanded=False):
         bg_alpha = st.slider("Hintergrund Transparenz", 0, 255, 255)
         c_line = st.color_picker("Routenfarbe", "#8B0000")
         c_fill = st.color_picker("Farbe Profilfüllung", "#8B0000")
+
+# --- MODIFIZIERTER REITER: ÜBER GPX SHARE PRO ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    st.markdown("### GPX Share Pro XXL")
+    st.markdown("**Copyright: Jürgen Unterweger**")
+    
+    # NEU: Das Haupt-App-Logo in der Info-Box
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=120)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # NEU: Sektion für Social Media Kanäle mit Logos und Links
+    st.markdown("**Folge mir auf meinen Kanälen:**")
+    
+    col_ig, col_fb = st.columns(2)
+    
+    with col_ig:
+        ig_url = "https://www.instagram.com/juergen_rocks/"
+        if os.path.exists("instagram_logo.png"):
+            # Nutze Logo-Bild als Klick-Link
+            st.markdown(f'<a href="{ig_url}" target="_blank"><img src="data:image/png;base64,{st.image("instagram_logo.png", width=50, output_format="PNG").getvalue().encode("base64").decode("utf-8")}" alt="Instagram Logo"></a>', unsafe_allow_html=True)
+            st.markdown(f'[juergen_rocks]({ig_url})')
+        else:
+            # Fallback mit Emoji
+            st.markdown(f"📸 [Instagram: juergen_rocks]({ig_url})")
+
+    with col_fb:
+        fb_url = "https://www.facebook.com/JuergenRocks/"
+        if os.path.exists("facebook_logo.png"):
+            # Nutze Logo-Bild als Klick-Link
+            st.markdown(f'<a href="{fb_url}" target="_blank"><img src="data:image/png;base64,{st.image("facebook_logo.png", width=50, output_format="PNG").getvalue().encode("base64").decode("utf-8")}" alt="Facebook Logo"></a>', unsafe_allow_html=True)
+            st.markdown(f'[JuergenRocks]({fb_url})')
+        else:
+            # Fallback mit Emoji
+            st.markdown(f"👥 [Facebook: JuergenRocks]({fb_url})")
+            
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.info("Dieses Tool wurde entwickelt, um deine Motorradtouren professionell mit Telemetrie-Daten zu visualisieren.")
 
 st.divider()
 
@@ -143,7 +184,6 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
@@ -154,8 +194,7 @@ if up_gpx:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
                 
                 if show_grid:
-                    try:
-                        font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * font_scale)))
+                    try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * font_scale)))
                     except: font_grid = ImageFont.load_default()
                     grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 140)
                     for i in range(1, 4):
@@ -170,21 +209,15 @@ if up_gpx:
 
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- TEXTE & ICONS ---
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
 
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
-            
-            # Icons passend zur Daten-Skalierung
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
             lw = max(3, int(icon_size * 0.08))
             curr_icon_w = icon_size if show_icons else 0
-            
-            # DATEN-SCHRIFT NUTZT JETZT EIGENEN SCALE
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.055 * data_font_scale), font_path)
-            
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
             total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
@@ -196,7 +229,6 @@ if up_gpx:
                 d_i.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
                 d_i.line([icon_size//2, icon_size//2, icon_size//2 + math.cos(math.radians(240))*icon_size*0.35, icon_size//2 + math.sin(math.radians(240))*icon_size*0.35], fill="white", width=lw)
                 overlay.paste(img_dist, (int(sx), int(y_p - icon_size // 2)), img_dist)
-                
                 img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
