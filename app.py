@@ -141,31 +141,34 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL (MODIFIZIERT) ---
+            # --- HÖHENPROFIL BERECHNUNG ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 
-                # NEU: Schmaleres Profil (z.B. 90% Breite)
+                # Profil schmal (90%), Raster volle Breite (100%)
                 profile_margin = w * 0.05
                 p_width = w - (2 * profile_margin)
-                
                 profile_pts = [((i/len(elevs))*p_width + profile_margin, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 
-                # 1. Raster ZUERST (Hinter dem Profil)
+                # 1. Raster (Hintergrund, Volle Breite)
                 if show_grid:
                     try:
                         font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale)))
                     except: font_grid = ImageFont.load_default()
                     grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 160)
+                    
+                    # Horizontale Linien (Volle Breite)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
-                        draw.line([(profile_margin, gy), (w - profile_margin, gy)], fill=grid_color, width=max(1, int(w*0.001)))
+                        draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
-                        draw.text((profile_margin + 5, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
+                        draw.text((w * 0.01, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
+                    
+                    # Vertikale Linien (Gleichmäßig verteilt über volle Breite)
                     for i in range(1, 8):
-                        gx = (i/8) * p_width + profile_margin
+                        gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
 
@@ -173,7 +176,7 @@ if up_gpx:
                 if fill_profile:
                     draw.polygon(profile_pts + [(w - profile_margin, h), (profile_margin, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
                 
-                # 3. Weiße Oberkante (Ganz oben)
+                # 3. Weiße Oberkante
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- TEXTE & ICONS ---
