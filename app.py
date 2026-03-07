@@ -127,6 +127,7 @@ with c_up2:
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
+        # Bestätigungs-Logik für den Titel
         new_title = st.text_input("Tour Name eingeben", value=st.session_state.tour_title)
         if st.button("✅ Name übernehmen"):
             st.session_state.tour_title = new_title
@@ -168,7 +169,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if os.path.exists("logo.png"): st.image("logo.png", width=100)
     with c_meta:
         st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.1**")
+        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2**")
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
         st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     
@@ -233,45 +234,9 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL ---
-            if st.session_state.show_profile and len(elevs) > 1:
-                e_min, e_max = min(elevs), max(elevs)
-                e_range = (e_max - e_min) if e_max > e_min else 1
-                grid_y_start = h - bh_bot
-                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
-                if st.session_state.fill_profile:
-                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
-                if st.session_state.show_grid:
-                    font_grid = get_fitted_font(draw, "0m", int(w*0.02), int(w*0.02), font_path)
-                    for i in range(1, 4):
-                        gy = grid_y_start + i * (bh_bot / 4)
-                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
-                        draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
-                    for i in range(1, 8):
-                        gx = i * (w / 8)
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
-                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
-                draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
-
             # --- TITEL & DATEN ---
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
-            
-            txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
-            icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
-            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
-            w_d, w_e, i_gap = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d), int(w * 0.02)
-            total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + int(w * 0.15)
-            sx, data_y = (w - total_w) // 2, int(bh_top * 0.35) + st.session_state.data_y_offset
-            if st.session_state.show_icons:
-                ic_dist = draw_smooth_icon("dist", icon_size)
-                overlay.paste(ic_dist, (int(sx), int(data_y - icon_size//2)), ic_dist)
-                draw.text((sx + icon_size + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
-                ex = sx + icon_size + i_gap + w_d + int(w * 0.15)
-                ic_elev = draw_smooth_icon("elev", icon_size)
-                overlay.paste(ic_elev, (int(ex), int(data_y - icon_size//2)), ic_elev)
-                draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
             
             # --- ROUTE ---
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
@@ -285,5 +250,5 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_1-2-1_fixed.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_1-2_restored.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
