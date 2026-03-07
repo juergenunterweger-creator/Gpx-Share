@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 import io
 import math
 import os
@@ -12,7 +12,7 @@ st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="centered
 
 st.markdown("""
     <style>
-    .stApp { background-color: #080a0f; color: #ffffff; }
+    .stApp { background-color: #0b0e14; color: #ffffff; }
     .title-modern {
         font-size: 42px; font-weight: 900;
         background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
@@ -39,9 +39,9 @@ st.markdown("<p class='title-modern'>GPX Share</p>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 with col1:
-    up_img = st.file_uploader("📸 Foto (Optional)", type=["jpg", "jpeg", "png"], key="v12_img")
+    up_img = st.file_uploader("📸 Foto (Optional)", type=["jpg", "jpeg", "png"], key="v13_img")
 with col2:
-    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v12_gpx")
+    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v13_gpx")
 
 default_name = "Meine Tour"
 if up_gpx:
@@ -49,12 +49,12 @@ if up_gpx:
 
 with st.sidebar:
     st.markdown("<h1 style='color: #00f2fe;'>⚙️ Menü</h1>", unsafe_allow_html=True)
-    tour_title = st.text_input("Tour Name", value=default_name, key="v12_title")
+    tour_title = st.text_input("Tour Name", value=default_name, key="v13_title")
     st.divider()
-    c_line = st.color_picker("Linienfarbe", "#00F2FE", key="v12_c")
-    w_line = st.slider("Linienstärke", 5, 80, 25, key="v12_w")
-    b_pos = st.selectbox("Position der Box", ["Unten", "Oben", "Mitte"], key="v12_pos")
-    b_alpha = st.slider("Box Deckkraft", 0, 255, 170, key="v12_alpha")
+    c_line = st.color_picker("Linienfarbe", "#00F2FE", key="v13_c")
+    w_line = st.slider("Linienstärke", 5, 80, 25, key="v13_w")
+    b_pos = st.selectbox("Position der Box", ["Unten", "Oben", "Mitte"], key="v13_pos")
+    b_alpha = st.slider("Box Deckkraft", 0, 255, 180, key="v13_alpha")
 
 if up_gpx:
     try:
@@ -77,24 +77,20 @@ if up_gpx:
                     last_elev = p.elevation
 
         if pts:
-            # Hintergrund erstellen
+            # Hintergrund-Logik fixieren
             if up_img:
                 img = Image.open(up_img).convert("RGB")
             else:
-                # Erstellt einen vertikalen Blau-Schwarz Verlauf für den "Modern Look"
-                img = Image.new('RGB', (1080, 1920), color=(10, 15, 30))
-                draw_bg = ImageDraw.Draw(img)
-                for i in range(1920):
-                    color = (10, 15 + int(i/40), 30 + int(i/60))
-                    draw_bg.line([(0, i), (1080, i)], fill=color)
+                # Wir nehmen ein dunkles Grau statt Schwarz, damit man den Unterschied sieht
+                img = Image.new('RGB', (1080, 1920), color=(30, 35, 45))
             
             w, h = img.size
-            overlay = Image.new('RGBA', img.size, (0,0,0,0))
-            draw = ImageDraw.Draw(overlay)
+            # WICHTIG: Wir zeichnen direkt auf das Bild, wenn kein Overlay nötig ist
+            draw = ImageDraw.Draw(img)
             
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-            margin = 0.22
+            margin = 0.20
             
             scaled_pts = []
             for lat, lon in pts:
@@ -102,40 +98,42 @@ if up_gpx:
                 y = h * (1 - margin) - (lat - mi_la) / (ma_la - mi_la) * h * (1 - 2*margin)
                 scaled_pts.append((x, y))
             
+            # Farbe aus Picker umwandeln
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             
-            # Glow-Effekt für die Route (optional, sieht auf dunklem Grund super aus)
-            if not up_img:
-                for i in range(5, 0, -1):
-                    draw.line(scaled_pts, fill=rgb + (50,), width=w_line + i*4, joint="round")
-
-            draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
+            # Route direkt zeichnen
+            draw.line(scaled_pts, fill=rgb, width=w_line, joint="round")
 
             # Info Box
-            bw, bh = int(w * 0.88), int(h * 0.14)
+            bw, bh = int(w * 0.90), int(h * 0.15)
             bx = (w - bw) // 2
-            by = 120 if b_pos == "Oben" else (h - bh) // 2 if b_pos == "Mitte" else h - bh - 150
+            if b_pos == "Oben": by = 100
+            elif b_pos == "Mitte": by = (h - bh) // 2
+            else: by = h - bh - 150
             
-            # Hellerer Rand für die Box ohne Foto
-            draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha), outline=rgb if not up_img else None, width=5)
+            # Box mit Deckkraft zeichnen
+            overlay = Image.new('RGBA', img.size, (0,0,0,0))
+            draw_ov = ImageDraw.Draw(overlay)
+            draw_ov.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
+            img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
             
-            draw.text((bx+50, by+40), f"Tour: {tour_title}", fill="white")
-            draw.text((bx+50, by+40+70), f"{d_total:.1f} km  |  {int(a_gain)} m", fill=c_line)
+            # Text auf das finale Bild
+            draw_final = ImageDraw.Draw(img)
+            draw_final.text((bx+50, by+40), f"Tour: {tour_title}", fill="white")
+            draw_final.text((bx+50, by+120), f"{d_total:.1f} km  |  {int(a_gain)} m", fill=c_line)
 
-            final = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
-            
             # Anzeige
             if not up_img:
                 st.write("### 📍 Karten-Vorschau")
                 m = folium.Map(tiles="OpenStreetMap")
-                folium.PolyLine(pts, color=c_line, weight=5, opacity=0.8).add_to(m)
+                folium.PolyLine(pts, color=c_line, weight=5).add_to(m)
                 m.fit_bounds([min(pts), max(pts)])
-                folium_static(m, width=700, height=450)
+                folium_static(m, width=700, height=400)
             
-            st.image(final, use_container_width=True, caption="Vorschau für den Download")
+            st.image(img, use_container_width=True, caption="Dein fertiges Share-Bild")
             
             buf = io.BytesIO()
-            final.save(buf, format="JPEG", quality=95)
+            img.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
 
     except Exception as e:
