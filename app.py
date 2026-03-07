@@ -3,7 +3,7 @@ import gpxpy
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-st.title("Jürgens Motorrad-Tour Designer")
+st.title("GPX Share")
 
 # Upload-Bereich
 uploaded_image = st.file_uploader("1. Wähle dein Hintergrundfoto", type=["jpg", "jpeg", "png"])
