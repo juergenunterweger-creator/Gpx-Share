@@ -8,9 +8,10 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
+# HIER IST DIE ÄNDERUNG: Hintergrund Weiß (#ffffff), Text Schwarz (#000000)
 st.markdown("""
     <style>
-    .stApp { background-color: #0b0e14; color: #ffffff; }
+    .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
         font-size: 36px; font-weight: 900;
         background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%);
@@ -38,7 +39,6 @@ with st.sidebar:
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
-    # HIER IST DIE ÄNDERUNG: Standardwert von 0.20 auf 0.15 gesetzt
     b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
     st.divider()
     c_line = st.color_picker("Routenfarbe", "#8B0000")
@@ -99,7 +99,6 @@ if up_img and up_gpx:
             try:
                 font_t = ImageFont.truetype(font_path, auto_f_title)
                 font_d = ImageFont.truetype(font_path, auto_f_data)
-                # Kleine Schriftart extra für das Raster
                 font_grid = ImageFont.truetype(font_path, max(10, int(auto_f_data * 0.35))) 
             except:
                 font_t = font_d = font_grid = ImageFont.load_default()
