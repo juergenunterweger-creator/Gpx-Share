@@ -8,13 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# PWA Meta-Tags für iOS und Android
 st.markdown("""
-    <head>
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="apple-mobile-web-app-title" content="GPX Share">
-    </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
@@ -71,7 +65,7 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 if 'tour_name_val' not in st.session_state:
     st.session_state.tour_name_val = "Meine Tour"
 
-# --- UPLOAD BEREICH ---
+# --- UPLOAD ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
     up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
@@ -96,7 +90,9 @@ with st.expander("⚙️ Optionen", expanded=False):
     with col_opt2:
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
-        b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
+        # NEU: Regler für die Position der Daten unter dem Titel
+        data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 120)
+        b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
         r_alpha = st.slider("Routen-Transparenz", 0, 255, 255)
@@ -104,51 +100,25 @@ with st.expander("⚙️ Optionen", expanded=False):
         c_line = st.color_picker("Routenfarbe", "#8B0000")
         c_fill = st.color_picker("Farbe Profilfüllung", "#8B0000")
 
-# --- REITER: ÜBER GPX SHARE PRO ---
+# --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
-        if os.path.exists("logo.png"):
-            st.image("logo.png", width=100)
+        if os.path.exists("logo.png"): st.image("logo.png", width=100)
     with c_meta:
-        st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger**")
-        st.markdown("**Version: 1.0**")
-    
+        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
     st.markdown("---")
-    
-    # --- APP INSTALLIEREN ---
-    st.markdown("**📲 Als App installieren:**")
-    st.markdown("""
-        <div class="install-box">
-        <strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br>
-        <strong>Android:</strong> Menü (Drei Punkte) -> 'App installieren'
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # --- SOCIAL MEDIA ---
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
-    with col_ig:
-        st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
-    with col_fb:
-        st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
-
+    with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
+    with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
     st.markdown("---")
-    
-    # --- APP TEILEN MIT KORREKTEM LINK ---
     st.markdown("**App teilen:**")
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
-    
     col_qr, col_link = st.columns([1, 2])
     with col_qr:
-        qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={app_url}"
-        st.image(qr_api, width=120, caption="Scan mich!")
-    with col_link:
-        st.info("Link kopieren:")
-        st.code(app_url, language=None)
+        st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={app_url}", width=120)
+    with col_link: st.code(app_url, language=None)
 
 st.divider()
 
@@ -173,11 +143,9 @@ if up_gpx:
 
         if pts:
             lats, lons = zip(*pts)
-            draw_line_manually = False
             if up_img:
                 src_img = Image.open(up_img).convert("RGB")
                 w, h = src_img.size
-                draw_line_manually = True
             else:
                 from staticmap import StaticMap, Line
                 w, h = 1080, 1920 
@@ -196,65 +164,68 @@ if up_gpx:
             rgb_route = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             rgb_fill = tuple(int(c_fill[1:3], 16) if i==0 else int(c_fill[3:5], 16) if i==1 else int(c_fill[5:7], 16) for i in range(3))
             
-            bh_top, bh_bot = int(h * b_height_adj), int(h * (b_height_adj + 0.02))
+            bh_top, bh_bot = int(h * b_height_adj), int(h * 0.12) # Unten jetzt schmaler fixiert
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
+            # --- HÖHENPROFIL ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                if fill_profile:
-                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
+                if fill_profile: draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
                 if show_grid:
                     try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * font_scale)))
                     except: font_grid = ImageFont.load_default()
-                    grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    grid_color = (255, 255, 255, 45)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
-                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
-                    for i in range(1, 8):
-                        gx = i * (w / 8)
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
-                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
+                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
+            # --- TITEL (ZENTRIERT OBEN) ---
+            title_y = int(bh_top * 0.35)
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
-            draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
-            
+            draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
+
+            # --- DATEN (JETZT UNTER DEM TITEL) ---
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
             lw = max(3, int(icon_size * 0.08))
             curr_icon_w = icon_size if show_icons else 0
+            
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, (w * 0.85) - (2 * curr_icon_w) - (int(w * 0.15)), int(w * 0.055 * data_font_scale), font_path)
             w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
             total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
-            sx, y_p = (w - total_w) // 2, h - int(bh_bot * 0.35)
-
+            
+            sx = (w - total_w) // 2
+            data_y = title_y + data_y_offset # Position abhängig vom Offset-Slider
+            
             if show_icons:
+                # Tacho Icon
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
                 d_i.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw)
                 d_i.line([icon_size//2, icon_size//2, icon_size//2 + math.cos(math.radians(240))*icon_size*0.35, icon_size//2 + math.sin(math.radians(240))*icon_size*0.35], fill="white", width=lw)
-                overlay.paste(img_dist, (int(sx), int(y_p - icon_size // 2)), img_dist)
+                overlay.paste(img_dist, (int(sx), int(data_y - icon_size // 2)), img_dist)
+                # Berg Icon
                 img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
-                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(y_p - icon_size // 2)), img_elev)
+                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(data_y - icon_size // 2)), img_elev)
 
-            draw.text((sx + curr_icon_w + i_gap, y_p), txt_dist, fill="white", font=font_d, anchor="lm")
-            draw.text((sx + total_w - w_e, y_p), txt_elev, fill="white", font=font_d, anchor="lm")
+            draw.text((sx + curr_icon_w + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
+            draw.text((sx + total_w - w_e, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
-            if draw_line_manually:
-                mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            if not up_img: # Route nur bei Karten-Modus
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
