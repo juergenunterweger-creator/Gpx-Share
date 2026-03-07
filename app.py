@@ -17,7 +17,7 @@ DEFAULTS = {
     "route_x_offset": 0,
     "route_y_offset": 0,
     "route_scale": 1.0,
-    "route_autoscale": True, # NEU: Standardmäßig auf Auto
+    "route_autoscale": True,
     "img_x_offset": 0,
     "img_y_offset": 0,
     "img_zoom": 1.0,
@@ -38,10 +38,14 @@ DEFAULTS = {
     "fill_profile": True
 }
 
-# Initialisierung des Session States
+# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
+
+# NEU: Bild-Speicher im Session State
+if "persistent_img" not in st.session_state:
+    st.session_state.persistent_img = None
 
 def reset_parameters():
     for key, val in DEFAULTS.items():
@@ -106,8 +110,12 @@ with c_up1:
     if up_gpx is not None:
         raw_name = up_gpx.name.rsplit('.', 1)[0]
         st.session_state.tour_title = raw_name.replace('_', ' ').replace('-', ' ')
+
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+    if up_img is not None:
+        # Bild permanent im State speichern, wenn hochgeladen
+        st.session_state.persistent_img = up_img.read()
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Optionen", expanded=False):
@@ -130,10 +138,9 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.checkbox("Route automatisch skalieren", key="route_autoscale")
         st.slider("Horizontaler Versatz Route", -500, 500, key="route_x_offset")
         st.slider("Vertikaler Versatz Route", -500, 500, key="route_y_offset")
-        # Slider nur aktiv, wenn Auto-Skalierung aus ist
         st.slider("Manuelle Route Skalierung", 0.1, 2.0, key="route_scale", disabled=st.session_state.route_autoscale)
         
-        if up_img:
+        if st.session_state.persistent_img:
             st.write("**Foto Einstellungen:**")
             st.slider("Horizontaler Versatz Foto", -2000, 2000, key="img_x_offset")
             st.slider("Vertikaler Versatz Foto", -2000, 2000, key="img_y_offset")
@@ -157,11 +164,9 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     with c_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=100)
     with c_meta:
-        st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger**")
-        st.markdown("**Version: 1.0**")
+        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal Donation" style="width:120px; margin-top:10px;"></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal" style="width:120px; margin-top:10px;"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
@@ -196,11 +201,14 @@ if up_gpx:
         if pts:
             lats, lons = zip(*pts)
             w, h = 1080, 1920 
-            if up_img:
-                src_img = Image.open(up_img).convert("RGBA")
-                w, h = src_img.size
-                new_w, new_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
+            
+            # Nutze das persistente Bild aus dem State, falls vorhanden
+            if st.session_state.persistent_img:
+                src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
+                w_orig, h_orig = src_img.size
+                new_w, new_h = int(w_orig * st.session_state.img_zoom), int(h_orig * st.session_state.img_zoom)
                 src_img = src_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                w, h = w_orig, h_orig # Basis-Leinwand bleibt Originalgröße
             else:
                 from staticmap import StaticMap, Line
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
@@ -211,7 +219,7 @@ if up_gpx:
             src_img_with_alpha = src_img.copy()
             alpha_band = src_img_with_alpha.split()[3].point(lambda p: int(p * st.session_state.bg_alpha / 255))
             src_img_with_alpha.putalpha(alpha_band)
-            base_img.paste(src_img_with_alpha, (st.session_state.img_x_offset if up_img else 0, st.session_state.img_y_offset if up_img else 0), src_img_with_alpha)
+            base_img.paste(src_img_with_alpha, (st.session_state.img_x_offset if st.session_state.persistent_img else 0, st.session_state.img_y_offset if st.session_state.persistent_img else 0), src_img_with_alpha)
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
@@ -255,9 +263,8 @@ if up_gpx:
 
             if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-                # LOGIK FÜR AUTO ODER MANUELL
                 if st.session_state.route_autoscale:
-                    base_margin = 0.20 # 20% Sicherheitsabstand für Auto-Fit
+                    base_margin = 0.20
                 else:
                     base_margin = 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
                 
