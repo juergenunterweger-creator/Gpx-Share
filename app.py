@@ -19,7 +19,8 @@ DEFAULTS = {
     "bg_opacity": 100,
     "font_scale": 1.5,
     "data_font_scale": 1.2,
-    "data_y_offset": 160,
+    "grid_font_scale": 1.5,
+    "data_y_offset": 180, # Erhöhter Standardwert für mehr Abstand
     "route_scale": 1.0,
     "route_autoscale": True,
     "route_x_offset": 0,
@@ -37,6 +38,7 @@ DEFAULTS = {
     "show_logo_on_img": True,
     "show_profile": True,
     "show_grid": True,
+    "fill_profile": True,
     "selected_track_idx": 0
 }
 
@@ -51,27 +53,16 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
-# --- ROBUSTE FONT-LADEEINHEIT ---
 def load_font(size):
-    """Sucht nach einer Schriftart und verhindert 'cannot open resource'"""
-    paths = [
-        "font.ttf", 
-        "DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "C:/Windows/Fonts/arialbd.ttf"
-    ]
+    paths = ["font.ttf", "DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"]
     for p in paths:
-        try:
-            return ImageFont.truetype(p, int(size))
-        except:
-            continue
+        try: return ImageFont.truetype(p, int(size))
+        except: continue
     return ImageFont.load_default()
 
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
     x0, y0, x1, y1 = coords
-    draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], 
-                   fill=fill, outline=outline, width=width)
+    draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], fill=fill, outline=outline, width=width)
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -83,21 +74,18 @@ def calc_dist(lat1, lon1, lat2, lon2):
 def get_fitted_font(text, max_width, start_size):
     size = int(start_size)
     font = load_font(size)
-    # Wenn default font geladen wurde, hat er kein textlength-Attribut bei alten PIL Versionen
-    # Wir prüfen das hier sicherheitshalber
     try:
-        while ImageDraw.Draw(Image.new('RGB', (1,1))).textlength(text, font=font) > max_width and size > 10:
+        d = ImageDraw.Draw(Image.new('RGB', (1,1)))
+        while d.textlength(text, font=font) > max_width and size > 10:
             size -= 2
             font = load_font(size)
-    except:
-        pass
+    except: pass
     return font
 
-def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="black", offset=3):
-    """Zeichnet Text mit einem Schatten für bessere Lesbarkeit"""
+def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="black", offset=3, anchor="mm"):
     x, y = pos
-    draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor="mm")
-    draw.text((x, y), text, fill=fill, font=font, anchor="mm")
+    draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor=anchor)
+    draw.text((x, y), text, fill=fill, font=font, anchor=anchor)
 
 def draw_smooth_icon(mode, size, color="white"):
     res = 4
@@ -108,26 +96,10 @@ def draw_smooth_icon(mode, size, color="white"):
         d.ellipse([size*res*0.3, size*res*0.3, size*res*0.7, size*res*0.7], fill=color)
         for i in range(0, 360, 45):
             rad = math.radians(i)
-            d.line([size*res*0.5+math.cos(rad)*size*res*0.25, size*res*0.5+math.sin(rad)*size*res*0.25,
-                    size*res*0.5+math.cos(rad)*size*res*0.45, size*res*0.5+math.sin(rad)*size*res*0.45], fill=color, width=lw)
+            d.line([size*res*0.5+math.cos(rad)*size*res*0.25, size*res*0.5+math.sin(rad)*size*res*0.25, size*res*0.5+math.cos(rad)*size*res*0.45, size*res*0.5+math.sin(rad)*size*res*0.45], fill=color, width=lw)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #ffffff; color: #000000; }
-    .title-modern {
-        font-size: 36px; font-weight: 900;
-        background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        text-align: center; margin-bottom: 20px;
-    }
-    .install-box {
-        background-color: #f0f2f6; padding: 15px; border-radius: 10px;
-        border-left: 5px solid #ff0000; margin-top: 10px; margin-bottom: 10px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
+st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -148,9 +120,10 @@ with c_up2:
     if up_img: st.session_state.persistent_img = up_img.read()
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Optionen", expanded=False):
+with st.expander("⚙️ Optionen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
+        st.write("**📝 Texte & Stimmung**")
         new_title = st.text_input("Tour Name", value=st.session_state.tour_title)
         new_date = st.text_input("Datum", value=st.session_state.tour_date)
         if st.button("✅ Übernehmen"):
@@ -158,30 +131,17 @@ with st.expander("⚙️ Optionen", expanded=False):
             st.rerun()
         st.selectbox("Wetter", ["Sonne", "Wolken", "Regen"], key="weather")
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        st.checkbox("Logo auf Bild einblenden", key="show_logo_on_img")
-        
+        st.checkbox("Höhenprofil Raster anzeigen", key="show_grid")
+        st.checkbox("Profil ausfüllen", key="fill_profile")
     with col_opt2:
+        st.write("**📐 Abstände & Skalierung**")
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
-        st.slider("Abstand Name zu Daten", 50, 400, key="data_y_offset")
+        st.slider("Vertikaler Abstand Daten", 50, 450, key="data_y_offset")
+        st.slider("Profilbeschriftung Größe", 0.5, 3.0, key="grid_font_scale")
         st.checkbox("Route Auto-Skalierung", key="route_autoscale")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
     st.button("🔄 Reset", on_click=reset_parameters)
-
-# --- INFO REITER ---
-with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    col_logo, col_text = st.columns([1, 2])
-    with col_logo:
-        if os.path.exists("logo.png"): st.image("logo.png", width=120)
-    with col_text:
-        st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 2.3.3**")
-    st.markdown("---")
-    st.markdown("**📲 App installieren:**")
-    st.markdown('<div class="install-box"><strong>iPhone:</strong> Teilen -> "Zum Home-Bildschirm"<br><strong>Android:</strong> Menü -> "App installieren"</div>', unsafe_allow_html=True)
-    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
-
-st.divider()
 
 # --- VERARBEITUNG ---
 if st.session_state.persistent_gpx:
@@ -205,12 +165,11 @@ if st.session_state.persistent_gpx:
             if current_seg: segments_pts.append(current_seg)
 
         if segments_pts:
-            all_pts = [pt for seg in segments_pts for pt in seg]
-            lats, lons = zip(*all_pts)
+            lats, lons = zip(*[pt for seg in segments_pts for pt in seg])
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # HINTERGRUND
+            # 1. HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             if st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
@@ -224,6 +183,7 @@ if st.session_state.persistent_gpx:
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
+            # 2. OVERLAY & BALKEN
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
@@ -231,32 +191,54 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # TITEL MIT SCHATTEN
+            # --- HÖHENPROFIL + RASTER ---
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = (e_max - e_min) if e_max > e_min else 1
+                grid_y_start = h - bh_bot
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                
+                if st.session_state.show_grid:
+                    f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
+                    for i in range(1, 4): # Horizontal (METER)
+                        gy = grid_y_start + i * (bh_bot / 4)
+                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
+                        val_m = int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)
+                        draw.text((w*0.01, gy-2), f"{val_m}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                    for i in range(1, 8): # Vertikal (KM)
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
+                        draw.text((gx+5, grid_y_start+5), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
+                
+                if st.session_state.fill_profile:
+                    rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
+                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
+                draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
+
+            # 3. TITEL & DATEN (OFFSET GEFIXED)
             t_y = int(bh_top * 0.35)
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
             
-            # DATEN
             txt_data = f"{d_total:.1f} km | {int(a_gain)} m"
             f_data = get_fitted_font(txt_data, w*0.7, int(w*0.05*st.session_state.data_font_scale))
             draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), txt_data, f_data)
 
-            # LOGO & DATUM
-            if st.session_state.show_logo_on_img and os.path.exists("logo.png"):
-                logo_img = Image.open("logo.png").convert("RGBA")
-                logo_img.thumbnail((150, 150), Image.Resampling.LANCZOS)
-                overlay.paste(logo_img, (w - 170, 20), logo_img)
-
+            # DATUM BADGE & LOGO
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
                 bx2, by2 = w - 25, h - bh_bot - 20
                 safe_rect(draw, [bx2 - tw - 100, by2 - 70, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
                 draw.text((bx2 - 20, by2 - 35), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
-                w_icon = draw_smooth_icon(st.session_state.weather, 45)
-                overlay.paste(w_icon, (int(bx2 - tw - 90), int(by2 - 58)), w_icon)
+                overlay.paste(draw_smooth_icon(st.session_state.weather, 45), (int(bx2 - tw - 90), int(by2 - 58)), draw_smooth_icon(st.session_state.weather, 45))
 
-            # ROUTE
+            if st.session_state.show_logo_on_img and os.path.exists("logo.png"):
+                logo = Image.open("logo.png").convert("RGBA")
+                logo.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                overlay.paste(logo, (w - 170, 20), logo)
+
+            # 4. ROUTE (SEGMENT-STABIL)
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -267,6 +249,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fix.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_custom_v234.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
