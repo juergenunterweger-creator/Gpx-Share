@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops
 import io
 import math
 import os
+import time
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
@@ -35,10 +36,10 @@ DEFAULTS = {
     "show_grid": True,
     "show_icons": True,
     "show_units": True,
-    "fill_profile": True
+    "fill_profile": True,
+    "selected_track_idx": 0 
 }
 
-# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -53,7 +54,6 @@ def reset_parameters():
         st.session_state[key] = val
     st.rerun()
 
-# Styling
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -67,10 +67,6 @@ st.markdown("""
         width: 100%; border-radius: 20px;
         background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
         color: white !important; font-weight: bold; border: none; height: 3em;
-    }
-    .install-box {
-        background-color: #f0f2f6; padding: 15px; border-radius: 10px;
-        border-left: 5px solid #ff0000; margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -115,9 +111,12 @@ c_up1, c_up2 = st.columns(2)
 with c_up1:
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
     if up_gpx:
-        st.session_state.persistent_gpx = up_gpx.read()
-        if st.session_state.tour_title == "Meine Tour":
+        new_gpx_data = up_gpx.read()
+        if st.session_state.persistent_gpx != new_gpx_data:
+            st.session_state.selected_track_idx = 0
+            st.session_state.persistent_gpx = new_gpx_data
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+            st.rerun()
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen", type=["jpg", "jpeg", "png"])
@@ -127,13 +126,22 @@ with c_up2:
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        # Bestätigungs-Logik für den Titel
         new_title = st.text_input("Tour Name eingeben", value=st.session_state.tour_title)
         if st.button("✅ Name übernehmen"):
             st.session_state.tour_title = new_title
             st.rerun()
             
         st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
+        
+        if st.session_state.persistent_gpx:
+            try:
+                temp_gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
+                if len(temp_gpx.tracks) > 1:
+                    track_names = [f"{t.name if t.name else 'Spur ' + str(i+1)}" for i, t in enumerate(temp_gpx.tracks)]
+                    st.selectbox("📍 Gewünschte Spur wählen", range(len(track_names)), 
+                                 format_func=lambda x: track_names[x], key="selected_track_idx")
+            except: pass
+        
         st.checkbox("Zeige eigenes Logo", key="show_logo")
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
         st.checkbox("Raster im Höhenprofil", key="show_grid")
@@ -164,24 +172,14 @@ with st.expander("⚙️ Optionen", expanded=False):
 
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    c_logo, c_meta = st.columns([1, 3])
-    with c_logo:
-        if os.path.exists("logo.png"): st.image("logo.png", width=100)
-    with c_meta:
-        st.markdown("### GPX Share Pro XXL")
-        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2**")
-        paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
+    st.markdown("### GPX Share Pro XXL")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.7**")
+    paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
+    st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
-    st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
-    
-    st.markdown("---")
-    st.markdown("**📲 Als App installieren:**")
-    st.markdown('<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> "Zum Home-Bildschirm"</div>', unsafe_allow_html=True)
     st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
 
 st.divider()
@@ -190,14 +188,18 @@ st.divider()
 if st.session_state.persistent_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-        pts, elevs = [], []
+        segments_pts = [] 
+        elevs = []
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
         
-        for tr in gpx.tracks:
-            for seg in tr.segments:
+        if len(gpx.tracks) > 0:
+            idx = min(st.session_state.selected_track_idx, len(gpx.tracks)-1)
+            target_track = gpx.tracks[idx]
+            for seg in target_track.segments:
+                current_seg = []
                 for p in seg.points:
-                    pts.append([p.latitude, p.longitude])
+                    current_seg.append([p.latitude, p.longitude])
                     elevs.append(p.elevation if p.elevation is not None else 0)
                     if last:
                         d_total += calc_dist(last[0], last[1], p.latitude, p.longitude)
@@ -205,9 +207,12 @@ if st.session_state.persistent_gpx:
                             diff = p.elevation - last_elev
                             if diff > 0: a_gain += diff
                     last, last_elev = [p.latitude, p.longitude], p.elevation
+                if current_seg:
+                    segments_pts.append(current_seg)
 
-        if pts:
-            lats, lons = zip(*pts)
+        if segments_pts:
+            all_pts = [pt for seg in segments_pts for pt in seg]
+            lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
             if st.session_state.persistent_img:
@@ -234,21 +239,58 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- TITEL & DATEN ---
-            font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
-            draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
-            
-            # --- ROUTE ---
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = (e_max - e_min) if e_max > e_min else 1
+                grid_y_start = h - bh_bot
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
+                if st.session_state.fill_profile:
+                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
+                if st.session_state.show_grid:
+                    font_grid = get_fitted_font(draw, "0m", int(w*0.02), int(w*0.02), font_path)
+                    for i in range(1, 4):
+                        gy = grid_y_start + i * (bh_bot / 4)
+                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
+                        draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
+                    for i in range(1, 8):
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
+                draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
+
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
-            scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
-                       (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
-            draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
+            
+            for seg in segments_pts:
+                scaled_seg = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
+                               (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in seg]
+                if len(scaled_seg) > 1:
+                    draw.line(scaled_seg, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
+
+            font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
+            draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
+            txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
+            icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
+            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
+            w_d, w_e, i_gap = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d), int(w * 0.02)
+            total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + int(w * 0.15)
+            sx, data_y = (w - total_w) // 2, int(bh_top * 0.35) + st.session_state.data_y_offset
+            if st.session_state.show_icons:
+                ic_dist = draw_smooth_icon("dist", icon_size)
+                overlay.paste(ic_dist, (int(sx), int(data_y - icon_size//2)), ic_dist)
+                draw.text((sx + icon_size + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
+                ex = sx + icon_size + i_gap + w_d + int(w * 0.15)
+                ic_elev = draw_smooth_icon("elev", icon_size)
+                overlay.paste(ic_elev, (int(ex), int(data_y - icon_size//2)), ic_elev)
+                draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
+            
+            # --- VORSCHAU ---
             st.image(final, use_container_width=True)
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_1-2_restored.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
