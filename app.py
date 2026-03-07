@@ -4,7 +4,6 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import math
 import os
-import requests
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro", page_icon="🏍️", layout="centered")
@@ -13,24 +12,18 @@ st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #ffffff; }
     .title-modern {
-        font-size: 42px; font-weight: 900;
+        font-size: 40px; font-weight: 900;
         background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         text-align: center; margin-bottom: 20px;
     }
     .stDownloadButton button {
-        width: 100%; border-radius: 25px; height: 4.5em;
+        width: 100%; border-radius: 25px; height: 4em;
         background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
-        color: white !important; font-weight: bold; border: none; font-size: 18px;
+        color: white !important; font-weight: bold; border: none;
     }
-    div.stFileUploader { background-color: #161b22; border-radius: 15px; border: 1px solid #30363d; }
     </style>
     """, unsafe_allow_html=True)
-
-# Hilfsfunktion zum Laden der Schriftart von GitHub
-def get_font(url, size):
-    response = requests.get(url)
-    return ImageFont.truetype(io.BytesIO(response.content), size)
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -42,11 +35,11 @@ def calc_dist(lat1, lon1, lat2, lon2):
 # --- HAUPTBEREICH ---
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
-with col1:
-    up_img = st.file_uploader("📸 1. Foto (Portrait)", type=["jpg", "jpeg", "png"], key="v15_img")
-with col2:
-    up_gpx = st.file_uploader("📍 2. GPX Datei", type=["gpx", "xml", "txt"], key="v15_gpx")
+c1, c2 = st.columns(2)
+with c1:
+    up_img = st.file_uploader("📸 1. Foto", type=["jpg", "jpeg", "png"], key="v16_img")
+with c2:
+    up_gpx = st.file_uploader("📍 2. GPX Datei", type=["gpx", "xml", "txt"], key="v16_gpx")
 
 # Tour-Name Vorschlag
 default_name = "Meine Tour"
@@ -55,11 +48,11 @@ if up_gpx:
 
 with st.sidebar:
     st.markdown("<h1 style='color: #00f2fe;'>⚙️ Menü</h1>", unsafe_allow_html=True)
-    tour_title = st.text_input("Tour Bezeichnung", value=default_name, key="v15_title")
+    tour_title = st.text_input("Tour Name", value=default_name, key="v16_title")
     st.divider()
-    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v15_c")
-    w_line = st.slider("Linienstärke", 5, 80, 25, key="v15_w")
-    b_alpha = st.slider("Deckkraft Balken", 0, 255, 170, key="v15_alpha")
+    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v16_c")
+    w_line = st.slider("Linienstärke", 5, 80, 25, key="v16_w")
+    b_alpha = st.slider("Balken Deckkraft", 0, 255, 180, key="v16_alpha")
 
 if up_img and up_gpx:
     try:
@@ -67,7 +60,8 @@ if up_img and up_gpx:
         base_img = Image.open(up_img).convert("RGB")
         w, h = base_img.size
         
-        # 2. GPX verarbeiten
+        # 2. GPX verarbeiten (mit 'seek(0)' um den Fehler zu vermeiden)
+        up_gpx.seek(0) 
         gpx_raw = up_gpx.read().decode("utf-8", errors="ignore")
         gpx = gpxpy.parse(gpx_raw)
         
@@ -88,11 +82,12 @@ if up_img and up_gpx:
                     last_elev = p.elevation
 
         if pts:
-            # --- SCHRIFTART LADEN (WICHTIG!) ---
-            # Ersetze DEIN_USERNAME und DEIN_REPO durch deine Daten!
-            FONT_URL = "https://raw.githubusercontent.com/DEIN_USERNAME/DEIN_REPO/main/Roboto-Bold.ttf"
-            font_title = get_font(FONT_URL, max(50, int(w / 15)))
-            font_data = get_font(FONT_URL, max(45, int(w / 18)))
+            # Schriftart laden (System-Standard für Streamlit Cloud)
+            try:
+                f_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", max(45, int(w/18)))
+                f_data = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", max(35, int(w/22)))
+            except:
+                f_title = f_data = ImageFont.load_default()
 
             # 3. Zeichnen
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
@@ -113,37 +108,31 @@ if up_img and up_gpx:
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
             # --- GETEILTE INFO BALKEN ---
-            
-            # Balken Oben (für Tour Name)
-            bh_top = int(h * 0.12)
+            # Balken oben
+            bh_top = int(h * 0.10)
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
-            
-            # Balken Unten (für Daten)
-            bh_bot = int(h * 0.14)
+            # Balken unten
+            bh_bot = int(h * 0.12)
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
             
-            # --- TEXTE SCHREIBEN (MIT PRO-FONT) ---
+            # Texte zentrieren
+            t_title = f"Tour: {tour_title}"
+            t_data = f"Distanz: {d_total:.1f} km  |  Höhe: {int(a_gain)} m"
             
-            # Text Oben (Zentriert)
-            title_text = f"Tour: {tour_title}"
-            title_w, title_h = draw.textsize(title_text, font=font_title)
-            draw.text(((w - title_w) // 2, (bh_top - title_h) // 2), title_text, fill="white", font=font_title)
-            
-            # Text Unten (Zentriert)
-            data_text = f"Distanz: {d_total:.1f} km  |  Höhe: {int(a_gain)} m"
-            data_w, data_h = draw.textsize(data_text, font=font_data)
-            draw.text(((w - data_w) // 2, h - bh_bot + (bh_bot - data_h) // 2), data_text, fill=c_line, font=font_data)
+            # Text Oben
+            draw.text((w//2, bh_top//2), t_title, fill="white", font=f_title, anchor="mm")
+            # Text Unten
+            draw.text((w//2, h - bh_bot//2), t_data, fill=c_line, font=f_data, anchor="mm")
 
-            # Zusammenführen & Anzeigen
+            # Zusammenführen
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
-            st.image(final, use_container_width=True, caption="Dein fertiges Pro-Bild")
+            st.image(final, use_container_width=True)
             
-            # Download
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD IN FOTOS SPEICHERN", buf.getvalue(), "gpx_share_pro.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
 else:
-    st.info("Bitte Foto und GPX-Datei hochladen für den Pro-Look!")
+    st.info("Lade Foto und GPX-Datei hoch!")
