@@ -96,7 +96,6 @@ with st.expander("⚙️ Optionen", expanded=False):
     with col_opt2:
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
-        # Standardwert auf 160 geändert
         data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 160)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -205,7 +204,8 @@ if up_gpx:
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             title_y = int(bh_top * 0.35)
-            font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
+            # BASISGRÖSSE REDUZIERT AUF 0.085 (statt 0.10)
+            font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.085 * font_scale), font_path)
             draw.text((w//2, title_y), tour_title, fill="white", font=font_t, anchor="mm")
 
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
@@ -232,7 +232,7 @@ if up_gpx:
                 d_e = ImageDraw.Draw(img_elev)
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
-                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(data_y - icon_size // 2)), img_elev)
+                overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(y_p := data_y - icon_size // 2)), img_elev)
 
             draw.text((sx + curr_icon_w + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
@@ -247,4 +247,4 @@ if up_gpx:
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
-    except Exception as e: st.error(f"Fehler: {e}")#
+    except Exception as e: st.error(f"Fehler: {e}")
