@@ -226,12 +226,41 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
+            # --- LOGO ---
             if st.session_state.show_logo and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 l_w = int(w * 0.12)
                 logo_img = logo_img.resize((l_w, int(logo_img.height * (l_w/logo_img.width))), Image.Resampling.LANCZOS)
                 overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
 
+            # --- HÖHENPROFIL (WIEDER DA!) ---
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = e_max - e_min if e_max > e_min else 1
+                grid_y_start = h - bh_bot
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                
+                rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
+                if st.session_state.fill_profile:
+                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
+                
+                if st.session_state.show_grid:
+                    try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * st.session_state.font_scale)))
+                    except: font_grid = ImageFont.load_default()
+                    grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    for i in range(1, 4):
+                        gy = grid_y_start + i * (bh_bot / 4)
+                        draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
+                        ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
+                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
+                    for i in range(1, 8):
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
+                
+                draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
+
+            # --- ROUTE ---
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
@@ -239,10 +268,12 @@ if up_gpx:
                        (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
             draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
+            # --- TITEL ---
             title_y = int(bh_top * 0.35)
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, title_y), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
 
+            # --- DATEN ---
             txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
             icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
