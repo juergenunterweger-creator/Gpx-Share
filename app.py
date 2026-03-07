@@ -8,7 +8,14 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
+# PWA Meta-Tags für iOS und Android (lässt die Website wie eine App wirken)
 st.markdown("""
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="GPX Share">
+        <link rel="apple-touch-icon" href="https://your-link-to-logo.png">
+    </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
@@ -24,6 +31,13 @@ st.markdown("""
     }
     div[data-testid="stExpander"] details summary p {
         font-size: 1.2rem !important; font-weight: bold !important; color: #8b0000 !important;
+    }
+    .install-box {
+        background-color: #f0f2f6;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #ff0000;
+        margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -103,33 +117,40 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     
     st.markdown("---")
     
+    # --- APP INSTALLIEREN (PWA ASSISTENT) ---
+    st.markdown("**📲 Als App installieren:**")
+    st.markdown("""
+        <div class="install-box">
+        <strong>iPhone / iPad:</strong><br>
+        1. Tippe unten auf das <strong>Teilen-Icon</strong> (Quadrat mit Pfeil nach oben).<br>
+        2. Scrolle nach unten und wähle <strong>'Zum Home-Bildschirm'</strong>.<br><br>
+        <strong>Android:</strong><br>
+        Tippe auf die drei Punkte oben rechts und wähle <strong>'App installieren'</strong> oder <strong>'Zum Startbildschirm hinzufügen'</strong>.
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
     # --- SOCIAL MEDIA ---
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
-    
     with col_ig:
-        ig_url = "https://www.instagram.com/juergen_rocks/"
-        st.markdown(f"📸 [Instagram: juergen_rocks]({ig_url})")
-
+        st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
     with col_fb:
-        fb_url = "https://www.facebook.com/JuergenRocks/"
-        st.markdown(f"👥 [Facebook: JuergenRocks]({fb_url})")
+        st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
 
     st.markdown("---")
     
-    # --- APP TEILEN SEKTION ---
+    # --- APP TEILEN ---
     st.markdown("**App teilen:**")
     app_url = "https://gpx-share-pro.streamlit.app"
-    
     col_qr, col_link = st.columns([1, 2])
     with col_qr:
         qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={app_url}"
         st.image(qr_api, width=120, caption="Scan mich!")
-    
     with col_link:
-        st.info("Teile diesen Link mit anderen Bikern:")
+        st.info("Link kopieren:")
         st.code(app_url, language=None)
-        st.markdown("Einfach markieren und kopieren.")
 
 st.divider()
 
@@ -174,7 +195,6 @@ if up_gpx:
 
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
-            
             rgb_route = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             rgb_fill = tuple(int(c_fill[1:3], 16) if i==0 else int(c_fill[3:5], 16) if i==1 else int(c_fill[5:7], 16) for i in range(3))
             
@@ -189,10 +209,8 @@ if up_gpx:
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                
                 if fill_profile:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
-                
                 if show_grid:
                     try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * font_scale)))
                     except: font_grid = ImageFont.load_default()
@@ -206,12 +224,10 @@ if up_gpx:
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
-
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             font_t = get_fitted_font(draw, tour_title, w * 0.9, int(w * 0.10 * font_scale), font_path)
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
-
             txt_dist = f"{d_total:.1f}" + (" km" if show_units else "")
             txt_elev = f"{int(a_gain)}" + (" m" if show_units else "")
             icon_size = int(w * 0.055 * 1.3 * data_font_scale) 
@@ -222,7 +238,6 @@ if up_gpx:
             spacing, i_gap = int(w * 0.15), int(w * 0.02) if show_icons else 0
             total_w = (curr_icon_w + i_gap + w_d) + spacing + (curr_icon_w + i_gap + w_e)
             sx, y_p = (w - total_w) // 2, h - int(bh_bot * 0.35)
-
             if show_icons:
                 img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
                 d_i = ImageDraw.Draw(img_dist)
@@ -234,16 +249,13 @@ if up_gpx:
                 d_e.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
                 d_e.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
                 overlay.paste(img_elev, (int(sx + curr_icon_w + i_gap + w_d + spacing), int(y_p - icon_size // 2)), img_elev)
-
             draw.text((sx + curr_icon_w + i_gap, y_p), txt_dist, fill="white", font=font_d, anchor="lm")
             draw.text((sx + total_w - w_e, y_p), txt_elev, fill="white", font=font_d, anchor="lm")
-
             if draw_line_manually:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
                 margin = 0.20
                 scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
-
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
