@@ -41,7 +41,7 @@ def calc_dist(lat1, lon1, lat2, lon2):
 # --- HAUPTBEREICH ---
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- NEU: OPTIONEN-BUTTON (Statt Sidebar) ---
+# --- OPTIONEN-BUTTON ---
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     
@@ -57,7 +57,8 @@ with st.expander("⚙️ Optionen", expanded=False):
         font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
-        b_alpha = st.slider("Balken Deckkraft", 0, 255, 210)
+        # HIER DIE ÄNDERUNG: Standardwert auf 160 gesetzt
+        b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
         c_line = st.color_picker("Routenfarbe", "#8B0000")
 
 st.divider()
