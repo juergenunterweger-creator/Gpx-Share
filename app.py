@@ -20,7 +20,6 @@ with st.sidebar:
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Auto-Design</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
-    # Faktor statt fester Pixel: 1.0 ist der Standard-Vorschlag
     font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.0)
     b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.18)
     st.divider()
@@ -37,8 +36,7 @@ if up_img and up_gpx:
         base_img = Image.open(up_img).convert("RGB")
         w, h = base_img.size
         
-        # AUTOMATISCHE GRÖSSEN-BERECHNUNG
-        # Wir nehmen 8% der Bildbreite für den Titel als Basis
+        # AUTO-GRÖSSE BERECHNEN
         auto_f_title = int(w * 0.08 * font_scale)
         auto_f_data = int(w * 0.05 * font_scale)
 
@@ -48,6 +46,7 @@ if up_img and up_gpx:
         pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last = None
+        last_elev = None
         
         for tr in gpx.tracks:
             for seg in tr.segments:
@@ -71,10 +70,20 @@ if up_img and up_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
+            # --- HÖHENPROFIL (Wieder da!) ---
+            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            if len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = e_max - e_min if e_max > e_min else 1
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                # Fläche füllen
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (60,))
+                # Linie zeichnen
+                draw.line(profile_pts, fill=rgb + (180,), width=max(2, int(w/500)))
+
             # --- SCHRIFT LADEN ---
             font_t = None
             possible_fonts = ["font.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
-            
             for fpath in possible_fonts:
                 if os.path.exists(fpath):
                     font_t = ImageFont.truetype(fpath, auto_f_title)
@@ -95,7 +104,6 @@ if up_img and up_gpx:
             margin = 0.20
             scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
                            h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
-            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
@@ -103,7 +111,7 @@ if up_img and up_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_auto.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_final.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
