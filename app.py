@@ -93,33 +93,46 @@ if up_img and up_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # --- HÖHENPROFIL MIT RASTER UND KONTUR ---
-            if len(elevs) > 1:
-                e_min, e_max = min(elevs), max(elevs)
-                e_range = e_max - e_min if e_max > e_min else 1
-                
-                # Raster
-                grid_color = (255, 255, 255, 40) 
-                grid_y_start = h - bh_bot
-                for i in range(1, 4):
-                    gy = grid_y_start + i * (bh_bot / 4)
-                    draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
-                for i in range(1, 8):
-                    gx = i * (w / 8)
-                    draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
-
-                # Fläche & Kontur
-                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (160,))
-                draw.line(profile_pts, fill="white", width=max(3, int(w*0.003)), joint="round")
-
-            # Schrift laden
+            # --- SCHRIFTARTEN LADEN ---
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             try:
                 font_t = ImageFont.truetype(font_path, auto_f_title)
                 font_d = ImageFont.truetype(font_path, auto_f_data)
+                # Kleine Schriftart extra für das Raster
+                font_grid = ImageFont.truetype(font_path, max(10, int(auto_f_data * 0.35))) 
             except:
-                font_t = font_d = ImageFont.load_default()
+                font_t = font_d = font_grid = ImageFont.load_default()
+
+            # --- HÖHENPROFIL MIT BESCHRIFTETEM RASTER ---
+            if len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = e_max - e_min if e_max > e_min else 1
+                
+                # Raster Einstellungen
+                grid_color = (255, 255, 255, 40) 
+                grid_text_color = (255, 255, 255, 140) # Leicht transparent, damit es dezent bleibt
+                grid_y_start = h - bh_bot
+                
+                # Horizontale Linien & Höhenmeter-Texte
+                for i in range(1, 4):
+                    gy = grid_y_start + i * (bh_bot / 4)
+                    draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
+                    # Wert berechnen (Rückrechnung aus der Y-Position)
+                    ev_val = e_min + ((h - bh_bot + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
+                    draw.text((w * 0.005, gy - 2), f"{int(ev_val)} m", fill=grid_text_color, font=font_grid, anchor="ld")
+
+                # Vertikale Linien & Kilometer-Texte
+                for i in range(1, 8):
+                    gx = i * (w / 8)
+                    draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
+                    # Wert berechnen (Gleichmäßig verteilt über Distanz)
+                    dist_val = (i / 8.0) * d_total
+                    draw.text((gx + 4, grid_y_start + 4), f"{dist_val:.1f} km", fill=grid_text_color, font=font_grid, anchor="lt")
+
+                # Fläche & Kontur des Profils
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (160,))
+                draw.line(profile_pts, fill="white", width=max(3, int(w*0.003)), joint="round")
 
             # --- ICONS ---
             icon_size = int(auto_f_data * 1.5)
