@@ -3,3 +3,4 @@ gpxpy
 Pillow
 folium
 streamlit-folium
+staticmap
