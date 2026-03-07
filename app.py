@@ -1,12 +1,12 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io
 import math
 import os
 
 # --- APP KONFIGURATION ---
-st.set_page_config(page_title="GPX Share Sport", page_icon="🏍️", layout="centered")
+st.set_page_config(page_title="GPX Share Pro", page_icon="🏍️", layout="centered")
 
 st.markdown("""
     <style>
@@ -33,13 +33,13 @@ def calc_dist(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(math.sqrt(a))
 
 # --- HAUPTBEREICH ---
-st.markdown("<p class='title-modern'>GPX Share Sport</p>", unsafe_allow_html=True)
+st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-c1, c2 = st.columns(2)
-with c1:
-    up_img = st.file_uploader("📸 Foto wählen", type=["jpg", "jpeg", "png"], key="vs_img")
-with c2:
-    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="vs_gpx")
+col1, col2 = st.columns(2)
+with col1:
+    up_img = st.file_uploader("📸 Foto wählen", type=["jpg", "jpeg", "png"], key="vP_img")
+with col2:
+    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="vP_gpx")
 
 # Tour-Name
 default_name = "Meine Tour"
@@ -50,9 +50,9 @@ with st.sidebar:
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Design</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value=default_name)
     st.divider()
-    c_line = st.color_picker("Routenfarbe", "#8B0000") 
-    w_line = st.slider("Linienstärke", 5, 50, 12)
-    b_alpha = st.slider("Box Deckkraft", 0, 255, 180)
+    c_line = st.color_picker("Routenfarbe", "#8B0000") # Standard Blutrot
+    w_line = st.slider("Linienstärke", 5, 50, 15)
+    b_alpha = st.slider("Box Deckkraft", 0, 255, 170)
 
 if up_img and up_gpx:
     try:
@@ -80,14 +80,16 @@ if up_img and up_gpx:
                     last_elev = p.elevation
 
         if pts:
+            # Schriftarten
             try:
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-                fs = max(45, int(w / 18))
+                fs = max(40, int(w / 18))
                 f_title = ImageFont.truetype(f_path, fs)
                 f_data = ImageFont.truetype(f_path, int(fs * 0.75))
             except:
                 f_title = f_data = ImageFont.load_default()
 
+            # 1. Route zeichnen (mit Glow)
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             
@@ -103,30 +105,41 @@ if up_img and up_gpx:
             
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             
-            # Route mit Glow-Effekt
-            for i in range(4, 0, -1):
-                draw.line(scaled_pts, fill=rgb + (40,), width=w_line + i*6, joint="round")
+            # Glow-Effekt: Mehrere Linien übereinander mit abnehmender Deckkraft
+            for i in range(5, 0, -1):
+                draw.line(scaled_pts, fill=rgb + (30,), width=w_line + i*5, joint="round")
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
-            # Sport-Box Design (Unten Links)
-            bw, bh = int(w * 0.48), int(h * 0.18)
-            bx, by = 60, h - bh - 80 
+            # 2. Geteilte Info Balken
+            bh_top = int(h * 0.10) # 10% Höhe
+            bh_bot = int(h * 0.12) # 12% Höhe
             
-            draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
-            draw.rectangle([bx, by, bx+20, by+bh], fill=rgb + (255,)) # Roter Streifen
+            # Balken Oben (für Tour Name)
+            draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             
-            draw.text((bx+50, by+40), tour_title, fill="white", font=f_title)
-            draw.text((bx+50, by+40+fs+15), f"📍 {d_total:.1f} km", fill=c_line, font=f_data)
-            draw.text((bx+50, by+40+fs+15 + int(fs*0.9)), f"⛰️ {int(a_gain)} m", fill=c_line, font=f_data)
+            # Balken Unten (für Daten)
+            draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
+            
+            # Texte schreiben (Zentriert)
+            # Oben: Tour Name
+            text_title = tour_title
+            text_w, text_h = draw.textsize(text_title, font=f_title)
+            draw.text(((w - text_w) // 2, (bh_top - text_h) // 2), text_title, fill="white", font=f_title)
+            
+            # Unten: Daten (Zentriert mit Emojis)
+            text_stats = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
+            text_w, text_h = draw.textsize(text_stats, font=f_data)
+            draw.text(((w - text_w) // 2, h - bh_bot + (bh_bot - text_h) // 2), text_stats, fill=c_line, font=f_data)
 
+            # Zusammenführen & Anzeigen
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
-            st.image(final, use_container_width=True)
+            st.image(final, use_container_width=True, caption="Dein fertiges Pro-Bild")
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD JETZT SPEICHERN", buf.getvalue(), "gpx_sport.jpg", "image/jpeg")
+            st.download_button("🚀 PRO-BILD SPEICHERN", buf.getvalue(), "gpx_share_pro.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
 else:
-    st.info("Lade ein Foto und eine GPX-Datei hoch!")
+    st.info("Lade ein Foto und eine GPX-Datei hoch für den Pro-Look!")
