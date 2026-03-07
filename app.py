@@ -23,9 +23,7 @@ st.markdown("""
         color: white !important; font-weight: bold; border: none; height: 3em;
     }
     div[data-testid="stExpander"] details summary p {
-        font-size: 1.2rem !important;
-        font-weight: bold !important;
-        color: #8b0000 !important;
+        font-size: 1.2rem !important; font-weight: bold !important; color: #8b0000 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -37,26 +35,36 @@ def calc_dist(lat1, lon1, lat2, lon2):
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-# --- SEITENLEISTE ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- OPTIONEN ---
+if 'tour_name_val' not in st.session_state:
+    st.session_state.tour_name_val = "Meine Tour"
+
+c1, c2 = st.columns(2)
+with c1:
+    up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
+    if up_gpx is not None:
+        raw_name = up_gpx.name.rsplit('.', 1)[0]
+        st.session_state.tour_name_val = raw_name.replace('_', ' ').replace('-', ' ')
+with c2:
+    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+
 with st.expander("⚙️ Optionen", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        tour_title = st.text_input("Tour Name", value="Meine Tour")
+        tour_title = st.text_input("Tour Name", value=st.session_state.tour_name_val)
         map_style = st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"])
         show_logo = st.checkbox("Zeige eigenes Logo", value=False)
         show_grid = st.checkbox("Raster im Höhenprofil", value=True)
         show_icons = st.checkbox("Icons in Infobox", value=True)
         logo_radius = st.slider("Logo-Ecken Radius", 0, 100, 20)
     with col_opt2:
-        # HIER DIE ÄNDERUNG: Standard auf 1.5 gesetzt
-        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.5)
+        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -65,12 +73,6 @@ with st.expander("⚙️ Optionen", expanded=False):
         c_line = st.color_picker("Routenfarbe", "#8B0000")
 
 st.divider()
-
-c1, c2 = st.columns(2)
-with c1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
-with c2:
-    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
 
 if up_gpx:
     try:
@@ -102,7 +104,7 @@ if up_gpx:
                 from staticmap import StaticMap, Line, CircleMarker
                 w, h = 1080, 1920 
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                m.add_line(Line(list(zip(lons, lats)), c_line, w_line))
+                # (Einfachheitshalber OSM Standard geladen)
                 src_img = m.render().convert("RGB")
 
             base_img = Image.new('RGB', (w, h), "white")
@@ -111,9 +113,10 @@ if up_gpx:
             src_img_rgba.putalpha(alpha_band)
             base_img.paste(src_img_rgba, (0, 0), src_img_rgba)
 
+            auto_f_title, auto_f_data = int(w * 0.08 * font_scale), int(w * 0.06 * font_scale)
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
-            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            rgb = tuple(int(c_line[i*2+1:i*2+3], 16) for i in range(3))
 
             bh_top, bh_bot = int(h * b_height_adj), int(h * (b_height_adj + 0.02))
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
@@ -121,10 +124,9 @@ if up_gpx:
 
             font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             try:
-                # GRÖSSERE SCHRIFT-BASISWERTE
-                font_t = ImageFont.truetype(font_path, int(w * 0.10 * font_scale)) # 0.10 statt 0.08
-                font_d = ImageFont.truetype(font_path, int(w * 0.07 * font_scale)) # 0.07 statt 0.06
-                font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale))) 
+                font_t = ImageFont.truetype(font_path, auto_f_title)
+                font_d = ImageFont.truetype(font_path, auto_f_data)
+                font_grid = ImageFont.truetype(font_path, max(12, int(auto_f_title * 0.22))) 
             except: font_t = font_d = font_grid = ImageFont.load_default()
 
             if len(elevs) > 1:
@@ -134,13 +136,9 @@ if up_gpx:
                 if show_grid:
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
-                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
-                        ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
-                        draw.text((w * 0.01, gy - 2), f"{int(ev_val)}m", fill=(255,255,255,160), font=font_grid, anchor="ld")
+                        draw.line([(0, gy), (w, gy)], fill=(255, 255, 255, 45))
                     for i in range(1, 8):
-                        gx = i * (w / 8)
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
-                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=font_grid, anchor="lt")
+                        draw.line([(i*(w/8), grid_y_start), (i*(w/8), h)], fill=(255, 255, 255, 45))
 
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (int(r_alpha * 0.5),))
@@ -148,37 +146,34 @@ if up_gpx:
 
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # Icons
-            icon_size = int(w * 0.07 * 1.3 * font_scale) # Icons vergrößert passend zur Schrift
-            lw = max(3, int(icon_size * 0.08))
-            
-            # Distanz Icon (Lineal)
+            # --- NEUES TACHO ICON FÜR KM ---
+            icon_size = int(auto_f_data * 1.3)
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_dist = ImageDraw.Draw(img_dist)
-            ry = icon_size * 0.85
-            d_dist.line([(0, ry), (icon_size, ry)], fill="white", width=lw)
-            for i in range(5):
-                x = i * (icon_size / 4)
-                d_dist.line([(x, ry), (x, ry - icon_size*0.15)], fill="white", width=lw)
+            lw = max(2, int(icon_size * 0.07))
+            d_dist.arc([lw, lw, icon_size-lw, icon_size-lw], start=150, end=390, fill="white", width=lw) # Skala
+            d_dist.line([icon_size//2, icon_size//2, icon_size*0.8, icon_size*0.3], fill="white", width=lw) # Zeiger
+            d_dist.ellipse([icon_size//2-lw, icon_size//2-lw, icon_size//2+lw, icon_size//2+lw], fill="white") # Nabe
             
-            # Höhenmeter Icon (Berg)
+            # Berg Icon für HM
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
             d_elev.polygon([(0, icon_size*0.9), (icon_size*0.4, icon_size*0.2), (icon_size*0.8, icon_size*0.9)], fill="white")
             d_elev.line([(icon_size*0.9, icon_size*0.8), (icon_size*0.9, icon_size*0.1)], fill="white", width=lw)
+            d_elev.polygon([(icon_size*0.9, 0), (icon_size*0.8, icon_size*0.2), (icon_size, icon_size*0.2)], fill="white")
 
             txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
-            w_dist, w_elev = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
-            spacing, i_gap = int(w*0.15), int(w*0.02) if show_icons else 0 # Spacing erhöht
-            curr_i_w = icon_size if show_icons else 0
-            total_w = (curr_i_w + i_gap + w_dist) + spacing + (curr_i_w + i_gap + w_elev)
+            w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
+            spacing, i_gap = int(w*0.12), int(w*0.02) if show_icons else 0
+            cur_i_w = icon_size if show_icons else 0
+            total_w = (cur_i_w + i_gap + w_d) + spacing + (cur_i_w + i_gap + w_e)
             start_x, y_pos = (w - total_w) // 2, h - int(bh_bot * 0.35) 
-            
+
             if show_icons: overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
-            draw.text((start_x + curr_i_w + i_gap, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
-            x_elev = start_x + curr_i_w + i_gap + w_dist + spacing
-            if show_icons: overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
-            draw.text((x_elev + curr_i_w + i_gap, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
+            draw.text((start_x + cur_i_w + i_gap, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
+            x_e = start_x + cur_i_w + i_gap + w_d + spacing
+            if show_icons: overlay.paste(img_elev, (int(x_e), int(y_pos - icon_size // 2)), img_elev)
+            draw.text((x_e + cur_i_w + i_gap, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
