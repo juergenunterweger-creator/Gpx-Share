@@ -51,9 +51,8 @@ with st.sidebar:
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Menü</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value=default_name, key="v14_title")
     st.divider()
-    # AUTOMATISCH BLUTROT (#8B0000)
+    # JETZT STANDARDMÄSSIG AUF BLUTROT GESETZT
     c_line = st.color_picker("Routenfarbe", "#8B0000", key="v14_c")
-    # AUTOMATISCH STÄRKE 7
     w_line = st.slider("Linienstärke", 1, 50, 7, key="v14_w")
     b_pos = st.selectbox("Position der Box", ["Unten", "Oben", "Mitte"], key="v14_pos")
     b_alpha = st.slider("Box Deckkraft", 0, 255, 170, key="v14_alpha")
@@ -109,18 +108,15 @@ if up_img and up_gpx:
             
             draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
             
-            # --- SCHRIFT OPTIMIERUNG ---
             try:
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-                fs_title = max(60, int(w / 12)) # Schrift deutlich vergrößert
+                fs_title = max(60, int(w / 12))
                 f_title = ImageFont.truetype(f_path, fs_title)
                 f_data = ImageFont.truetype(f_path, int(fs_title * 0.75))
             except:
                 f_title = f_data = ImageFont.load_default()
 
-            # Text Oben
-            draw.text((bx+50, by+30), f"Tour: {tour_title}", fill="white", font=f_title)
-            # Text Unten mit Icons
+            draw.text((bx+50, by+30), tour_title, fill="white", font=f_title)
             stats_text = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
             draw.text((bx+50, by+30+fs_title+10), stats_text, fill=c_line, font=f_data)
 
@@ -134,4 +130,4 @@ if up_img and up_gpx:
     except Exception as e:
         st.error(f"Fehler: {e}")
 else:
-    st.info("Bitte lade ein Foto und eine GPX-Datei hoch!")
+    st.info("Lade ein Foto und eine GPX-Datei hoch!")
