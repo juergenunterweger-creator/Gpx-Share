@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.3.6: Fokus auf Stabilität) ---
+# --- STANDARDWERTE ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -60,12 +60,9 @@ def load_font(size):
         except: continue
     return ImageFont.load_default()
 
-# --- DIE RETTER-FUNKTION (GEGEN X1 < X0 FEHLER) ---
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
-    """Sortiert Koordinaten automatisch um Abstürze zu verhindern."""
     x0, y0, x1, y1 = coords
-    sorted_coords = [min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)]
-    draw.rectangle(sorted_coords, fill=fill, outline=outline, width=width)
+    draw.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], fill=fill, outline=outline, width=width)
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -102,7 +99,7 @@ def draw_smooth_icon(mode, size, color="white"):
             d.line([size*res*0.5+math.cos(rad)*size*res*0.25, size*res*0.5+math.sin(rad)*size*res*0.25, size*res*0.5+math.cos(rad)*size*res*0.45, size*res*0.5+math.sin(rad)*size*res*0.45], fill=color, width=lw)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .install-box { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff0000; margin-top: 10px; margin-bottom: 10px; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -135,16 +132,37 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
         st.selectbox("Wetter", ["Sonne", "Wolken", "Regen"], key="weather")
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
         st.checkbox("Raster im Höhenprofil", key="show_grid")
-        st.checkbox("Profil ausfüllen", key="fill_profile")
     with col_opt2:
         st.write("**📐 Abstände & Skalierung**")
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
         st.slider("Vertikaler Abstand Daten", 50, 450, key="data_y_offset")
-        st.slider("Profilbeschriftung Größe", 0.5, 3.0, key="grid_font_scale")
         st.checkbox("Route Auto-Skalierung", key="route_autoscale")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
     st.button("🔄 Reset", on_click=reset_parameters)
+
+# --- NEU: DER RESTAURIERTE INFO REITER ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    col_logo, col_text = st.columns([1, 2])
+    with col_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=120)
+    with col_text:
+        st.markdown("### GPX Share Pro XXL")
+        st.markdown("**Copyright: Jürgen Unterweger** | **Version: 2.3.7**")
+        st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("**📲 App installieren:**")
+    st.markdown("""<div class="install-box"><strong>iPhone (Safari):</strong> Teilen-Icon -> 'Zum Home-Bildschirm'<br><strong>Android (Chrome):</strong> Menü-Drei-Punkte -> 'App installieren'</div>""", unsafe_allow_html=True)
+    
+    st.markdown("**Folge mir:**")
+    c_ig, c_fb = st.columns(2)
+    with c_ig: st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
+    with c_fb: st.markdown("👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
+    st.markdown("**Web-App URL:**")
+    st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
+
+st.divider()
 
 # --- VERARBEITUNG ---
 if st.session_state.persistent_gpx:
@@ -191,56 +209,46 @@ if st.session_state.persistent_gpx:
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
             bh_top, bh_bot = int(h * st.session_state.b_height_adj), int(h * 0.12)
-            
-            # Balken mit Safe_Rect
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # Höhenprofil Raster
+            # HÖHENPROFIL RASTER
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                
                 if st.session_state.show_grid:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
-                        val_m = int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)
-                        draw.text((w*0.01, gy-2), f"{val_m}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                        draw.text((w*0.01, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
                     for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         draw.text((gx+5, grid_y_start+5), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
-                
                 if st.session_state.fill_profile:
                     rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
-            # Titel & Daten
+            # TITEL & DATEN
             t_y = int(bh_top * 0.35)
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
-            
-            txt_data = f"{d_total:.1f} km | {int(a_gain)} m"
-            f_data = get_fitted_font(txt_data, w*0.7, int(w*0.05*st.session_state.data_font_scale))
-            draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), txt_data, f_data)
+            draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), f"{d_total:.1f} km | {int(a_gain)} m", get_fitted_font("X km", w*0.7, int(w*0.05*st.session_state.data_font_scale)))
 
-            # --- DATUM BADGE MIT ABSOLUTEM COORDINATE FIX ---
+            # DATUM BOX & LOGO
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
                 bx2, by2 = w - 25, h - bh_bot - 20
-                bx1, by1 = bx2 - tw - 100, by2 - 70
-                # Hier greift safe_rect, falls bx1 > bx2 (was nie sein sollte, aber sicher ist sicher)
-                safe_rect(draw, [bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
+                safe_rect(draw, [bx2 - tw - 100, by2 - 70, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white")
                 draw.text((bx2 - 20, by2 - 35), st.session_state.tour_date, fill="white", font=f_date, anchor="rm")
                 overlay.paste(draw_smooth_icon(st.session_state.weather, 45), (int(bx2 - tw - 90), int(by2 - 58)), draw_smooth_icon(st.session_state.weather, 45))
 
-            # Route
+            # ROUTE
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -251,6 +259,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final_v237.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
