@@ -137,18 +137,20 @@ with st.expander("⚙️ Optionen", expanded=False):
             st.rerun()
             
         st.checkbox("Datum anzeigen", key="show_date")
+        st.checkbox("Höhenprofil anzeigen", key="show_profile")
+        st.checkbox("Raster im Profil", key="show_grid")
         st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
     with col_opt2:
         st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
         st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
         st.color_picker("Routenfarbe", key="c_line")
-        st.color_picker("Farbe Infoboxen", key="c_box")
+        st.color_picker("Infobox-Farbe", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.3**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.4**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
 
@@ -209,10 +211,35 @@ if st.session_state.persistent_gpx:
                 date_font_size = int(w * 0.035 * st.session_state.font_scale)
                 try: font_date = ImageFont.truetype(font_path, date_font_size)
                 except: font_date = ImageFont.load_default()
-                # Position ganz rechts unten mit kleinem Rand
                 margin = int(w * 0.03)
                 draw.text((w - margin, h - margin), st.session_state.tour_date, fill="white", font=font_date, anchor="rb")
             
+            # --- HÖHENPROFIL (RASTER FIX) ---
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = (e_max - e_min) if e_max > e_min else 1
+                grid_y_start = h - bh_bot
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                
+                if st.session_state.show_grid:
+                    font_grid = get_fitted_font(draw, "000m", int(w*0.02), int(w*0.02), font_path)
+                    grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    # Horizontale Linien (HM)
+                    for i in range(1, 4):
+                        gy = grid_y_start + i * (bh_bot / 4)
+                        draw.line([(0, gy), (w, gy)], fill=grid_color, width=1)
+                        draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=text_color, font=font_grid, anchor="ld")
+                    # Vertikale Linien (KM)
+                    for i in range(1, 8):
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=1)
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=text_color, font=font_grid, anchor="lt")
+                
+                rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
+                if st.session_state.fill_profile:
+                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
+                draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
+
             # --- DATEN-INFO ---
             txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
