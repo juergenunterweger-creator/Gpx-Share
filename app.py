@@ -39,7 +39,6 @@ with st.sidebar:
     st.divider()
     
     show_logo = st.checkbox("Zeige eigenes Logo", value=True)
-    # NEU: Schieberegler für Eckenradius
     logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     st.divider()
 
@@ -70,10 +69,11 @@ if up_img and up_gpx:
         up_gpx.seek(0)
         gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
         
-        # ... (GPX Datenberechnung wie bisher) ...
         pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last = None
+        last_elev = None
+        
         for tr in gpx.tracks:
             for seg in tr.segments:
                 for p in seg.points:
@@ -104,7 +104,6 @@ if up_img and up_gpx:
             except:
                 font_t = font_d = font_grid = ImageFont.load_default()
 
-            # ... (Höhenprofil, Icons & Texte zeichnen wie bisher) ...
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
@@ -141,6 +140,7 @@ if up_img and up_gpx:
             d_dist.polygon([(0, icon_size*0.4), (icon_size*0.2, icon_size*0.25), (icon_size*0.25, icon_size*0.5)], fill="white")
             d_dist.line([(cx, cy), (icon_size*0.8, icon_size*0.4)], fill="white", width=lw) 
             d_dist.polygon([(icon_size, icon_size*0.4), (icon_size*0.8, icon_size*0.25), (icon_size*0.75, icon_size*0.5)], fill="white")
+            
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
             d_elev.polygon([(0, icon_size*0.85), (icon_size*0.35, icon_size*0.2), (icon_size*0.7, icon_size*0.85)], fill="white") 
@@ -148,6 +148,7 @@ if up_img and up_gpx:
             ax = icon_size * 0.9
             d_elev.line([(ax, icon_size*0.8), (ax, icon_size*0.1)], fill="white", width=lw) 
             d_elev.polygon([(ax, 0), (ax-icon_size*0.15, icon_size*0.2), (ax+icon_size*0.15, icon_size*0.2)], fill="white")
+            
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
@@ -157,17 +158,20 @@ if up_img and up_gpx:
             total_w = icon_size + 20 + w_dist + spacing + icon_size + 20 + w_elev
             start_x = (w - total_w) // 2
             y_pos = h - bh_bot // 2
+            
             overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
             draw.text((start_x + icon_size + 20, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
             x_elev = start_x + icon_size + 20 + w_dist + spacing
             overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
             draw.text((x_elev + icon_size + 20, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
+            
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             margin = 0.20
             scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
                            h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
+            
             if len(scaled_pts) > 1:
                 point_size = max(6, int(w * 0.008)) 
                 start = scaled_pts[0]
@@ -175,29 +179,28 @@ if up_img and up_gpx:
                 end = scaled_pts[-1]
                 draw.ellipse([end[0]-point_size, end[1]-point_size, end[0]+point_size, end[1]+point_size], fill=c_line)
 
-            # --- EIGENES LOGO MIT ABGERUNDETEN ECKEN ---
+            # --- EIGENES LOGO SAUBER ABRUNDEN ---
             if show_logo and os.path.exists("logo.png"):
                 try:
                     user_logo = Image.open("logo.png").convert("RGBA")
-                    # Logo skaliere (Max 10% der Bildhöhe)
                     max_logo_h = int(h * 0.10)
                     l_w, l_h = user_logo.size
                     ratio = max_logo_h / l_h
                     new_size = (int(l_w * ratio), int(l_h * ratio))
                     user_logo = user_logo.resize(new_size, Image.LANCZOS)
                     
-                    # --- ECKEN ABRUNDEN ---
-                    # Radius basierend auf Slider (Prozentual zur Logo-Höhe)
-                    radius = int(new_size[1] * (logo_radius / 200)) # Maximal 50% der Höhe
+                    radius = int(new_size[1] * (logo_radius / 200)) 
                     if radius > 0:
-                        # Maske erstellen
                         mask = Image.new('L', new_size, 0)
                         d_mask = ImageDraw.Draw(mask)
                         d_mask.rounded_rectangle([0, 0, new_size[0], new_size[1]], fill=255, radius=radius)
-                        # Maske anwenden (Ecken transparent machen)
-                        user_logo = Image.Chops.multiply(user_logo, mask.convert("RGBA"))
+                        
+                        # Transparenz sauber verheiraten
+                        if 'A' in user_logo.getbands():
+                            alpha = user_logo.split()[3]
+                            mask = ImageChops.darker(mask, alpha)
+                        user_logo.putalpha(mask)
 
-                    # Position OBERHALB der unteren Infobox
                     padding = int(w * 0.02)
                     logo_x = w - new_size[0] - padding
                     logo_y = (h - bh_bot) - new_size[1] - padding
