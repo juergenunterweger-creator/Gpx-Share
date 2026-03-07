@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops
 import io
 import math
 import os
+import time
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
@@ -51,6 +52,7 @@ if "persistent_gpx" not in st.session_state:
 def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
+    st.rerun()
 
 st.markdown("""
     <style>
@@ -109,12 +111,13 @@ c_up1, c_up2 = st.columns(2)
 with c_up1:
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
     if up_gpx:
-        # Falls eine neue Datei kommt: Spur-Index zurücksetzen
         new_gpx_data = up_gpx.read()
         if st.session_state.persistent_gpx != new_gpx_data:
             st.session_state.selected_track_idx = 0
             st.session_state.persistent_gpx = new_gpx_data
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+            st.rerun()
+
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen", type=["jpg", "jpeg", "png"])
     if up_img: st.session_state.persistent_img = up_img.read()
@@ -170,7 +173,7 @@ with st.expander("⚙️ Optionen", expanded=False):
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.5**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.6**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -185,13 +188,15 @@ st.divider()
 if st.session_state.persistent_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-        segments_pts = [] # Liste von Listen für echte Segmente
+        segments_pts = [] 
         elevs = []
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
         
         if len(gpx.tracks) > 0:
-            target_track = gpx.tracks[min(st.session_state.selected_track_idx, len(gpx.tracks)-1)]
+            # Sicherheitscheck für Index
+            idx = min(st.session_state.selected_track_idx, len(gpx.tracks)-1)
+            target_track = gpx.tracks[idx]
             for seg in target_track.segments:
                 current_seg = []
                 for p in seg.points:
@@ -207,7 +212,6 @@ if st.session_state.persistent_gpx:
                     segments_pts.append(current_seg)
 
         if segments_pts:
-            # Alle Punkte sammeln für Bounding-Box Berechnung
             all_pts = [pt for seg in segments_pts for pt in seg]
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
@@ -221,7 +225,6 @@ if st.session_state.persistent_gpx:
                 from staticmap import StaticMap, Line
                 w, h = 1080, 1920
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                # Für die Karte nutzen wir alle Punkte als eine Linie
                 m.add_line(Line(list(zip(lons, lats)), st.session_state.c_line, st.session_state.w_line))
                 src_img = m.render().convert("RGBA")
 
@@ -237,7 +240,6 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -258,7 +260,6 @@ if st.session_state.persistent_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE (SEGMENT FÜR SEGMENT) ---
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             
@@ -286,7 +287,10 @@ if st.session_state.persistent_gpx:
                 draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
-            st.image(final, use_container_width=True)
+            
+            # CACHE-BUSTER: Eindeutige ID für das Bild am iPhone
+            st.image(final, use_container_width=True, key=f"img_preview_{int(time.time())}")
+            
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
