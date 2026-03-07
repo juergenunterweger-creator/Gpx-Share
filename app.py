@@ -5,6 +5,7 @@ import io
 import math
 import os
 import random
+import gc
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
@@ -50,13 +51,12 @@ if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = N
 if "uploader_key" not in st.session_state: st.session_state.uploader_key = 0
 
 def full_app_reset():
-    """Löscht alle Daten. Rerun erfolgt automatisch nach dem Callback."""
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.session_state.uploader_key = random.randint(1, 9999)
+    gc.collect()
 
 def reset_parameters():
-    """Setzt Design auf Standard zurück."""
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
@@ -95,22 +95,6 @@ def get_fitted_font(draw, text, max_width, start_size, font_path):
         except: break
     return font
 
-def draw_smooth_icon(mode, size, color="white"):
-    res = 4
-    img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
-    d = ImageDraw.Draw(img)
-    lw = max(4, int(size*res*0.07))
-    if mode == "dist":
-        d.arc([lw, lw, size*res-lw, size*res-lw], 140, 400, fill=color, width=lw)
-        cx, cy = size*res//2, size*res//2
-        ex, ey = cx + math.cos(math.radians(300))*(cx*0.7), cy + math.sin(math.radians(300))*(cy*0.7)
-        d.line([cx, cy, ex, ey], fill=color, width=lw)
-        d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
-    elif mode == "elev":
-        d.polygon([(lw, size*res-lw), (size*res*0.5, lw*2), (size*res*0.9, size*res-lw)], fill=color)
-        d.polygon([(size*res*0.4, size*res-lw), (size*res*0.75, size*res*0.4), (size*res-lw, size*res-lw)], fill=color, outline="black")
-    return img.resize((size, size), Image.Resampling.LANCZOS)
-
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -123,7 +107,7 @@ with c_up1:
             st.session_state.persistent_gpx = new_gpx_data
             st.session_state.selected_track_idx = 0
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-            st.rerun() # Außerhalb von Callback erlaubt/nötig
+            st.rerun()
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen", type=["jpg", "jpeg", "png"], key=f"img_up_{st.session_state.uploader_key}")
@@ -137,19 +121,16 @@ with st.expander("⚙️ Optionen & Reset", expanded=False):
         if st.button("✅ Name übernehmen"):
             st.session_state.tour_title = new_title
             st.rerun()
-        st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
         if st.session_state.persistent_gpx:
             try:
                 temp_gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
                 if len(temp_gpx.tracks) > 1:
-                    track_names = [f"Spur {i+1}: {t.name[:20] if t.name else 'Unbekannt'}" for i, t in enumerate(temp_gpx.tracks)]
-                    st.selectbox("📍 Aktive Spur", range(len(track_names)), format_func=lambda x: track_names[x], key="selected_track_idx")
+                    track_names = [f"Spur {i+1}: {t.name[:20] if t.name else 'Route'}" for i, t in enumerate(temp_gpx.tracks)]
+                    st.selectbox("📍 Aktive Spur wählen", range(len(track_names)), format_func=lambda x: track_names[x], key="selected_track_idx")
             except: pass
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
-        st.checkbox("Icons anzeigen", key="show_icons")
     with col_opt2:
-        st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
-        st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
+        st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
         st.checkbox("Route Auto-Skalierung", key="route_autoscale")
         st.slider("Linienstärke", 1, 50, key="w_line")
         st.color_picker("Routenfarbe", key="c_line")
@@ -160,26 +141,32 @@ with st.expander("⚙️ Optionen & Reset", expanded=False):
     with c_res1: st.button("🔄 Design zurücksetzen", on_click=reset_parameters)
     with c_res2: st.button("🗑️ KOMPLETT-RESET", on_click=full_app_reset)
 
-# --- INFO ---
 with st.expander("ℹ️ Über"):
-    st.markdown(f"**Copyright: Jürgen Unterweger** | **Version: 2.1**")
+    st.markdown(f"**Copyright: Jürgen Unterweger** | **Version: 2.2**")
     st.markdown(f'[PayPal Spende](https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG)')
 
 st.divider()
 
-# --- PROCESSING ---
+# --- PROCESSING (STRICT ISOLATION) ---
 if st.session_state.persistent_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-        segments_pts, elevs = [], []
+        segments_pts = [] 
+        elevs = []
         d_total, a_gain = 0.0, 0.0
         
         if len(gpx.tracks) > 0:
+            # Nur den einen gewählten Track anfassen
             idx = min(st.session_state.selected_track_idx, len(gpx.tracks)-1)
             target_track = gpx.tracks[idx]
+            
             for seg in target_track.segments:
                 current_seg, last, last_elev = [], None, None
                 for p in seg.points:
+                    # De-Duplikation: Punkt nur hinzufügen, wenn er neu ist
+                    if last and p.latitude == last[0] and p.longitude == last[1]:
+                        continue
+                        
                     current_seg.append([p.latitude, p.longitude])
                     elevs.append(p.elevation if p.elevation is not None else 0)
                     if last:
@@ -195,6 +182,7 @@ if st.session_state.persistent_gpx:
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
+            # Bildaufbau
             if st.session_state.persistent_img:
                 src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
                 w, h = src_img.size
@@ -216,6 +204,7 @@ if st.session_state.persistent_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             draw.rectangle([0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
+            # ROUTE ZEICHNEN
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             for seg in segments_pts:
@@ -232,7 +221,10 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            fname = f"tour_{random.randint(1000,9999)}.jpg"
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), fname, "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_{random.randint(1000,9999)}.jpg", "image/jpeg")
+            
+            # Speicher freigeben
+            del segments_pts, elevs, all_pts, gpx
+            gc.collect()
 
     except Exception as e: st.error(f"Fehler: {e}")
