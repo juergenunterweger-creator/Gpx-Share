@@ -37,23 +37,24 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    up_img = st.file_uploader("📸 Foto wählen", type=["jpg", "jpeg", "png"], key="v23_img")
+    up_img = st.file_uploader("📸 Foto wählen", type=["jpg", "jpeg", "png"], key="v23_1_img")
 with c2:
-    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v23_gpx")
+    up_gpx = st.file_uploader("📍 GPX Datei", type=["gpx", "xml", "txt"], key="v23_1_gpx")
 
 with st.sidebar:
-    st.markdown("<h1 style='color: #ff0000;'>⚙️ Text & Design</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #ff0000;'>⚙️ Text-Turbo</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
-    # Die Regler für die Schriftanpassung
-    f_size_title = st.slider("Größe Titel", 20, 300, 100)
-    f_size_data = st.slider("Größe Daten", 20, 250, 80)
-    # Regler für die vertikale Ausrichtung
-    text_y_adj = st.slider("Text Position (hoch/runter)", -100, 100, 0)
+    # Erhöhte Limits für massive Schriften
+    f_size_title = st.slider("Größe Titel", 50, 500, 180) 
+    f_size_data = st.slider("Größe Daten", 50, 400, 130)
+    # Flexibler Balken-Faktor
+    b_height_adj = st.slider("Balken Dicke", 0.05, 0.30, 0.16)
+    text_y_adj = st.slider("Text Position", -150, 150, 0)
     st.divider()
     c_line = st.color_picker("Routenfarbe", "#8B0000")
-    w_line = st.slider("Linienstärke Route", 5, 80, 15)
-    b_alpha = st.slider("Balken Deckkraft", 0, 255, 180)
+    w_line = st.slider("Linienstärke", 5, 100, 25)
+    b_alpha = st.slider("Balken Deckkraft", 0, 255, 190)
 
 if up_img and up_gpx:
     try:
@@ -84,41 +85,41 @@ if up_img and up_gpx:
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             
-            # Route skalieren & zeichnen
+            # Route zeichnen
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-            margin = 0.18
+            margin = 0.20
             scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
                            h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
             
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
-            # Balken
-            bh_top, bh_bot = int(h * 0.12), int(h * 0.14)
+            # Balken-Höhen basierend auf neuem Slider
+            bh_top = int(h * b_height_adj)
+            bh_bot = int(h * (b_height_adj + 0.02))
+            
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # Höhenprofil (Dezent im Hintergrund des unteren Balkens)
+            # Höhenprofil im Hintergrund des unteren Balkens
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.8)-((ev-e_min)/e_range)*(bh_bot*0.6)) for i, ev in enumerate(elevs)]
-                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (50,))
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (60,))
 
-            # Texte schreiben (Hier greifen die Schieberegler)
+            # Fette Schriftart laden
             try:
-                # Pfad für Streamlit Cloud (Linux)
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
                 font_t = ImageFont.truetype(f_path, f_size_title)
                 font_d = ImageFont.truetype(f_path, f_size_data)
             except:
                 font_t = font_d = ImageFont.load_default()
 
-            # Oben: Tour Name (Zentriert + manueller Offset für Feintuning)
+            # Texte zentriert mit manuellem Offset
             draw.text((w//2, (bh_top//2) + text_y_adj), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # Unten: Daten
             stats_text = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
             draw.text((w//2, (h - bh_bot//2) + text_y_adj), stats_text, fill="white", font=font_d, anchor="mm")
 
@@ -127,7 +128,7 @@ if up_img and up_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share_pro.jpg", "image/jpeg")
+            st.download_button("🚀 BILD MIT XXL-SCHRIFT SPEICHERN", buf.getvalue(), "gpx_share_big.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
