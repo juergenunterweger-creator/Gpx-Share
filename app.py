@@ -62,9 +62,12 @@ with st.expander("⚙️ Optionen", expanded=False):
         font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
+        # Regler 1: Die schwarzen Balken
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
-        # NEU: Regler für die Transparenz der Route selbst
+        # Regler 2: Die Route und Höhenprofil
         r_alpha = st.slider("Routen-Transparenz", 0, 255, 255)
+        # NEU: Regler 3: Das Foto oder die Karte selbst
+        bg_alpha = st.slider("Hintergrund Transparenz", 0, 255, 255)
         c_line = st.color_picker("Routenfarbe", "#8B0000")
 
 # --- ÜBER GPX SHARE ---
@@ -109,9 +112,10 @@ if up_gpx:
             lats, lons = zip(*pts)
             draw_line_manually = False
             
+            # --- HINTERGRUND ERSTELLEN ODER LADEN ---
             if up_img:
-                base_img = Image.open(up_img).convert("RGB")
-                w, h = base_img.size
+                src_img = Image.open(up_img).convert("RGB")
+                w, h = src_img.size
                 draw_line_manually = True
             else:
                 from staticmap import StaticMap, Line, CircleMarker
@@ -123,15 +127,21 @@ if up_gpx:
                     "Light Mode": "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png"
                 }
                 m = StaticMap(w, h, url_template=tile_urls[map_style])
-                # Route auf Karte bekommt auch die Transparenz
+                # Karte zeichnet Route mit voller Deckkraft (bg_alpha steuert nachher das ganze Bild)
                 line = Line(list(zip(lons, lats)), c_line, w_line)
                 m.add_line(line)
-                
-                mi_la, ma_la = min(lats), max(lats)
-                pad_la = (ma_la - mi_la) * 0.3
-                m.add_marker(CircleMarker((lons[0], ma_la + pad_la), '#00000000', 1))
-                m.add_marker(CircleMarker((lons[0], mi_la - pad_la), '#00000000', 1))
-                base_img = m.render().convert("RGB")
+                src_img = m.render().convert("RGB")
+
+            # --- NEU: HINTERGRUND-TRANSPARENZ ANWENDEN ---
+            # Wir erstellen ein weißes Bild als Basis, falls bg_alpha < 255
+            base_img = Image.new('RGB', (w, h), "white")
+            # Machen das Quellbild transparent
+            src_img_rgba = src_img.convert("RGBA")
+            alpha_band = src_img_rgba.split()[3]
+            alpha_band = alpha_band.point(lambda p: int(p * bg_alpha / 255))
+            src_img_rgba.putalpha(alpha_band)
+            # Fügen es auf das weiße Basisbild ein
+            base_img.paste(src_img_rgba, (0, 0), src_img_rgba)
 
             # --- UI LAYER ZEICHNEN ---
             auto_f_title = int(w * 0.08 * font_scale)
@@ -168,10 +178,9 @@ if up_gpx:
                 draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (int(r_alpha * 0.6),))
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ICONS ---
+            # --- Icons & Texte zeichnen wie bisher (bleiben voll weiß) ---
             icon_size = int(auto_f_data * 1.3)
             y_pos = h - int(bh_bot * 0.35)
-            # Icons und Texte bleiben voll sichtbar (weiß)
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
             # --- ROUTE MANUELL ZEICHNEN (FOTO MODUS) ---
@@ -214,8 +223,10 @@ if up_gpx:
                     user_logo.putalpha(ImageChops.darker(mask, user_logo.split()[3]) if 'A' in user_logo.getbands() else mask)
                 overlay.paste(user_logo, (w - new_size[0] - int(w*0.02), (h - bh_bot) - new_size[1] - int(w*0.02)), user_logo)
 
+            # --- FINALES BILD ZUSAMMENSETZEN ---
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
+            
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
