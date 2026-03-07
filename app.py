@@ -6,7 +6,7 @@ import math
 import os
 
 # --- APP KONFIGURATION ---
-st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
+st.set_page_config(page_title="GPX Share Auto-Size", page_icon="🏍️", layout="centered")
 
 def calc_dist(lat1, lon1, lat2, lon2):
     R = 6371
@@ -17,14 +17,12 @@ def calc_dist(lat1, lon1, lat2, lon2):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.markdown("<h1 style='color: #ff0000;'>⚙️ Design-Setup</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #ff0000;'>⚙️ Auto-Design</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
-    # XXL SCHRIFT-EINSTELLUNGEN
-    f_size_title = st.slider("Schriftgröße Titel", 50, 800, 300) 
-    f_size_data = st.slider("Schriftgröße Daten", 50, 600, 180)
-    b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
-    text_y_adj = st.slider("Text Position", -200, 200, 0)
+    # Faktor statt fester Pixel: 1.0 ist der Standard-Vorschlag
+    font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.0)
+    b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.18)
     st.divider()
     c_line = st.color_picker("Routenfarbe", "#8B0000")
     w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -39,6 +37,11 @@ if up_img and up_gpx:
         base_img = Image.open(up_img).convert("RGB")
         w, h = base_img.size
         
+        # AUTOMATISCHE GRÖSSEN-BERECHNUNG
+        # Wir nehmen 8% der Bildbreite für den Titel als Basis
+        auto_f_title = int(w * 0.08 * font_scale)
+        auto_f_data = int(w * 0.05 * font_scale)
+
         up_gpx.seek(0)
         gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
         
@@ -68,30 +71,23 @@ if up_img and up_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # --- DER SCHRIFT-FIX ---
+            # --- SCHRIFT LADEN ---
             font_t = None
-            # Wir suchen an allen Ecken nach einer Datei
-            possible_fonts = [
-                "font.ttf", # Deine eigene Datei in GitHub
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
-            ]
+            possible_fonts = ["font.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
             
             for fpath in possible_fonts:
                 if os.path.exists(fpath):
-                    font_t = ImageFont.truetype(fpath, f_size_title)
-                    font_d = ImageFont.truetype(fpath, f_size_data)
+                    font_t = ImageFont.truetype(fpath, auto_f_title)
+                    font_d = ImageFont.truetype(fpath, auto_f_data)
                     break
             
             if font_t is None:
-                st.error("KEINE SCHRIFT GEFUNDEN! Bitte lade eine .ttf Datei als 'font.ttf' in dein GitHub hoch.")
                 font_t = font_d = ImageFont.load_default()
 
             # Texte schreiben
-            draw.text((w//2, (bh_top//2) + text_y_adj), tour_title, fill="white", font=font_t, anchor="mm")
+            draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             stats_text = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
-            draw.text((w//2, (h - bh_bot//2) + text_y_adj), stats_text, fill="white", font=font_d, anchor="mm")
+            draw.text((w//2, h - bh_bot//2), stats_text, fill="white", font=font_d, anchor="mm")
 
             # Route (Stärke 9)
             lats, lons = zip(*pts)
@@ -107,7 +103,7 @@ if up_img and up_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_auto.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
