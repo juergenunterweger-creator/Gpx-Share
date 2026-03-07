@@ -139,7 +139,6 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.checkbox("Datum anzeigen", key="show_date")
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
         st.checkbox("Raster im Profil", key="show_grid")
-        st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
     with col_opt2:
         st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
         st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
@@ -150,7 +149,7 @@ with st.expander("⚙️ Optionen", expanded=False):
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.4**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.5**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
 
@@ -206,15 +205,27 @@ if st.session_state.persistent_gpx:
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- DATUM (RECHTS UNTEN) ---
+            # --- DATUM IN EIGENER BOX (RECHTS UNTEN) ---
             if st.session_state.show_date and st.session_state.tour_date:
-                date_font_size = int(w * 0.035 * st.session_state.font_scale)
+                # Kleinere Schrift für Datum
+                date_font_size = int(w * 0.028 * st.session_state.font_scale)
                 try: font_date = ImageFont.truetype(font_path, date_font_size)
                 except: font_date = ImageFont.load_default()
-                margin = int(w * 0.03)
-                draw.text((w - margin, h - margin), st.session_state.tour_date, fill="white", font=font_date, anchor="rb")
+                
+                # Box-Berechnung
+                date_text = st.session_state.tour_date
+                tw = draw.textlength(date_text, font=font_date)
+                pad = int(w * 0.015)
+                # Box-Koordinaten
+                margin = int(w * 0.02)
+                bx1, by1 = w - tw - pad*2 - margin, h - date_font_size - pad*2 - margin
+                bx2, by2 = w - margin, h - margin
+                # Box zeichnen
+                draw.rectangle([bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=1)
+                # Text in Box
+                draw.text((bx1 + pad, by1 + pad), date_text, fill="white", font=font_date)
             
-            # --- HÖHENPROFIL (RASTER FIX) ---
+            # --- HÖHENPROFIL (RASTER) ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -224,12 +235,10 @@ if st.session_state.persistent_gpx:
                 if st.session_state.show_grid:
                     font_grid = get_fitted_font(draw, "000m", int(w*0.02), int(w*0.02), font_path)
                     grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 140)
-                    # Horizontale Linien (HM)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=1)
                         draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=text_color, font=font_grid, anchor="ld")
-                    # Vertikale Linien (KM)
                     for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=1)
@@ -257,5 +266,5 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final_{datetime.now().strftime('%H%M%S')}.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_badge_{datetime.now().strftime('%H%M%S')}.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
