@@ -15,12 +15,18 @@ st.markdown("""
         font-size: 36px; font-weight: 900;
         background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        text-align: center; margin-bottom: 30px;
+        text-align: center; margin-bottom: 20px;
     }
     .stDownloadButton button {
         width: 100%; border-radius: 20px;
         background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
         color: white !important; font-weight: bold; border: none; height: 3em;
+    }
+    /* Style für den Optionen-Button (Expander) */
+    div[data-testid="stExpander"] details summary p {
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        color: #8b0000 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -32,37 +38,31 @@ def calc_dist(lat1, lon1, lat2, lon2):
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-# --- SIDEBAR ---
-with st.sidebar:
-    if os.path.exists("logo.png"):
-        st.image("logo.png", use_container_width=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown("<h1 style='color: #ff0000;'>⚙️ Design-Setup</h1>", unsafe_allow_html=True)
-    tour_title = st.text_input("Tour Name", value="Meine Tour")
-    
-    map_style = st.selectbox("Karten-Stil (wenn kein Foto)", [
-        "OSM Standard", 
-        "Dark Mode", 
-        "Satellit", 
-        "Light Mode"
-    ])
-    st.divider()
-    
-    show_logo = st.checkbox("Zeige eigenes Logo auf Foto/Karte", value=False)
-    logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
-    st.divider()
-
-    font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
-    b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
-    st.divider()
-    c_line = st.color_picker("Routenfarbe", "#8B0000")
-    w_line = st.slider("Linienstärke Route", 1, 100, 9)
-    b_alpha = st.slider("Balken Deckkraft", 0, 255, 210)
-
 # --- HAUPTBEREICH ---
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
+# --- NEU: OPTIONEN-BUTTON (Statt Sidebar) ---
+with st.expander("⚙️ Optionen", expanded=False):
+    col_opt1, col_opt2 = st.columns(2)
+    
+    with col_opt1:
+        tour_title = st.text_input("Tour Name", value="Meine Tour")
+        map_style = st.selectbox("Karten-Stil (wenn kein Foto)", [
+            "OSM Standard", "Dark Mode", "Satellit", "Light Mode"
+        ])
+        show_logo = st.checkbox("Zeige eigenes Logo auf Foto/Karte", value=False)
+        logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
+        
+    with col_opt2:
+        font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
+        b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
+        w_line = st.slider("Linienstärke Route", 1, 100, 9)
+        b_alpha = st.slider("Balken Deckkraft", 0, 255, 210)
+        c_line = st.color_picker("Routenfarbe", "#8B0000")
+
+st.divider()
+
+# --- UPLOAD BEREICH ---
 c1, c2 = st.columns(2)
 with c1:
     up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
@@ -203,7 +203,6 @@ if up_gpx:
             
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- ZENTRIERTE & NACH UNTEN VERSCHOBENE TEXT-PLATZIERUNG ---
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
             w_dist = draw.textlength(txt_dist, font=font_d)
@@ -214,8 +213,6 @@ if up_gpx:
             
             total_w = icon_size + icon_gap + w_dist + spacing + icon_size + icon_gap + w_elev
             start_x = (w - total_w) // 2
-            
-            # HIER DIE ÄNDERUNG: Zieht die Daten im Balken weiter nach unten (Faktor 0.35 statt 0.50)
             y_pos = h - int(bh_bot * 0.35) 
             
             overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
