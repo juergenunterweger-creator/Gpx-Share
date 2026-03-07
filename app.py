@@ -97,8 +97,9 @@ with st.expander("⚙️ Optionen", expanded=False):
         font_scale = st.slider("Titel-Skalierung", 0.5, 3.0, 1.5)
         data_font_scale = st.slider("Daten-Skalierung", 0.5, 3.0, 1.2)
         data_y_offset = st.slider("Vertikaler Abstand Daten", 0, 300, 160)
-        # NEU: Slider für den vertikalen Versatz der Route
         route_y_offset = st.slider("Vertikaler Versatz Route", -500, 500, 0)
+        # NEU: Slider für die Größe der Route
+        route_scale = st.slider("Route Skalierung", 0.1, 2.0, 1.0)
         b_height_adj = st.slider("Balken Dicke", 0.05, 0.50, 0.20)
         w_line = st.slider("Linienstärke Route", 1, 100, 9)
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
@@ -182,7 +183,6 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- EIGENES LOGO ---
             if show_logo and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 l_w = int(w * 0.12)
@@ -190,7 +190,6 @@ if up_gpx:
                 logo_img = logo_img.resize((l_w, l_h), Image.Resampling.LANCZOS)
                 overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
 
-            # --- HÖHENPROFIL ---
             if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
@@ -212,12 +211,13 @@ if up_gpx:
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=(255,255,255,140), font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE (MIT VERTIAKLER POSITIONIERUNG) ---
+            # --- ROUTE (MIT SKALIERUNG & VERSATZ) ---
             if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-                margin = 0.20
-                scaled = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
-                           (h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) + route_y_offset) # Offset angewendet
+                # Grund-Skalierung basierend auf dem Slider
+                base_margin = 0.5 * (1.0 - (0.6 * route_scale))
+                scaled = [(w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin), 
+                           (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + route_y_offset)
                           for lat, lon in pts]
                 draw.line(scaled, fill=rgb_route + (r_alpha,), width=w_line, joint="round")
 
