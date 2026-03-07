@@ -8,6 +8,287 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
+# --- STANDARDWERTE ---
+DEFAULTS = {
+    "tour_title": "Meine Tour",
+    "font_scale": 1.5,
+    "data_font_scale": 1.2,
+    "data_y_offset": 160,
+    "route_x_offset": 0,
+    "route_y_offset": 0,
+    "route_scale": 1.0,
+    "route_autoscale": True,
+    "img_x_offset": 0,
+    "img_y_offset": 0,
+    "img_zoom": 1.0,
+    "b_height_adj": 0.20,
+    "w_line": 9,
+    "b_alpha": 160,
+    "r_alpha": 255,
+    "bg_alpha": 255,
+    "c_line": "#8B0000",
+    "c_fill": "#8B0000",
+    "c_box": "#000000",
+    "map_style": "OSM Standard",
+    "show_logo": False,
+    "show_profile": True,
+    "show_grid": True,
+    "show_icons": True,
+    "show_units": True,
+    "fill_profile": True
+}
+
+for key, val in DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
+
+if "persistent_img" not in st.session_state:
+    st.session_state.persistent_img = None
+
+def reset_parameters():
+    for key, val in DEFAULTS.items():
+        st.session_state[key] = val
+
+# PWA Meta-Tags
+st.markdown("""
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="GPX Share">
+    </head>
+    <style>
+    .stApp { background-color: #ffffff; color: #000000; }
+    .title-modern {
+        font-size: 36px; font-weight: 900;
+        background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        text-align: center; margin-bottom: 20px;
+    }
+    .stDownloadButton button, .stButton button {
+        width: 100%; border-radius: 20px;
+        background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
+        color: white !important; font-weight: bold; border: none; height: 3em;
+    }
+    div[data-testid="stExpander"] details summary p {
+        font-size: 1.2rem !important; font-weight: bold !important; color: #8b0000 !important;
+    }
+    .install-box {
+        background-color: #f0f2f6; padding: 15px; border-radius: 10px;
+        border-left: 5px solid #ff0000; margin-top: 10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def calc_dist(lat1, lon1, lat2, lon2):
+    R = 6371
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2-lat1), math.radians(lon2-lon1)
+    a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
+def get_fitted_font(draw, text, max_width, start_size, font_path):
+    size = int(start_size)
+    try: font = ImageFont.truetype(font_path, size)
+    except: font = ImageFont.load_default()
+    while draw.textlength(text, font=font) > max_width and size > 10:
+        size -= 2
+        try: font = ImageFont.truetype(font_path, size)
+        except: break
+    return font
+
+# Hilfsfunktion für scharfe Icons
+def draw_smooth_icon(mode, size, color="white"):
+    res = 4
+    c_size = size * res
+    img = Image.new('RGBA', (c_size, c_size), (0,0,0,0))
+    d = ImageDraw.Draw(img)
+    lw = max(4, int(c_size * 0.07))
+    
+    if mode == "dist": # Tacho
+        d.arc([lw, lw, c_size-lw, c_size-lw], 140, 400, fill=color, width=lw)
+        # Zeiger
+        cx, cy = c_size // 2, c_size // 2
+        angle = math.radians(300)
+        ex, ey = cx + math.cos(angle) * (cx*0.7), cy + math.sin(angle) * (cy*0.7)
+        d.line([cx, cy, ex, ey], fill=color, width=lw)
+        d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
+        
+    elif mode == "elev": # Berg
+        # Großer Berg
+        d.polygon([(lw, c_size-lw), (c_size*0.5, lw*2), (c_size*0.9, c_size-lw)], fill=color)
+        # Kleiner Berg vorne
+        d.polygon([(c_size*0.4, c_size-lw), (c_size*0.75, c_size*0.4), (c_size-lw, c_size-lw)], fill=color, outline="black")
+
+    return img.resize((size, size), Image.Resampling.LANCZOS)
+
+# --- SIDEBAR & UPLOAD ---
+with st.sidebar:
+    if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
+
+st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
+
+c_up1, c_up2 = st.columns(2)
+with c_up1:
+    up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
+    if up_gpx is not None:
+        raw_name = up_gpx.name.rsplit('.', 1)[0]
+        st.session_state.tour_title = raw_name.replace('_', ' ').replace('-', ' ')
+with c_up2:
+    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+    if up_img is not None: st.session_state.persistent_img = up_img.read()
+
+# --- OPTIONEN ---
+with st.expander("⚙️ Optionen", expanded=False):
+    col_opt1, col_opt2 = st.columns(2)
+    with col_opt1:
+        st.text_input("Tour Name", key="tour_title")
+        st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"], key="map_style")
+        st.checkbox("Zeige eigenes Logo", key="show_logo")
+        st.checkbox("Höhenprofil anzeigen", key="show_profile")
+        st.checkbox("Raster im Höhenprofil", key="show_grid")
+        st.checkbox("Icons in Infobox", key="show_icons")
+        st.checkbox("Einheiten anzeigen", key="show_units")
+        st.checkbox("Füllung Höhenprofil", key="fill_profile")
+    with col_opt2:
+        st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
+        st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
+        st.slider("Vertikaler Abstand Daten", 0, 300, key="data_y_offset")
+        st.write("**Position & Skala Route:**")
+        st.checkbox("Route automatisch skalieren", key="route_autoscale")
+        st.slider("Horizontaler Versatz Route", -500, 500, key="route_x_offset")
+        st.slider("Vertikaler Versatz Route", -500, 500, key="route_y_offset")
+        st.slider("Manuelle Route Skalierung", 0.1, 2.0, key="route_scale", disabled=st.session_state.route_autoscale)
+        if st.session_state.persistent_img:
+            st.write("**Foto Einstellungen:**")
+            st.slider("Horizontaler Versatz Foto", -2000, 2000, key="img_x_offset")
+            st.slider("Vertikaler Versatz Foto", -2000, 2000, key="img_y_offset")
+            st.slider("Foto Zoom", 0.1, 5.0, key="img_zoom")
+        st.slider("Balken Dicke", 0.05, 0.50, key="b_height_adj")
+        st.slider("Linienstärke Route", 1, 100, key="w_line")
+        st.slider("Balken Deckkraft", 0, 255, key="b_alpha")
+        st.color_picker("Routenfarbe", key="c_line")
+        st.color_picker("Farbe Profilfüllung", key="c_fill")
+        st.color_picker("Farbe Infoboxen", key="c_box")
+    st.markdown("---")
+    st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
+
+# --- ÜBER REITER ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    c_logo, c_meta = st.columns([1, 3])
+    with c_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=100)
+    with c_meta:
+        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
+        paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
+        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal" style="width:120px; margin-top:10px;"></a>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("**App teilen:**")
+    app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
+    st.code(app_url, language=None)
+
+st.divider()
+
+if up_gpx:
+    try:
+        up_gpx.seek(0)
+        gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
+        pts, elevs = [], []
+        d_total, a_gain = 0.0, 0.0
+        last, last_elev = None, None
+        for tr in gpx.tracks:
+            for seg in tr.segments:
+                for p in seg.points:
+                    pts.append([p.latitude, p.longitude])
+                    elevs.append(p.elevation if p.elevation is not None else 0)
+                    if last:
+                        d_total += calc_dist(last[0], last[1], p.latitude, p.longitude)
+                        if p.elevation is not None and last_elev is not None:
+                            diff = p.elevation - last_elev
+                            if diff > 0: a_gain += diff
+                    last, last_elev = [p.latitude, p.longitude], p.elevation
+
+        if pts:
+            lats, lons = zip(*pts)
+            w, h = 1080, 1920 
+            if st.session_state.persistent_img:
+                src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
+                w_orig, h_orig = src_img.size
+                src_img = src_img.resize((int(w_orig * st.session_state.img_zoom), int(h_orig * st.session_state.img_zoom)), Image.Resampling.LANCZOS)
+                w, h = w_orig, h_orig
+            else:
+                from staticmap import StaticMap, Line
+                m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+                m.add_line(Line(list(zip(lons, lats)), st.session_state.c_line, st.session_state.w_line))
+                src_img = m.render().convert("RGBA")
+
+            base_img = Image.new('RGBA', (w, h), (255, 255, 255, 255))
+            base_img.paste(src_img, (st.session_state.img_x_offset if st.session_state.persistent_img else 0, st.session_state.img_y_offset if st.session_state.persistent_img else 0), src_img)
+
+            overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
+            draw = ImageDraw.Draw(overlay)
+            rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
+            bh_top, bh_bot = int(h * st.session_state.b_height_adj), int(h * 0.12)
+            draw.rectangle([0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
+            draw.rectangle([0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
+
+            font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            
+            # --- LOGO ---
+            if st.session_state.show_logo and os.path.exists("logo.png"):
+                logo_img = Image.open("logo.png").convert("RGBA")
+                l_w = int(w * 0.12)
+                logo_img = logo_img.resize((l_w, int(logo_img.height * (l_w/logo_img.width))), Image.Resampling.LANCZOS)
+                overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
+
+            # --- ROUTE ---
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
+            rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
+            scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
+                       (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
+            draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
+
+            # --- TITEL ---
+            title_y = int(bh_top * 0.35)
+            font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
+            draw.text((w//2, title_y), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
+
+            # --- DATEN MIT SMOOTH ICONS ---
+            txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
+            icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
+            font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
+            w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
+            spacing, i_gap = int(w * 0.15), int(w * 0.02)
+            total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + spacing
+            sx, data_y = (w - total_w) // 2, title_y + st.session_state.data_y_offset
+
+            if st.session_state.show_icons:
+                ic_dist = draw_smooth_icon("dist", icon_size)
+                overlay.paste(ic_dist, (int(sx), int(data_y - icon_size//2)), ic_dist)
+                draw.text((sx + icon_size + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
+                ex = sx + icon_size + i_gap + w_d + spacing
+                ic_elev = draw_smooth_icon("elev", icon_size)
+                overlay.paste(ic_elev, (int(ex), int(data_y - icon_size//2)), ic_elev)
+                draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
+            else:
+                draw.text((sx, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
+                draw.text((sx + w_d + spacing, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
+
+            final = Image.alpha_composite(base_img, overlay).convert('RGB')
+            st.image(final, use_container_width=True)
+            buf = io.BytesIO()
+            final.save(buf, format="JPEG", quality=95)
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
+    except Exception as e: st.error(f"Fehler: {e}")import streamlit as st
+import gpxpy
+from PIL import Image, ImageDraw, ImageFont, ImageChops
+import io
+import math
+import os
+
+# --- APP KONFIGURATION ---
+st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
+
 # --- STANDARDWERTE DEFINIEREN ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
