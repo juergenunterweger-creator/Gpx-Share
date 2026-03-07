@@ -5,6 +5,166 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import math
 
+# --- NATIVE APP LOOK & FEEL ---
+st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
+
+# Modernes CSS für "Floating Cards" und animierte Buttons
+st.markdown("""
+    <style>
+    /* Hintergrund & Grundgerüst */
+    .stApp { background-color: #080a0f; color: #ffffff; }
+    
+    /* Sidebar modernisieren */
+    [data-testid="stSidebar"] {
+        background-color: rgba(22, 27, 34, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Titel Styling */
+    .main-title {
+        font-size: 42px;
+        font-weight: 800;
+        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0px;
+    }
+
+    /* Card Design für Uploads */
+    div.stFileUploader {
+        background-color: #161b22;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #30363d;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    /* Button Styling */
+    .stButton>button {
+        width: 100%;
+        border-radius: 15px;
+        height: 3.5em;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        color: white;
+        font-weight: bold;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+# --- SIDEBAR MENÜ ---
+with st.sidebar:
+    st.markdown("<h1 style='color: #00f2fe;'>GPX Share</h1>", unsafe_allow_html=True)
+    st.markdown("### 🛠️ Werkzeuge")
+    
+    with st.container():
+        st.write("🎨 **Stil**")
+        l_color = st.color_picker("Linienfarbe", "#00F2FE")
+        l_width = st.slider("Stärke", 2, 30, 12)
+        l_alpha = st.slider("Sichtbarkeit", 0, 255, 255)
+    
+    st.markdown("---")
+    
+    with st.container():
+        st.write("📝 **Daten**")
+        t_name = st.text_input("Tour Name", "Ranna Stausee")
+        show_stats = st.toggle("Stats anzeigen", value=True)
+        b_pos = st.selectbox("Box Position", ["Oben Links", "Oben Rechts", "Unten Links", "Unten Rechts"])
+        b_alpha = st.slider("Box Deckkraft", 0, 255, 180)
+
+# --- HAUPTBEREICH ---
+st.markdown("<p class='main-title'>GPX Share</p>", unsafe_allow_html=True)
+st.markdown("_Dein Ride, dein Bild, dein Style._")
+
+col1, col2 = st.columns(2)
+with col1:
+    img_in = st.file_uploader("📸 Bild wählen", type=["jpg", "png", "jpeg"])
+with col2:
+    gpx_in = st.file_uploader("📍 Tour wählen", type=["gpx", "xml", "txt"])
+
+if img_in and gpx_in:
+    img = Image.open(img_in).convert("RGB")
+    w, h = img.size
+    
+    try:
+        gpx = gpxpy.parse(gpx_in.read().decode("utf-8"))
+        pts = []
+        d_tot, a_tot = 0.0, 0.0
+        lp = None
+        
+        for tr in gpx.tracks:
+            for se in tr.segments:
+                for p in se.points:
+                    pts.append((p.latitude, p.longitude))
+                    if lp:
+                        d_tot += haversine(lp.latitude, lp.longitude, p.latitude, p.longitude)
+                        if p.elevation and lp.elevation and p.elevation > lp.elevation:
+                            a_tot += (p.elevation - lp.elevation)
+                    lp = p
+
+        if pts:
+            # Route zeichnen
+            ov = Image.new('RGBA', img.size, (0,0,0,0))
+            dr = ImageDraw.Draw(ov)
+            
+            lats, lons = zip(*pts)
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            mar = 0.15
+            
+            scaled = []
+            for lat, lon in pts:
+                x = w * mar + (lon - mi_lo) / (ma_lo - mi_lo) * w * (1 - 2*mar)
+                y = h * (1 - mar) - (lat - mi_la) / (ma_la - mi_la) * h * (1 - 2*mar)
+                scaled.append((x, y))
+            
+            # Farbe konvertieren
+            rgb = tuple(int(l_color[i:i+2], 16) for i in (1, 3, 5))
+            dr.line(scaled, fill=rgb + (l_alpha,), width=l_width, joint="round")
+
+            if show_stats:
+                bw, bh = int(w * 0.42), int(h * 0.18)
+                pm = {"Oben Links": (40, 40), "Oben Rechts": (w-bw-40, 40), 
+                      "Unten Links": (40, h-bh-40), "Unten Rechts": (w-bw-40, h-bh-40)}
+                bx, by = pm[b_pos]
+                
+                # Glass Box
+                dr.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
+                
+                # Info Text
+                fs = max(26, int(w / 42))
+                dr.text((bx+30, by+25), t_name, fill="white")
+                dr.text((bx+30, by+25+fs*1.5), f"{d_tot:.1f} km | {int(a_tot)} hm", fill=l_color)
+
+            final = Image.alpha_composite(img.convert('RGBA'), ov).convert('RGB')
+            st.image(final, use_container_width=True)
+            
+            # Download Button
+            out = io.BytesIO()
+            final.save(out, format="JPEG", quality=95)
+            st.download_button("🚀 BILD JETZT EXPORTIEREN", out.getvalue(), "gpx_share.jpg", "image/jpeg")
+
+    except Exception as e:
+        st.error(f"Fehler: {e}")
+import streamlit as st
+import gpxpy
+import gpxpy.gpx
+from PIL import Image, ImageDraw, ImageFont
+import io
+import math
+
 # --- MODERN UI CONFIGURATION ---
 st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
 
