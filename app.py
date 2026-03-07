@@ -38,12 +38,16 @@ DEFAULTS = {
     "fill_profile": True
 }
 
+# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
+# Daten-Tresor für Dateien
 if "persistent_img" not in st.session_state:
     st.session_state.persistent_img = None
+if "persistent_gpx" not in st.session_state:
+    st.session_state.persistent_gpx = None
 
 def reset_parameters():
     for key, val in DEFAULTS.items():
@@ -51,11 +55,6 @@ def reset_parameters():
 
 # PWA Meta-Tags
 st.markdown("""
-    <head>
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="apple-mobile-web-app-title" content="GPX Share">
-    </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
@@ -68,9 +67,6 @@ st.markdown("""
         width: 100%; border-radius: 20px;
         background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
         color: white !important; font-weight: bold; border: none; height: 3em;
-    }
-    div[data-testid="stExpander"] details summary p {
-        font-size: 1.2rem !important; font-weight: bold !important; color: #8b0000 !important;
     }
     .install-box {
         background-color: #f0f2f6; padding: 15px; border-radius: 10px;
@@ -114,22 +110,20 @@ def draw_smooth_icon(mode, size, color="white"):
         d.polygon([(c_size*0.4, c_size-lw), (c_size*0.75, c_size*0.4), (c_size-lw, c_size-lw)], fill=color, outline="black")
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-# --- SIDEBAR ---
-with st.sidebar:
-    if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
-
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOAD ---
+# --- UPLOAD BEREICH ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
-    if up_gpx is not None:
+    up_gpx = st.file_uploader("📍 1. GPX Datei")
+    if up_gpx:
+        st.session_state.persistent_gpx = up_gpx.read()
         raw_name = up_gpx.name.rsplit('.', 1)[0]
         st.session_state.tour_title = raw_name.replace('_', ' ').replace('-', ' ')
 with c_up2:
-    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-    if up_img is not None: st.session_state.persistent_img = up_img.read()
+    up_img = st.file_uploader("📸 2. Foto wählen")
+    if up_img:
+        st.session_state.persistent_img = up_img.read()
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Optionen", expanded=False):
@@ -147,7 +141,7 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
         st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
         st.slider("Vertikaler Abstand Daten", 0, 300, key="data_y_offset")
-        st.write("**Position & Skala Route:**")
+        st.write("**Position Route:**")
         st.checkbox("Route automatisch skalieren", key="route_autoscale")
         st.slider("Horizontaler Versatz Route", -500, 500, key="route_x_offset")
         st.slider("Vertikaler Versatz Route", -500, 500, key="route_y_offset")
@@ -163,28 +157,21 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Farbe Profilfüllung", key="c_fill")
         st.color_picker("Farbe Infoboxen", key="c_box")
-    st.markdown("---")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    c_logo, c_meta = st.columns([1, 3])
-    with c_logo:
-        if os.path.exists("logo.png"): st.image("logo.png", width=100)
-    with c_meta:
-        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
-        paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal" style="width:120px; margin-top:10px;"></a>', unsafe_allow_html=True)
-    st.markdown("---")
-    app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
-    st.code(app_url, language=None)
+    paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
+    st.markdown(f"**Copyright: Jürgen Unterweger** | Version: 1.0")
+    st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
 
 st.divider()
 
-if up_gpx:
+# --- VERARBEITUNG AUS DEM TRESOR ---
+if st.session_state.persistent_gpx:
     try:
-        up_gpx.seek(0)
-        gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
+        gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx).read().decode("utf-8", errors="ignore"))
         pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
@@ -226,38 +213,29 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- LOGO ---
+            # --- LOGO & PROFIL ---
             if st.session_state.show_logo and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 l_w = int(w * 0.12)
                 logo_img = logo_img.resize((l_w, int(logo_img.height * (l_w/logo_img.width))), Image.Resampling.LANCZOS)
                 overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
 
-            # --- HÖHENPROFIL (WIEDER DA!) ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                
                 rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
                 if st.session_state.fill_profile:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
-                
                 if st.session_state.show_grid:
                     try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * st.session_state.font_scale)))
                     except: font_grid = ImageFont.load_default()
-                    grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    grid_color = (255, 255, 255, 45)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
-                        ev_val = e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
-                        draw.text((w * 0.005, gy - 2), f"{int(ev_val)}m", fill=grid_text_color, font=font_grid, anchor="ld")
-                    for i in range(1, 8):
-                        gx = i * (w / 8)
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
-                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
-                
+                        draw.text((w * 0.005, gy - 2), f"{int(e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- ROUTE ---
@@ -268,20 +246,16 @@ if up_gpx:
                        (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
             draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
-            # --- TITEL ---
-            title_y = int(bh_top * 0.35)
+            # --- TITEL & DATEN ---
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
-            draw.text((w//2, title_y), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
-
-            # --- DATEN ---
+            draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
             icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
-            w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
-            spacing, i_gap = int(w * 0.15), int(w * 0.02)
+            w_d, w_e, i_gap = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d), int(w * 0.02)
+            spacing = int(w * 0.15)
             total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + spacing
-            sx, data_y = (w - total_w) // 2, title_y + st.session_state.data_y_offset
-
+            sx, data_y = (w - total_w) // 2, int(bh_top * 0.35) + st.session_state.data_y_offset
             if st.session_state.show_icons:
                 ic_dist = draw_smooth_icon("dist", icon_size)
                 overlay.paste(ic_dist, (int(sx), int(data_y - icon_size//2)), ic_dist)
@@ -290,9 +264,6 @@ if up_gpx:
                 ic_elev = draw_smooth_icon("elev", icon_size)
                 overlay.paste(ic_elev, (int(ex), int(data_y - icon_size//2)), ic_elev)
                 draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
-            else:
-                draw.text((sx, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
-                draw.text((sx + w_d + spacing, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
 
             final = Image.alpha_composite(base_img, overlay).convert('RGB')
             st.image(final, use_container_width=True)
