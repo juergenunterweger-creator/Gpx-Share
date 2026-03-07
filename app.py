@@ -34,6 +34,7 @@ def calc_dist(lat1, lon1, lat2, lon2):
 
 # --- SIDEBAR ---
 with st.sidebar:
+    # --- APP LOGO INTEGRATION ---
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -60,10 +61,8 @@ c1, c2 = st.columns(2)
 with c1:
     up_gpx = st.file_uploader("📍 1. GPX Datei (Tour)")
 with c2:
-    # Foto ist jetzt "Optional"
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
 
-# Code startet jetzt, sobald eine GPX da ist
 if up_gpx:
     try:
         up_gpx.seek(0)
@@ -103,7 +102,8 @@ if up_gpx:
                     st.stop()
                 
                 with st.spinner("Lade OpenStreetMap Karte... 🌍"):
-                    w, h = 1920, 1080
+                    # HIER IST DIE ÄNDERUNG: Hochformat (Portrait)
+                    w, h = 1080, 1920 
                     m = StaticMap(w, h, url_template='https://tile.openstreetmap.org/{z}/{x}/{y}.png')
                     
                     # Route hinzufügen
