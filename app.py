@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont, ImageChops
+from PIL import Image, ImageDraw, ImageFont
 import io
 import math
 import os
@@ -16,6 +16,7 @@ DEFAULTS = {
     "show_date": True,
     "font_scale": 1.5,
     "data_font_scale": 1.2,
+    "grid_font_scale": 1.5, # NEU: Separater Scale für das Raster
     "data_y_offset": 160,
     "route_x_offset": 0,
     "route_y_offset": 0,
@@ -140,8 +141,9 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.checkbox("Höhenprofil anzeigen", key="show_profile")
         st.checkbox("Raster im Profil", key="show_grid")
     with col_opt2:
-        st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
-        st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
+        st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
+        st.slider("Profil-Beschriftung", 0.5, 3.0, key="grid_font_scale") # NEUER SLIDER
+        st.slider("Daten-Größe", 0.5, 3.0, key="data_font_scale")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Infobox-Farbe", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
@@ -149,7 +151,7 @@ with st.expander("⚙️ Optionen", expanded=False):
 # --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### GPX Share Pro XXL")
-    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.5**")
+    st.markdown("**Copyright: Jürgen Unterweger** | **Version: 1.2.6**")
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
 
@@ -205,27 +207,20 @@ if st.session_state.persistent_gpx:
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             
-            # --- DATUM IN EIGENER BOX (RECHTS UNTEN) ---
+            # --- DATUM IN BOX (RECHTS UNTEN) ---
             if st.session_state.show_date and st.session_state.tour_date:
-                # Kleinere Schrift für Datum
                 date_font_size = int(w * 0.028 * st.session_state.font_scale)
                 try: font_date = ImageFont.truetype(font_path, date_font_size)
                 except: font_date = ImageFont.load_default()
-                
-                # Box-Berechnung
                 date_text = st.session_state.tour_date
                 tw = draw.textlength(date_text, font=font_date)
-                pad = int(w * 0.015)
-                # Box-Koordinaten
-                margin = int(w * 0.02)
+                pad, margin = int(w * 0.015), int(w * 0.02)
                 bx1, by1 = w - tw - pad*2 - margin, h - date_font_size - pad*2 - margin
                 bx2, by2 = w - margin, h - margin
-                # Box zeichnen
                 draw.rectangle([bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=1)
-                # Text in Box
                 draw.text((bx1 + pad, by1 + pad), date_text, fill="white", font=font_date)
             
-            # --- HÖHENPROFIL (RASTER) ---
+            # --- HÖHENPROFIL (MIT SKALIERBARER SCHRIFT) ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -233,8 +228,10 @@ if st.session_state.persistent_gpx:
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 
                 if st.session_state.show_grid:
-                    font_grid = get_fitted_font(draw, "000m", int(w*0.02), int(w*0.02), font_path)
-                    grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    # SCHRIFTGRÖSSE HIER SKALIERT
+                    grid_font_size = int(w * 0.025 * st.session_state.grid_font_scale)
+                    font_grid = get_fitted_font(draw, "0000m", int(w*0.05), grid_font_size, font_path)
+                    grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 180)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=1)
@@ -266,5 +263,5 @@ if st.session_state.persistent_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_badge_{datetime.now().strftime('%H%M%S')}.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_readable_{datetime.now().strftime('%H%M%S')}.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
