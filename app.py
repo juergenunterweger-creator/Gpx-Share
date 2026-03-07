@@ -53,10 +53,6 @@ def reset_parameters():
 
 # PWA Meta-Tags & Styling
 st.markdown("""
-    <head>
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
@@ -117,12 +113,13 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei")
+    # NEU: Nur .gpx Dateien erlaubt
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
     if up_gpx:
         st.session_state.persistent_gpx = up_gpx.read()
         st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
 with c_up2:
-    up_img = st.file_uploader("📸 2. Foto wählen")
+    up_img = st.file_uploader("📸 2. Foto wählen", type=["jpg", "jpeg", "png"])
     if up_img: st.session_state.persistent_img = up_img.read()
 
 # --- OPTIONEN ---
@@ -159,7 +156,7 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Farbe Infoboxen", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- RESTAURIERTER INFO REITER ---
+# --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
@@ -170,19 +167,15 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         st.markdown("**Version: 1.0**")
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
         st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
     st.markdown("---")
     st.markdown("**📲 Als App installieren:**")
     st.markdown('<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> "Zum Home-Bildschirm"<br><strong>Android:</strong> Menü -> "App installieren"</div>', unsafe_allow_html=True)
-    
     st.markdown("---")
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
-    
     st.markdown("---")
-    st.markdown("**App teilen:**")
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     st.code(app_url, language=None)
 
@@ -211,7 +204,6 @@ if st.session_state.persistent_gpx:
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
-            # HINTERGRUND
             if st.session_state.persistent_img:
                 src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
                 w_orig, h_orig = src_img.size
@@ -236,14 +228,12 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # LOGO
             if st.session_state.show_logo and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 l_w = int(w * 0.12)
                 logo_img = logo_img.resize((l_w, int(logo_img.height * (l_w/logo_img.width))), Image.Resampling.LANCZOS)
                 overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
 
-            # HÖHENPROFIL (MIT KM-RASTER)
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -255,24 +245,22 @@ if st.session_state.persistent_gpx:
                 if st.session_state.show_grid:
                     font_grid = get_fitted_font(draw, "0m", int(w*0.02), int(w*0.02), font_path)
                     grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 140)
-                    for i in range(1, 4): # Meter
+                    for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
                         draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=text_color, font=font_grid, anchor="ld")
-                    for i in range(1, 8): # Kilometer Raster
+                    for i in range(1, 8):
                         gx = i * (w / 8)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=text_color, font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # ROUTE
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
                        (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
             draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
-            # TITEL & DATEN
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
