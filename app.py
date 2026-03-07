@@ -51,8 +51,12 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
-# PWA CSS
+# PWA Meta-Tags & Styling
 st.markdown("""
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    </head>
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     .title-modern {
@@ -65,6 +69,10 @@ st.markdown("""
         width: 100%; border-radius: 20px;
         background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
         color: white !important; font-weight: bold; border: none; height: 3em;
+    }
+    .install-box {
+        background-color: #f0f2f6; padding: 15px; border-radius: 10px;
+        border-left: 5px solid #ff0000; margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -115,8 +123,7 @@ with c_up1:
         st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen")
-    if up_img:
-        st.session_state.persistent_img = up_img.read()
+    if up_img: st.session_state.persistent_img = up_img.read()
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Optionen", expanded=False):
@@ -152,11 +159,32 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Farbe Infoboxen", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- INFO ---
-with st.expander("ℹ️ Info & Support"):
-    paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-    st.markdown(f"**Copyright: Jürgen Unterweger** | Version: 1.0")
-    st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+# --- RESTAURIERTER INFO REITER ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    c_logo, c_meta = st.columns([1, 3])
+    with c_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=100)
+    with c_meta:
+        st.markdown("### GPX Share Pro XXL")
+        st.markdown("**Copyright: Jürgen Unterweger**")
+        st.markdown("**Version: 1.0**")
+        paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
+        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("**📲 Als App installieren:**")
+    st.markdown('<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> "Zum Home-Bildschirm"<br><strong>Android:</strong> Menü -> "App installieren"</div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("**Folge mir auf meinen Kanälen:**")
+    col_ig, col_fb = st.columns(2)
+    with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
+    with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
+    
+    st.markdown("---")
+    st.markdown("**App teilen:**")
+    app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
+    st.code(app_url, language=None)
 
 st.divider()
 
@@ -183,11 +211,12 @@ if st.session_state.persistent_gpx:
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
-            # 1. HINTERGRUND ERSTELLEN
+            # HINTERGRUND
             if st.session_state.persistent_img:
                 src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
-                w, h = src_img.size
-                src_img = src_img.resize((int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)), Image.Resampling.LANCZOS)
+                w_orig, h_orig = src_img.size
+                src_img = src_img.resize((int(w_orig * st.session_state.img_zoom), int(h_orig * st.session_state.img_zoom)), Image.Resampling.LANCZOS)
+                w, h = w_orig, h_orig
             else:
                 from staticmap import StaticMap, Line
                 w, h = 1080, 1920
@@ -198,7 +227,6 @@ if st.session_state.persistent_gpx:
             base_img = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             base_img.paste(src_img, (st.session_state.img_x_offset if st.session_state.persistent_img else 0, st.session_state.img_y_offset if st.session_state.persistent_img else 0), src_img)
 
-            # 2. OVERLAY ZEICHNEN
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
@@ -208,13 +236,14 @@ if st.session_state.persistent_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- LOGO & PROFIL ---
+            # LOGO
             if st.session_state.show_logo and os.path.exists("logo.png"):
                 logo_img = Image.open("logo.png").convert("RGBA")
                 l_w = int(w * 0.12)
                 logo_img = logo_img.resize((l_w, int(logo_img.height * (l_w/logo_img.width))), Image.Resampling.LANCZOS)
                 overlay.paste(logo_img, (w - l_w - int(w*0.03), int(bh_top*0.1)), logo_img)
 
+            # HÖHENPROFIL (MIT KM-RASTER)
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -225,34 +254,38 @@ if st.session_state.persistent_gpx:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
                 if st.session_state.show_grid:
                     font_grid = get_fitted_font(draw, "0m", int(w*0.02), int(w*0.02), font_path)
-                    for i in range(1, 4):
+                    grid_color, text_color = (255, 255, 255, 45), (255, 255, 255, 140)
+                    for i in range(1, 4): # Meter
                         gy = grid_y_start + i * (bh_bot / 4)
-                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
-                        draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
+                        draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
+                        draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=text_color, font=font_grid, anchor="ld")
+                    for i in range(1, 8): # Kilometer Raster
+                        gx = i * (w / 8)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
+                        draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=text_color, font=font_grid, anchor="lt")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
-            # --- ROUTE ---
+            # ROUTE
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
                        (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset) for lat, lon in pts]
             draw.line(scaled, fill=rgb_route + (st.session_state.r_alpha,), width=st.session_state.w_line, joint="round")
 
-            # --- TITEL & DATEN ---
+            # TITEL & DATEN
             font_t = get_fitted_font(draw, st.session_state.tour_title, w * 0.9, int(w * 0.085 * st.session_state.font_scale), font_path)
             draw.text((w//2, int(bh_top * 0.35)), st.session_state.tour_title, fill="white", font=font_t, anchor="mm")
             txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
             icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
-            w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
-            spacing, i_gap = int(w * 0.15), int(w * 0.02)
-            total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + spacing
+            w_d, w_e, i_gap = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d), int(w * 0.02)
+            total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + int(w * 0.15)
             sx, data_y = (w - total_w) // 2, int(bh_top * 0.35) + st.session_state.data_y_offset
             if st.session_state.show_icons:
                 ic_dist = draw_smooth_icon("dist", icon_size)
                 overlay.paste(ic_dist, (int(sx), int(data_y - icon_size//2)), ic_dist)
                 draw.text((sx + icon_size + i_gap, data_y), txt_dist, fill="white", font=font_d, anchor="lm")
-                ex = sx + icon_size + i_gap + w_d + spacing
+                ex = sx + icon_size + i_gap + w_d + int(w * 0.15)
                 ic_elev = draw_smooth_icon("elev", icon_size)
                 overlay.paste(ic_elev, (int(ex), int(data_y - icon_size//2)), ic_elev)
                 draw.text((ex + icon_size + i_gap, data_y), txt_elev, fill="white", font=font_d, anchor="lm")
