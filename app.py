@@ -66,6 +66,23 @@ with st.expander("⚙️ Optionen", expanded=False):
         b_alpha = st.slider("Balken Deckkraft", 0, 255, 160)
         c_line = st.color_picker("Routenfarbe", "#8B0000")
 
+# --- ÜBER GPX SHARE ---
+with st.expander("ℹ️ Über GPX Share", expanded=False):
+    st.markdown("""
+    ### Willkommen bei GPX Share Pro! 🏍️
+    
+    Diese App wurde entwickelt, um deine schönsten Motorradtouren, Radstrecken oder Wanderungen perfekt in Szene zu setzen. Egal ob für Instagram, WhatsApp oder dein privates Touren-Tagebuch.
+    
+    **Deine Features auf einen Blick:**
+    * **📸 Foto-Overlay:** Lege deine Route als schicke, leuchtende Linie direkt über deine eigenen Fotos.
+    * **🌍 Auto-Map:** Kein passendes Foto? Kein Problem! Die App lädt automatisch eine gestochen scharfe Karte (Satellit, Dark Mode, etc.) und zeichnet die Route im perfekten Hochformat ein.
+    * **📈 Profi-Telemetrie:** Höhenprofil, gefahrene Kilometer und Höhenmeter werden automatisch aus deiner GPX-Datei berechnet und im Tacho-Look eingeblendet.
+    * **⚙️ Voll anpassbar:** Routenfarbe, Linienstärke, Transparenz und sogar ein eigenes Logo mit sauberen abgerundeten Ecken – alles ist mit einem Klick anpassbar.
+    
+    Lade einfach eine `.gpx` Datei hoch und probiere es aus!
+    """)
+    st.info("Entwickelt mit ❤️ für alle, die gerne draußen unterwegs sind.")
+
 st.divider()
 
 # --- UPLOAD BEREICH ---
