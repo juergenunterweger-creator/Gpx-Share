@@ -73,6 +73,8 @@ with st.expander("⚙️ Optionen", expanded=False):
         tour_title = st.text_input("Tour Name", value=st.session_state.tour_name_val)
         map_style = st.selectbox("Karten-Stil", ["OSM Standard", "Dark Mode", "Satellit", "Light Mode"])
         show_logo = st.checkbox("Zeige eigenes Logo", value=False)
+        # NEU: Höhenprofil Ein/Aus
+        show_profile = st.checkbox("Höhenprofil anzeigen", value=True)
         show_grid = st.checkbox("Raster im Höhenprofil", value=True)
         show_icons = st.checkbox("Icons in Infobox", value=True)
         show_units = st.checkbox("Einheiten anzeigen", value=True)
@@ -140,23 +142,22 @@ if up_gpx:
 
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             
-            # --- HÖHENPROFIL BERECHNUNG ---
-            if len(elevs) > 1:
+            # --- HÖHENPROFIL (WENN AKTIVIERT) ---
+            if show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 
-                # 1. ZUERST DIE FÜLLUNG (Ganz unten)
+                # Füllung
                 if fill_profile:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(r_alpha * 0.5),))
                 
-                # 2. DANN DAS RASTER (Über der Füllung)
-                try:
-                    font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale)))
-                except: font_grid = ImageFont.load_default()
-
+                # Raster
                 if show_grid:
+                    try:
+                        font_grid = ImageFont.truetype(font_path, max(14, int(w * 0.025 * font_scale)))
+                    except: font_grid = ImageFont.load_default()
                     grid_color, grid_text_color = (255, 255, 255, 45), (255, 255, 255, 160)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
@@ -168,7 +169,7 @@ if up_gpx:
                         draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                         draw.text((gx + 4, grid_y_start + 4), f"{int((i/8)*d_total)}km", fill=grid_text_color, font=font_grid, anchor="lt")
 
-                # 3. ZULETZT DIE WEISSE OBERKANTE
+                # Weiße Oberkante
                 draw.line(profile_pts, fill=(255,255,255, r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- TEXTE & ICONS ---
