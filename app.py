@@ -37,9 +37,9 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    up_img = st.file_uploader("📸 1. Foto wählen", type=["jpg", "jpeg", "png"], key="v18_img")
+    up_img = st.file_uploader("📸 1. Foto wählen", type=["jpg", "jpeg", "png"], key="v19_img")
 with c2:
-    up_gpx = st.file_uploader("📍 2. GPX Datei", type=["gpx", "xml", "txt"], key="v18_gpx")
+    up_gpx = st.file_uploader("📍 2. GPX Datei", type=["gpx", "xml", "txt"], key="v19_gpx")
 
 # Tour-Name Vorschlag
 default_name = "Meine Tour"
@@ -48,11 +48,11 @@ if up_gpx:
 
 with st.sidebar:
     st.markdown("<h1 style='color: #00f2fe;'>⚙️ Menü</h1>", unsafe_allow_html=True)
-    tour_title = st.text_input("Tour Name", value=default_name, key="v18_title")
+    tour_title = st.text_input("Tour Name", value=default_name, key="v19_title")
     st.divider()
-    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v18_c")
-    w_line = st.slider("Linienstärke", 5, 80, 25, key="v18_w")
-    b_alpha = st.slider("Balken Deckkraft", 0, 255, 180, key="v18_alpha")
+    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v19_c")
+    w_line = st.slider("Linienstärke", 5, 80, 35, key="v19_w")
+    b_alpha = st.slider("Balken Deckkraft", 0, 255, 200, key="v19_alpha")
 
 if up_img and up_gpx:
     try:
@@ -91,14 +91,13 @@ if up_img and up_gpx:
                     last_elev = p.elevation
 
         if pts:
-            # --- DIE EINFACH-LÖSUNG FÜR SCHRIFTEN ---
+            # --- XXL SCHRIFT LÖSUNG ---
             try:
-                # Pfad für Linux/Streamlit Cloud Server
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-                f_title = ImageFont.truetype(f_path, 65)
-                f_data = ImageFont.truetype(f_path, 50)
+                # Schriftgrößen massiv erhöht
+                f_title = ImageFont.truetype(f_path, 85) 
+                f_data = ImageFont.truetype(f_path, 70)
             except:
-                # Fallback für Windows/Mac oder falls Pfad anders ist
                 f_title = f_data = ImageFont.load_default()
 
             # 3. Zeichnen
@@ -108,7 +107,7 @@ if up_img and up_gpx:
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
-            margin = 60 
+            margin = 80 
             draw_area_w = new_w - 2*margin
             draw_area_h = new_h - 2*margin
             
@@ -121,15 +120,17 @@ if up_img and up_gpx:
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
-            # --- GETEILTE BALKEN ---
-            bh_top = 230
+            # --- MASSIVE GETEILTE BALKEN ---
+            bh_top = 280 # Balken höher für große Schrift
             draw.rectangle([0, 0, target_w, bh_top], fill=(0, 0, 0, b_alpha))
-            bh_bot = 260
+            bh_bot = 300
             draw.rectangle([0, target_h - bh_bot, target_w, target_h], fill=(0, 0, 0, b_alpha))
             
             # Texte schreiben (mm = middle/middle anchor)
-            draw.text((target_w//2, bh_top//2), f"Tour: {tour_title}", fill="white", font=f_title, anchor="mm")
-            stats_text = f"Distanz: {d_total:.1f} km  |  Höhe: {int(a_gain)} m"
+            draw.text((target_w//2, bh_top//2), tour_title, fill="white", font=f_title, anchor="mm")
+            
+            # Zeile Unten: Größer und deutlicher
+            stats_text = f"{d_total:.1f} km  |  {int(a_gain)} m"
             draw.text((target_w//2, target_h - bh_bot//2), stats_text, fill=c_line, font=f_data, anchor="mm")
 
             # Zusammenführen
@@ -138,7 +139,7 @@ if up_img and up_gpx:
             
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD IM HOCHFORMAT SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
