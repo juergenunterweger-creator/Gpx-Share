@@ -38,7 +38,7 @@ if up_img and up_gpx:
         
         # AUTO-GRÖSSE BERECHNEN
         auto_f_title = int(w * 0.08 * font_scale)
-        auto_f_data = int(w * 0.05 * font_scale)
+        auto_f_data = int(w * 0.045 * font_scale) # Etwas kleiner als Titel
 
         up_gpx.seek(0)
         gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
@@ -63,25 +63,22 @@ if up_img and up_gpx:
         if pts:
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
-            
+            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+
             # Balken
             bh_top = int(h * b_height_adj)
             bh_bot = int(h * (b_height_adj + 0.02))
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # --- HÖHENPROFIL (Wieder da!) ---
-            rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            # Höhenprofil
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                # Fläche füllen
                 draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (60,))
-                # Linie zeichnen
-                draw.line(profile_pts, fill=rgb + (180,), width=max(2, int(w/500)))
 
-            # --- SCHRIFT LADEN ---
+            # Schrift laden
             font_t = None
             possible_fonts = ["font.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
             for fpath in possible_fonts:
@@ -95,7 +92,13 @@ if up_img and up_gpx:
 
             # Texte schreiben
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
-            stats_text = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
+            
+            # --- DATENZEILE MIT ICONS ---
+            # Wir nutzen Unicode-Icons, die in den meisten TTF Fonts enthalten sind
+            dist_icon = "📏 " # Distanz Icon
+            elev_icon = "⛰️ " # Berg Icon
+            stats_text = f"{dist_icon}{d_total:.1f} km   {elev_icon}{int(a_gain)} m"
+            
             draw.text((w//2, h - bh_bot//2), stats_text, fill="white", font=font_d, anchor="mm")
 
             # Route (Stärke 9)
