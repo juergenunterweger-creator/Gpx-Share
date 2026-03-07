@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io
 import math
 import os
@@ -20,8 +20,9 @@ st.markdown("""
     .stDownloadButton button {
         width: 100%; border-radius: 25px; height: 4.5em;
         background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
-        color: white !important; font-weight: bold; border: none;
+        color: white !important; font-weight: bold; border: none; font-size: 18px;
     }
+    div.stFileUploader { background-color: #161b22; border-radius: 15px; border: 1px solid #30363d; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -35,11 +36,11 @@ def calc_dist(lat1, lon1, lat2, lon2):
 # --- HAUPTBEREICH ---
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-c1, c2 = st.columns(2)
-with c1:
-    up_img = st.file_uploader("📸 1. Foto wählen", type=["jpg", "jpeg", "png"], key="v19_img")
-with c2:
-    up_gpx = st.file_uploader("📍 2. GPX Datei", type=["gpx", "xml", "txt"], key="v19_gpx")
+col1, col2 = st.columns(2)
+with col1:
+    up_img = st.file_uploader("📸 1. Foto", type=["jpg", "jpeg", "png"], key="v20_img")
+with col2:
+    up_gpx = st.file_uploader("📍 2. GPX Datei", type=["gpx", "xml", "txt"], key="v20_gpx")
 
 # Tour-Name Vorschlag
 default_name = "Meine Tour"
@@ -48,15 +49,15 @@ if up_gpx:
 
 with st.sidebar:
     st.markdown("<h1 style='color: #00f2fe;'>⚙️ Menü</h1>", unsafe_allow_html=True)
-    tour_title = st.text_input("Tour Name", value=default_name, key="v19_title")
+    tour_title = st.text_input("Tour Name", value=default_name, key="v20_title")
     st.divider()
-    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v19_c")
-    w_line = st.slider("Linienstärke", 5, 80, 35, key="v19_w")
-    b_alpha = st.slider("Balken Deckkraft", 0, 255, 200, key="v19_alpha")
+    c_line = st.color_picker("Routenfarbe", "#00F2FE", key="v20_c")
+    w_line = st.slider("Linienstärke", 5, 80, 25, key="v20_w")
+    b_alpha = st.slider("Deckkraft Box", 0, 255, 170, key="v20_alpha")
 
 if up_img and up_gpx:
     try:
-        # 1. Bild laden und in festes HOCHFORMAT (1080x1920) bringen
+        # 1. Bild laden (Immer in festes 1080x1920 Hochformat zwingen)
         user_img = Image.open(up_img).convert("RGB")
         uw, uh = user_img.size
         target_w, target_h = 1080, 1920
@@ -91,23 +92,24 @@ if up_img and up_gpx:
                     last_elev = p.elevation
 
         if pts:
-            # --- XXL SCHRIFT LÖSUNG ---
+            # --- DIE EINFACH-LÖSUNG FÜR SCHRIFTEN & ICONS ---
             try:
+                # Pfad für Linux/Streamlit Cloud Server (DejaVuSans ist Standard)
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
                 # Schriftgrößen massiv erhöht
-                f_title = ImageFont.truetype(f_path, 85) 
-                f_data = ImageFont.truetype(f_path, 70)
+                f_title = ImageFont.truetype(f_path, 80)
+                f_data = ImageFont.truetype(f_path, 60)
             except:
+                # Fallback für Windows/Mac
                 f_title = f_data = ImageFont.load_default()
 
-            # 3. Zeichnen
-            overlay = Image.new('RGBA', (target_w, target_h), (0,0,0,0))
-            draw = ImageDraw.Draw(overlay)
+            # 3. Zeichnen (direkt auf das Bild, um Ausfransen zu vermeiden)
+            draw = ImageDraw.Draw(base_img)
             
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
-            margin = 80 
+            margin = 60 
             draw_area_w = new_w - 2*margin
             draw_area_h = new_h - 2*margin
             
@@ -118,30 +120,54 @@ if up_img and up_gpx:
                 scaled_pts.append((x, y))
             
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
+            
+            # Glow-Effekt für die Route (verhindert das Ausfransen und sieht super aus)
+            for i in range(6, 0, -2):
+                draw.line(scaled_pts, fill=rgb + (50,), width=w_line + i, joint="round")
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
-            # --- MASSIVE GETEILTE BALKEN ---
-            bh_top = 280 # Balken höher für große Schrift
-            draw.rectangle([0, 0, target_w, bh_top], fill=(0, 0, 0, b_alpha))
-            bh_bot = 300
-            draw.rectangle([0, target_h - bh_bot, target_w, target_h], fill=(0, 0, 0, b_alpha))
+            # --- MODERNE INFO BOX (Glassmorphism + Icons) ---
+            bw, bh = int(target_w * 0.90), int(target_h * 0.16)
+            bx = (target_w - bw) // 2
+            by = 100 # Box immer oben fixieren für den Pro-Look
             
-            # Texte schreiben (mm = middle/middle anchor)
-            draw.text((target_w//2, bh_top//2), tour_title, fill="white", font=f_title, anchor="mm")
+            # Ebene für die Box (Overlay)
+            box_overlay = Image.new('RGBA', (target_w, target_h), (0,0,0,0))
+            draw_ov = ImageDraw.Draw(box_overlay)
             
-            # Zeile Unten: Größer und deutlicher
-            stats_text = f"{d_total:.1f} km  |  {int(a_gain)} m"
-            draw.text((target_w//2, target_h - bh_bot//2), stats_text, fill=c_line, font=f_data, anchor="mm")
+            # Schatten (Blurred Rectangle)
+            shadow_rect = [bx+10, by+10, bx+bw+10, by+bh+10]
+            draw_ov.rectangle(shadow_rect, fill=(0, 0, 0, 80))
+            
+            # Haupt-Box (Transparent Schwarz)
+            draw_ov.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
+            
+            # Farblinie am Rand (unten)
+            draw_ov.rectangle([bx, by + bh - 12, bx+bw, by+bh], fill=rgb + (255,))
+            
+            # Zusammenfügen der Box mit dem Bild
+            base_img = Image.alpha_composite(base_img.convert('RGBA'), box_overlay).convert('RGB')
+            
+            # Texte zentrieren (mm = middle/middle anchor)
+            draw_final = ImageDraw.Draw(base_img)
+            draw_final.text((target_w//2, by + bh//2 - 35), f"{tour_title}", fill="white", font=f_title, anchor="mm")
+            
+            # --- ICONS ---
+            i_dist = "🗺️" # Landkarte für Distanz
+            i_elev = "⛰️" # Berg für Höhe
+            
+            # Zeile Unten: Größer und mit Icons
+            stats_text = f"{i_dist} {d_total:.1f} km  |  {i_elev} {int(a_gain)} m"
+            draw_final.text((target_w//2, by + bh//2 + 45), stats_text, fill=c_line, font=f_data, anchor="mm")
 
-            # Zusammenführen
-            final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
-            st.image(final, use_container_width=True)
+            # Zusammenführen & Anzeigen
+            st.image(base_img, use_container_width=True, caption="Dein fertiges Pro-Bild")
             
             buf = io.BytesIO()
-            final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "gpx_share.jpg", "image/jpeg")
+            base_img.save(buf, format="JPEG", quality=95)
+            st.download_button("🚀 BILD IM PRO-DESIGN SPEICHERN", buf.getvalue(), "gpx_share_pro.jpg", "image/jpeg")
 
     except Exception as e:
         st.error(f"Fehler: {e}")
 else:
-    st.info("Lade Foto und GPX-Datei hoch!")
+    st.info("Lade ein Foto und eine GPX-Datei hoch für den Pro-Look!")
