@@ -38,12 +38,10 @@ DEFAULTS = {
     "fill_profile": True
 }
 
-# Initialisierung Session State
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# Daten-Tresor für Dateien
 if "persistent_img" not in st.session_state:
     st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state:
@@ -53,7 +51,7 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
-# PWA Meta-Tags
+# PWA CSS
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -67,10 +65,6 @@ st.markdown("""
         width: 100%; border-radius: 20px;
         background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%) !important;
         color: white !important; font-weight: bold; border: none; height: 3em;
-    }
-    .install-box {
-        background-color: #f0f2f6; padding: 15px; border-radius: 10px;
-        border-left: 5px solid #ff0000; margin-top: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -112,14 +106,13 @@ def draw_smooth_icon(mode, size, color="white"):
 
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOAD BEREICH ---
+# --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
     up_gpx = st.file_uploader("📍 1. GPX Datei")
     if up_gpx:
         st.session_state.persistent_gpx = up_gpx.read()
-        raw_name = up_gpx.name.rsplit('.', 1)[0]
-        st.session_state.tour_title = raw_name.replace('_', ' ').replace('-', ' ')
+        st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen")
     if up_img:
@@ -159,19 +152,18 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Farbe Infoboxen", key="c_box")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER ---
-with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+# --- INFO ---
+with st.expander("ℹ️ Info & Support"):
     paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
     st.markdown(f"**Copyright: Jürgen Unterweger** | Version: 1.0")
     st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    st.code("https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/", language=None)
 
 st.divider()
 
-# --- VERARBEITUNG AUS DEM TRESOR ---
+# --- VERARBEITUNG ---
 if st.session_state.persistent_gpx:
     try:
-        gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx).read().decode("utf-8", errors="ignore"))
+        gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
         pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last, last_elev = None, None
@@ -189,14 +181,16 @@ if st.session_state.persistent_gpx:
 
         if pts:
             lats, lons = zip(*pts)
-            w, h = 1080, 1920 
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            
+            # 1. HINTERGRUND ERSTELLEN
             if st.session_state.persistent_img:
                 src_img = Image.open(io.BytesIO(st.session_state.persistent_img)).convert("RGBA")
-                w_orig, h_orig = src_img.size
-                src_img = src_img.resize((int(w_orig * st.session_state.img_zoom), int(h_orig * st.session_state.img_zoom)), Image.Resampling.LANCZOS)
-                w, h = w_orig, h_orig
+                w, h = src_img.size
+                src_img = src_img.resize((int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)), Image.Resampling.LANCZOS)
             else:
                 from staticmap import StaticMap, Line
+                w, h = 1080, 1920
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
                 m.add_line(Line(list(zip(lons, lats)), st.session_state.c_line, st.session_state.w_line))
                 src_img = m.render().convert("RGBA")
@@ -204,6 +198,7 @@ if st.session_state.persistent_gpx:
             base_img = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             base_img.paste(src_img, (st.session_state.img_x_offset if st.session_state.persistent_img else 0, st.session_state.img_y_offset if st.session_state.persistent_img else 0), src_img)
 
+            # 2. OVERLAY ZEICHNEN
             overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
@@ -222,24 +217,21 @@ if st.session_state.persistent_gpx:
 
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
-                e_range = e_max - e_min if e_max > e_min else 1
+                e_range = (e_max - e_min) if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
                 if st.session_state.fill_profile:
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (int(st.session_state.r_alpha * 0.5),))
                 if st.session_state.show_grid:
-                    try: font_grid = ImageFont.truetype(font_path, max(12, int(w * 0.018 * st.session_state.font_scale)))
-                    except: font_grid = ImageFont.load_default()
-                    grid_color = (255, 255, 255, 45)
+                    font_grid = get_fitted_font(draw, "0m", int(w*0.02), int(w*0.02), font_path)
                     for i in range(1, 4):
                         gy = grid_y_start + i * (bh_bot / 4)
-                        draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
-                        draw.text((w * 0.005, gy - 2), f"{int(e_min + ((grid_y_start + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
+                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,45), width=max(1, int(w*0.001)))
+                        draw.text((w*0.005, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,140), font=font_grid, anchor="ld")
                 draw.line(profile_pts, fill=(255,255,255, st.session_state.r_alpha), width=max(3, int(w*0.003)), joint="round")
 
             # --- ROUTE ---
-            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             base_margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
@@ -252,8 +244,8 @@ if st.session_state.persistent_gpx:
             txt_dist, txt_elev = f"{d_total:.1f}" + (" km" if st.session_state.show_units else ""), f"{int(a_gain)}" + (" m" if st.session_state.show_units else "")
             icon_size = int(w * 0.055 * 1.3 * st.session_state.data_font_scale)
             font_d = get_fitted_font(draw, txt_dist + " " + txt_elev, w * 0.7, int(w * 0.055 * st.session_state.data_font_scale), font_path)
-            w_d, w_e, i_gap = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d), int(w * 0.02)
-            spacing = int(w * 0.15)
+            w_d, w_e = draw.textlength(txt_dist, font=font_d), draw.textlength(txt_elev, font=font_d)
+            spacing, i_gap = int(w * 0.15), int(w * 0.02)
             total_w = (icon_size if st.session_state.show_icons else 0)*2 + i_gap*2 + w_d + w_e + spacing
             sx, data_y = (w - total_w) // 2, int(bh_top * 0.35) + st.session_state.data_y_offset
             if st.session_state.show_icons:
