@@ -46,7 +46,7 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
-# PWA Meta-Tags
+# PWA Meta-Tags für iOS und Android
 st.markdown("""
     <head>
         <meta name="apple-mobile-web-app-capable" content="yes">
@@ -143,24 +143,43 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.color_picker("Farbe Infoboxen", key="c_box")
     
     st.markdown("---")
-    # RESET BUTTON
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- ÜBER REITER ---
+# --- REITER: ÜBER GPX SHARE PRO ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=100)
     with c_meta:
-        st.markdown("### GPX Share Pro XXL\n**Copyright: Jürgen Unterweger**\n**Version: 1.0**")
+        st.markdown("### GPX Share Pro XXL")
+        st.markdown("**Copyright: Jürgen Unterweger**")
+        st.markdown("**Version: 1.0**")
+        
+        # --- PAYPAL DONATION (NUR LOGO) ---
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal" style="width:120px; margin-top:10px;"></a>', unsafe_allow_html=True)
+        st.markdown(f"""
+            <a href="{paypal_url}" target="_blank">
+                <img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal Donation" style="width:120px; margin-top:10px;">
+            </a>
+        """, unsafe_allow_html=True)
+    
     st.markdown("---")
+    
+    st.markdown("**📲 Als App installieren:**")
+    st.markdown("""
+        <div class="install-box">
+        <strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br>
+        <strong>Android:</strong> Menü -> 'App installieren'
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown("---")
+    
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
     st.markdown("---")
+    
     st.markdown("**App teilen:**")
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     st.code(app_url, language=None)
