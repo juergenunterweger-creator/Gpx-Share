@@ -8,6 +8,135 @@ import math
 # --- NATIVE APP LOOK & FEEL ---
 st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
 
+st.markdown("""
+    <style>
+    .stApp { background-color: #080a0f; color: #ffffff; }
+    [data-testid="stSidebar"] {
+        background-color: rgba(22, 27, 34, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .main-title {
+        font-size: 42px;
+        font-weight: 800;
+        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        color: white;
+        font-weight: bold;
+        border: none;
+        transition: 0.3s;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+# --- SIDEBAR MENÜ (Mit fixierten Keys) ---
+with st.sidebar:
+    st.markdown("<h1 style='color: #00f2fe;'>GPX Share</h1>", unsafe_allow_html=True)
+    st.markdown("### 🛠️ Werkzeuge")
+    
+    with st.expander("🎨 Stil & Farbe", expanded=True):
+        l_color = st.color_picker("Linienfarbe", "#00F2FE", key="cp_line")
+        l_width = st.slider("Stärke", 2, 30, 12, key="sl_width")
+        l_alpha = st.slider("Sichtbarkeit", 0, 255, 255, key="sl_alpha")
+    
+    with st.expander("📝 Tour-Infos"):
+        # HIER IST DIE KORREKTUR: Der 'key' verhindert den Fehler
+        t_name = st.text_input("Tour Name", "Ranna Stausee", key="input_tourname_sidebar")
+        show_stats = st.toggle("Stats anzeigen", value=True, key="tog_stats")
+        b_pos = st.selectbox("Position", ["Oben Links", "Oben Rechts", "Unten Links", "Unten Rechts"], key="sel_pos")
+        b_alpha = st.slider("Box Deckkraft", 0, 255, 180, key="sl_box_alpha")
+
+# --- HAUPTBEREICH ---
+st.markdown("<p class='main-title'>GPX Share</p>", unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+with col1:
+    img_in = st.file_uploader("📸 Bild wählen", type=["jpg", "png", "jpeg"], key="up_img")
+with col2:
+    gpx_in = st.file_uploader("📍 Tour wählen", type=["gpx", "xml", "txt"], key="up_gpx")
+
+if img_in and gpx_in:
+    img = Image.open(img_in).convert("RGB")
+    w, h = img.size
+    
+    try:
+        gpx_data = gpx_in.read().decode("utf-8")
+        gpx = gpxpy.parse(gpx_data)
+        pts = []
+        d_tot, a_tot = 0.0, 0.0
+        lp = None
+        
+        for tr in gpx.tracks:
+            for se in tr.segments:
+                for p in se.points:
+                    pts.append((p.latitude, p.longitude))
+                    if lp:
+                        d_tot += haversine(lp.latitude, lp.longitude, p.latitude, p.longitude)
+                        if p.elevation and lp.elevation and p.elevation > lp.elevation:
+                            a_tot += (p.elevation - lp.elevation)
+                    lp = p
+
+        if pts:
+            ov = Image.new('RGBA', img.size, (0,0,0,0))
+            dr = ImageDraw.Draw(ov)
+            
+            lats, lons = zip(*pts)
+            mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            mar = 0.15
+            
+            scaled = []
+            for lat, lon in pts:
+                x = w * mar + (lon - mi_lo) / (ma_lo - mi_lo) * w * (1 - 2*mar)
+                y = h * (1 - mar) - (lat - mi_la) / (ma_la - mi_la) * h * (1 - 2*mar)
+                scaled.append((x, y))
+            
+            rgb = tuple(int(l_color[1:3], 16) for i in (1,)) # Simpler Fix für Farbe
+            rgb = tuple(int(l_color[i:i+2], 16) for i in (1, 3, 5))
+            
+            dr.line(scaled, fill=rgb + (l_alpha,), width=l_width, joint="round")
+
+            if show_stats:
+                bw, bh = int(w * 0.42), int(h * 0.18)
+                pm = {"Oben Links": (40, 40), "Oben Rechts": (w-bw-40, 40), 
+                      "Unten Links": (40, h-bh-40), "Unten Rechts": (w-bw-40, h-bh-40)}
+                bx, by = pm[b_pos]
+                dr.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
+                
+                fs = max(26, int(w / 42))
+                dr.text((bx+30, by+25), t_name, fill="white")
+                dr.text((bx+30, by+25+fs*1.5), f"{d_tot:.1f} km | {int(a_tot)} hm", fill=l_color)
+
+            final = Image.alpha_composite(img.convert('RGBA'), ov).convert('RGB')
+            st.image(final, use_container_width=True)
+            
+            out = io.BytesIO()
+            final.save(out, format="JPEG", quality=95)
+            st.download_button("🚀 BILD EXPORTIEREN", out.getvalue(), "gpx_share.jpg", "image/jpeg", key="btn_dl")
+
+    except Exception as e:
+        st.error(f"Daten-Fehler: {e}")
+import streamlit as st
+import gpxpy
+import gpxpy.gpx
+from PIL import Image, ImageDraw, ImageFont
+import io
+import math
+
+# --- NATIVE APP LOOK & FEEL ---
+st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
+
 # Modernes CSS für "Floating Cards" und animierte Buttons
 st.markdown("""
     <style>
