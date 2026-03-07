@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageChops
 import io
 import math
 import os
@@ -39,6 +39,8 @@ with st.sidebar:
     st.divider()
     
     show_logo = st.checkbox("Zeige eigenes Logo", value=True)
+    # NEU: Schieberegler für Eckenradius
+    logo_radius = st.slider("Logo-Ecken abrunden (Radius)", 0, 100, 20)
     st.divider()
 
     font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
@@ -68,11 +70,10 @@ if up_img and up_gpx:
         up_gpx.seek(0)
         gpx = gpxpy.parse(up_gpx.read().decode("utf-8", errors="ignore"))
         
+        # ... (GPX Datenberechnung wie bisher) ...
         pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last = None
-        last_elev = None
-        
         for tr in gpx.tracks:
             for seg in tr.segments:
                 for p in seg.points:
@@ -90,13 +91,11 @@ if up_img and up_gpx:
             draw = ImageDraw.Draw(overlay)
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
 
-            # Balken
             bh_top = int(h * b_height_adj)
             bh_bot = int(h * (b_height_adj + 0.02))
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # Schriftarten
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
             try:
                 font_t = ImageFont.truetype(font_path, auto_f_title)
@@ -105,35 +104,29 @@ if up_img and up_gpx:
             except:
                 font_t = font_d = font_grid = ImageFont.load_default()
 
-            # Höhenprofil mit Raster
+            # ... (Höhenprofil, Icons & Texte zeichnen wie bisher) ...
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
-                
                 grid_color = (255, 255, 255, 40) 
                 grid_text_color = (255, 255, 255, 140) 
                 grid_y_start = h - bh_bot
-                
                 for i in range(1, 4):
                     gy = grid_y_start + i * (bh_bot / 4)
                     draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
                     ev_val = e_min + ((h - bh_bot + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
                     draw.text((w * 0.005, gy - 2), f"{int(ev_val)} m", fill=grid_text_color, font=font_grid, anchor="ld")
-
                 for i in range(1, 8):
                     gx = i * (w / 8)
                     draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
                     dist_val = (i / 8.0) * d_total
                     draw.text((gx + 4, grid_y_start + 4), f"{dist_val:.1f} km", fill=grid_text_color, font=font_grid, anchor="lt")
-
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (160,))
                 draw.line(profile_pts, fill="white", width=max(3, int(w*0.003)), joint="round")
 
-            # Icons
             icon_size = int(auto_f_data * 1.5)
             lw = max(3, int(icon_size * 0.08)) 
-
             img_dist = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_dist = ImageDraw.Draw(img_dist)
             ry = icon_size * 0.85
@@ -148,7 +141,6 @@ if up_img and up_gpx:
             d_dist.polygon([(0, icon_size*0.4), (icon_size*0.2, icon_size*0.25), (icon_size*0.25, icon_size*0.5)], fill="white")
             d_dist.line([(cx, cy), (icon_size*0.8, icon_size*0.4)], fill="white", width=lw) 
             d_dist.polygon([(icon_size, icon_size*0.4), (icon_size*0.8, icon_size*0.25), (icon_size*0.75, icon_size*0.5)], fill="white")
-
             img_elev = Image.new('RGBA', (icon_size, icon_size), (0,0,0,0))
             d_elev = ImageDraw.Draw(img_elev)
             d_elev.polygon([(0, icon_size*0.85), (icon_size*0.35, icon_size*0.2), (icon_size*0.7, icon_size*0.85)], fill="white") 
@@ -156,10 +148,7 @@ if up_img and up_gpx:
             ax = icon_size * 0.9
             d_elev.line([(ax, icon_size*0.8), (ax, icon_size*0.1)], fill="white", width=lw) 
             d_elev.polygon([(ax, 0), (ax-icon_size*0.15, icon_size*0.2), (ax+icon_size*0.15, icon_size*0.2)], fill="white")
-
-            # --- TEXTE ---
             draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
-            
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
             w_dist = draw.textlength(txt_dist, font=font_d)
@@ -168,21 +157,17 @@ if up_img and up_gpx:
             total_w = icon_size + 20 + w_dist + spacing + icon_size + 20 + w_elev
             start_x = (w - total_w) // 2
             y_pos = h - bh_bot // 2
-            
             overlay.paste(img_dist, (int(start_x), int(y_pos - icon_size // 2)), img_dist)
             draw.text((start_x + icon_size + 20, y_pos), txt_dist, fill="white", font=font_d, anchor="lm")
             x_elev = start_x + icon_size + 20 + w_dist + spacing
             overlay.paste(img_elev, (int(x_elev), int(y_pos - icon_size // 2)), img_elev)
             draw.text((x_elev + icon_size + 20, y_pos), txt_elev, fill="white", font=font_d, anchor="lm")
-
-            # --- ROUTE ---
             lats, lons = zip(*pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             margin = 0.20
             scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
                            h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
-            
             if len(scaled_pts) > 1:
                 point_size = max(6, int(w * 0.008)) 
                 start = scaled_pts[0]
@@ -190,18 +175,29 @@ if up_img and up_gpx:
                 end = scaled_pts[-1]
                 draw.ellipse([end[0]-point_size, end[1]-point_size, end[0]+point_size, end[1]+point_size], fill=c_line)
 
-            # --- EIGENES LOGO EINFÜGEN ---
+            # --- EIGENES LOGO MIT ABGERUNDETEN ECKEN ---
             if show_logo and os.path.exists("logo.png"):
                 try:
                     user_logo = Image.open("logo.png").convert("RGBA")
-                    # Logo Größe: Max 10% der Bildhöhe
+                    # Logo skaliere (Max 10% der Bildhöhe)
                     max_logo_h = int(h * 0.10)
                     l_w, l_h = user_logo.size
                     ratio = max_logo_h / l_h
                     new_size = (int(l_w * ratio), int(l_h * ratio))
                     user_logo = user_logo.resize(new_size, Image.LANCZOS)
                     
-                    # Position: OBERHALB der unteren Infobox (h - bh_bot), rechtsbündig
+                    # --- ECKEN ABRUNDEN ---
+                    # Radius basierend auf Slider (Prozentual zur Logo-Höhe)
+                    radius = int(new_size[1] * (logo_radius / 200)) # Maximal 50% der Höhe
+                    if radius > 0:
+                        # Maske erstellen
+                        mask = Image.new('L', new_size, 0)
+                        d_mask = ImageDraw.Draw(mask)
+                        d_mask.rounded_rectangle([0, 0, new_size[0], new_size[1]], fill=255, radius=radius)
+                        # Maske anwenden (Ecken transparent machen)
+                        user_logo = Image.Chops.multiply(user_logo, mask.convert("RGBA"))
+
+                    # Position OBERHALB der unteren Infobox
                     padding = int(w * 0.02)
                     logo_x = w - new_size[0] - padding
                     logo_y = (h - bh_bot) - new_size[1] - padding
