@@ -100,7 +100,8 @@ if up_img and up_gpx:
             rgb = tuple(int(c_line[1:3], 16) if i==0 else int(c_line[3:5], 16) if i==1 else int(c_line[5:7], 16) for i in range(3))
             draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
 
-            bw, bh = int(w * 0.88), int(h * 0.14)
+            # --- INFO BOX ---
+            bw, bh = int(w * 0.88), int(h * 0.16)
             bx = (w - bw) // 2
             if b_pos == "Oben": by = 100
             elif b_pos == "Mitte": by = (h - bh) // 2
@@ -108,16 +109,20 @@ if up_img and up_gpx:
             
             draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, b_alpha))
             
+            # --- SCHRIFT OPTIMIERUNG ---
             try:
                 f_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-                fs_title = max(40, int(w / 18))
+                fs_title = max(60, int(w / 12)) # Schrift deutlich vergrößert
                 f_title = ImageFont.truetype(f_path, fs_title)
-                f_data = ImageFont.truetype(f_path, int(fs_title * 0.8))
+                f_data = ImageFont.truetype(f_path, int(fs_title * 0.75))
             except:
                 f_title = f_data = ImageFont.load_default()
 
-            draw.text((bx+50, by+35), f"Tour: {tour_title}", fill="white", font=f_title)
-            draw.text((bx+50, by+35+fs_title+10), f"Distanz: {d_total:.1f} km  |  Höhe: {int(a_gain)} m", fill=c_line, font=f_data)
+            # Text Oben
+            draw.text((bx+50, by+30), f"Tour: {tour_title}", fill="white", font=f_title)
+            # Text Unten mit Icons
+            stats_text = f"📍 {d_total:.1f} km  |  ⛰️ {int(a_gain)} m"
+            draw.text((bx+50, by+30+fs_title+10), stats_text, fill=c_line, font=f_data)
 
             final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
             st.image(final, use_container_width=True)
