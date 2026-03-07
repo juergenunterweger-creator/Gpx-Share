@@ -7,7 +7,7 @@ st.title("GPX Share")
 
 # Upload-Bereich
 uploaded_image = st.file_uploader("1. Wähle dein Hintergrundfoto", type=["jpg", "jpeg", "png"])
-uploaded_gpx = st.file_uploader("2. Wähle deine GPX-Datei", type=["gpx"])
+uploaded_gpx = st.file_uploader("2. Wähle deine GPX-Datei", type=["gpx", "xml", "txt"]) 
 
 if uploaded_image and uploaded_gpx:
    # Bild laden
