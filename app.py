@@ -38,7 +38,8 @@ with st.sidebar:
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     st.divider()
     font_scale = st.slider("Schrift-Skalierung", 0.5, 3.0, 1.2)
-    b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.20)
+    # HIER IST DIE ÄNDERUNG: Standardwert von 0.20 auf 0.15 gesetzt
+    b_height_adj = st.slider("Balken Dicke", 0.05, 0.40, 0.15)
     st.divider()
     c_line = st.color_picker("Routenfarbe", "#8B0000")
     w_line = st.slider("Linienstärke Route", 1, 100, 9)
@@ -110,14 +111,13 @@ if up_img and up_gpx:
                 
                 # Raster Einstellungen
                 grid_color = (255, 255, 255, 40) 
-                grid_text_color = (255, 255, 255, 140) # Leicht transparent, damit es dezent bleibt
+                grid_text_color = (255, 255, 255, 140) 
                 grid_y_start = h - bh_bot
                 
                 # Horizontale Linien & Höhenmeter-Texte
                 for i in range(1, 4):
                     gy = grid_y_start + i * (bh_bot / 4)
                     draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
-                    # Wert berechnen (Rückrechnung aus der Y-Position)
                     ev_val = e_min + ((h - bh_bot + bh_bot*0.85 - gy) / (bh_bot*0.7)) * e_range
                     draw.text((w * 0.005, gy - 2), f"{int(ev_val)} m", fill=grid_text_color, font=font_grid, anchor="ld")
 
@@ -125,7 +125,6 @@ if up_img and up_gpx:
                 for i in range(1, 8):
                     gx = i * (w / 8)
                     draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
-                    # Wert berechnen (Gleichmäßig verteilt über Distanz)
                     dist_val = (i / 8.0) * d_total
                     draw.text((gx + 4, grid_y_start + 4), f"{dist_val:.1f} km", fill=grid_text_color, font=font_grid, anchor="lt")
 
