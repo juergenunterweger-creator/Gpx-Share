@@ -5,6 +5,144 @@ from PIL import Image, ImageDraw
 import io
 import math
 
+# --- 1. GRUNDKONFIGURATION ---
+st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
+
+# Modernes Design (CSS)
+st.markdown("""
+    <style>
+    .stApp { background-color: #080a0f; color: #ffffff; }
+    .title-modern {
+        font-size: 45px; font-weight: 900;
+        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+    .stDownloadButton button {
+        width: 100%; border-radius: 12px; height: 3.5em;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
+        color: white !important; font-weight: bold; border: none;
+        box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def calculate_dist(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+# --- 2. SIDEBAR (ALLE KEYS NEU BENANNT) ---
+with st.sidebar:
+    st.markdown("<h1 style='color: #00f2fe;'>GPX Share</h1>", unsafe_allow_html=True)
+    
+    st.markdown("### 🛠️ Setup")
+    # Neue Keys mit v4_ Präfix
+    s_col = st.color_picker("Farbe", "#00F2FE", key="v4_color")
+    s_wid = st.slider("Linie", 2, 50, 15, key="v4_width")
+    
+    st.divider()
+    
+    s_name = st.text_input("Tour Name", "Meine Tour", key="v4_tname")
+    s_stats = st.toggle("Daten anzeigen", value=True, key="v4_tstats")
+    s_pos = st.selectbox("Position", ["Oben Links", "Oben Rechts", "Unten Links", "Unten Rechts"], key="v4_tpos")
+    s_alpha = st.slider("Box Deckkraft", 0, 255, 180, key="v4_talpha")
+
+# --- 3. HAUPTBEREICH ---
+st.markdown("<p class='title-modern'>GPX Share</p>", unsafe_allow_html=True)
+
+col_left, col_right = st.columns(2)
+with col_left:
+    upload_img = st.file_uploader("1. Foto hochladen", type=["jpg", "jpeg", "png"], key="v4_img_up")
+with col_right:
+    upload_gpx = st.file_uploader("2. GPX hochladen", type=["gpx", "xml", "txt"], key="v4_gpx_up")
+
+if upload_img and upload_gpx:
+    try:
+        # Bild laden
+        img_main = Image.open(upload_img).convert("RGB")
+        w, h = img_main.size
+        
+        # GPX verarbeiten
+        gpx_raw = upload_gpx.read().decode("utf-8")
+        gpx_data = gpxpy.parse(gpx_raw)
+        
+        pts = []
+        d_km = 0.0
+        h_m = 0.0
+        last_p = None
+        
+        for t in gpx_data.tracks:
+            for s in t.segments:
+                for p in s.points:
+                    pts.append((p.latitude, p.longitude))
+                    if last_p:
+                        d_km += calculate_dist(last_p.latitude, last_p.longitude, p.latitude, p.longitude)
+                        if p.elevation and last_p.elevation and p.elevation > last_p.elevation:
+                            h_m += (p.elevation - last_p.elevation)
+                    last_p = p
+
+        if pts:
+            # Zeichnen auf Overlay
+            overlay = Image.new('RGBA', img_main.size, (0,0,0,0))
+            draw = ImageDraw.Draw(overlay)
+            
+            lats, lons = zip(*pts)
+            min_la, max_la, min_lo, max_lo = min(lats), max(lats), min(lons), max(lons)
+            
+            margin = 0.15
+            canvas_w, canvas_h = w * (1 - 2*margin), h * (1 - 2*margin)
+            
+            final_points = []
+            for lat, lon in pts:
+                x = w * margin + (lon - min_lo) / (max_lo - min_lo) * canvas_w
+                y = h * (1 - margin) - (lat - min_la) / (ma_la - mi_la) * canvas_h
+                final_points.append((x, y))
+            
+            # Farbe
+            rgb = tuple(int(s_col[i:i+2], 16) for i in (1, 3, 5))
+            draw.line(final_points, fill=rgb + (255,), width=s_wid, joint="round")
+
+            if s_stats:
+                bw, bh = int(w * 0.45), int(h * 0.18)
+                offsets = {
+                    "Oben Links": (40, 40), "Oben Rechts": (w-bw-40, 40),
+                    "Unten Links": (40, h-bh-40), "Unten Rechts": (w-bw-40, h-bh-40)
+                }
+                bx, by = offsets[s_pos]
+                draw.rectangle([bx, by, bx+bw, by+bh], fill=(0, 0, 0, s_alpha))
+                
+                f_size = max(24, int(w / 40))
+                draw.text((bx+30, by+30), s_name, fill="white")
+                draw.text((bx+30, by+30+f_size*1.5), f"{d_km:.1f} km | {int(h_m)} hm", fill=s_col)
+
+            # Zusammenfügen & Anzeige
+            final_res = Image.alpha_composite(img_main.convert('RGBA'), overlay).convert('RGB')
+            st.image(final_res, use_container_width=True)
+            
+            # DOWNLOAD
+            buf = io.BytesIO()
+            final_res.save(buf, format="JPEG", quality=95)
+            st.download_button(
+                label="📥 BILD JETZT SPEICHERN",
+                data=buf.getvalue(),
+                file_name="tour_export.jpg",
+                mime="image/jpeg",
+                key="v4_download_final"
+            )
+
+    except Exception as e:
+        st.error(f"Fehler: {e}")
+else:
+    st.info("Bitte lade Foto und GPX hoch!")
+import streamlit as st
+import gpxpy
+import gpxpy.gpx
+from PIL import Image, ImageDraw
+import io
+import math
+
 # --- STYLING & KONFIGURATION ---
 st.set_page_config(page_title="GPX Share", page_icon="🏍️", layout="wide")
 
