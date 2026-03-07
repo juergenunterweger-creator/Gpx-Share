@@ -17,6 +17,7 @@ DEFAULTS = {
     "route_x_offset": 0,
     "route_y_offset": 0,
     "route_scale": 1.0,
+    "route_autoscale": True, # NEU: Standardmäßig auf Auto
     "img_x_offset": 0,
     "img_y_offset": 0,
     "img_zoom": 1.0,
@@ -46,7 +47,7 @@ def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
-# PWA Meta-Tags für iOS und Android
+# PWA Meta-Tags
 st.markdown("""
     <head>
         <meta name="apple-mobile-web-app-capable" content="yes">
@@ -124,15 +125,20 @@ with st.expander("⚙️ Optionen", expanded=False):
         st.slider("Titel-Skalierung", 0.5, 3.0, key="font_scale")
         st.slider("Daten-Skalierung", 0.5, 3.0, key="data_font_scale")
         st.slider("Vertikaler Abstand Daten", 0, 300, key="data_y_offset")
+        
         st.write("**Position & Skala Route:**")
+        st.checkbox("Route automatisch skalieren", key="route_autoscale")
         st.slider("Horizontaler Versatz Route", -500, 500, key="route_x_offset")
         st.slider("Vertikaler Versatz Route", -500, 500, key="route_y_offset")
-        st.slider("Route Skalierung", 0.1, 2.0, key="route_scale")
+        # Slider nur aktiv, wenn Auto-Skalierung aus ist
+        st.slider("Manuelle Route Skalierung", 0.1, 2.0, key="route_scale", disabled=st.session_state.route_autoscale)
+        
         if up_img:
             st.write("**Foto Einstellungen:**")
             st.slider("Horizontaler Versatz Foto", -2000, 2000, key="img_x_offset")
             st.slider("Vertikaler Versatz Foto", -2000, 2000, key="img_y_offset")
             st.slider("Foto Zoom", 0.1, 5.0, key="img_zoom")
+        
         st.slider("Balken Dicke", 0.05, 0.50, key="b_height_adj")
         st.slider("Linienstärke Route", 1, 100, key="w_line")
         st.slider("Balken Deckkraft", 0, 255, key="b_alpha")
@@ -145,7 +151,7 @@ with st.expander("⚙️ Optionen", expanded=False):
     st.markdown("---")
     st.button("🔄 Einstellungen zurücksetzen", on_click=reset_parameters)
 
-# --- REITER: ÜBER GPX SHARE PRO ---
+# --- ÜBER REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     c_logo, c_meta = st.columns([1, 3])
     with c_logo:
@@ -154,32 +160,14 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         st.markdown("### GPX Share Pro XXL")
         st.markdown("**Copyright: Jürgen Unterweger**")
         st.markdown("**Version: 1.0**")
-        
-        # --- PAYPAL DONATION (NUR LOGO) ---
         paypal_url = "https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG"
-        st.markdown(f"""
-            <a href="{paypal_url}" target="_blank">
-                <img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal Donation" style="width:120px; margin-top:10px;">
-            </a>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(f'<a href="{paypal_url}" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" alt="PayPal Donation" style="width:120px; margin-top:10px;"></a>', unsafe_allow_html=True)
     st.markdown("---")
-    
-    st.markdown("**📲 Als App installieren:**")
-    st.markdown("""
-        <div class="install-box">
-        <strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br>
-        <strong>Android:</strong> Menü -> 'App installieren'
-        </div>
-    """, unsafe_allow_html=True)
-    st.markdown("---")
-    
     st.markdown("**Folge mir auf meinen Kanälen:**")
     col_ig, col_fb = st.columns(2)
     with col_ig: st.markdown(f"📸 [Instagram: juergen_rocks](https://www.instagram.com/juergen_rocks/)")
     with col_fb: st.markdown(f"👥 [Facebook: JuergenRocks](https://www.facebook.com/JuergenRocks/)")
     st.markdown("---")
-    
     st.markdown("**App teilen:**")
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     st.code(app_url, language=None)
@@ -267,7 +255,12 @@ if up_gpx:
 
             if pts:
                 mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-                base_margin = 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
+                # LOGIK FÜR AUTO ODER MANUELL
+                if st.session_state.route_autoscale:
+                    base_margin = 0.20 # 20% Sicherheitsabstand für Auto-Fit
+                else:
+                    base_margin = 0.5 * (1.0 - (0.6 * st.session_state.route_scale))
+                
                 scaled = [((w*base_margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*base_margin)) + st.session_state.route_x_offset, 
                            (h*(1-base_margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*base_margin)) + st.session_state.route_y_offset)
                           for lat, lon in pts]
