@@ -41,12 +41,12 @@ with st.sidebar:
     st.markdown("<h1 style='color: #ff0000;'>⚙️ Design-Setup</h1>", unsafe_allow_html=True)
     tour_title = st.text_input("Tour Name", value="Meine Tour")
     
-    # --- NEU: KARTEN OPTIONEN ---
+    # --- KARTEN OPTIONEN (OSM Standard ist jetzt zuerst) ---
     map_style = st.selectbox("Karten-Stil (wenn kein Foto)", [
+        "OSM Standard", 
         "Dark Mode", 
         "Satellit", 
-        "Light Mode", 
-        "OSM Standard"
+        "Light Mode"
     ])
     st.divider()
     
@@ -222,55 +222,4 @@ if up_gpx:
             
             # --- ROUTE MANUELL ZEICHNEN (NUR WENN FOTO GEWÄHLT) ---
             if draw_line_manually:
-                mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-                margin = 0.20
-                scaled_pts = [(w*margin + (lon-mi_lo)/(ma_lo-mi_lo)*w*(1-2*margin), 
-                               h*(1-margin) - (lat-mi_la)/(ma_la-mi_la)*h*(1-2*margin)) for lat, lon in pts]
-                draw.line(scaled_pts, fill=rgb + (255,), width=w_line, joint="round")
-                
-                if len(scaled_pts) > 1:
-                    point_size = max(6, int(w * 0.008)) 
-                    start = scaled_pts[0]
-                    draw.ellipse([start[0]-point_size, start[1]-point_size, start[0]+point_size, start[1]+point_size], fill="white")
-                    end = scaled_pts[-1]
-                    draw.ellipse([end[0]-point_size, end[1]-point_size, end[0]+point_size, end[1]+point_size], fill=c_line)
-
-            # --- EIGENES LOGO ---
-            if show_logo and os.path.exists("logo.png"):
-                try:
-                    user_logo = Image.open("logo.png").convert("RGBA")
-                    max_logo_h = int(h * 0.10)
-                    l_w, l_h = user_logo.size
-                    ratio = max_logo_h / l_h
-                    new_size = (int(l_w * ratio), int(l_h * ratio))
-                    user_logo = user_logo.resize(new_size, Image.LANCZOS)
-                    
-                    radius = int(new_size[1] * (logo_radius / 200)) 
-                    if radius > 0:
-                        mask = Image.new('L', new_size, 0)
-                        d_mask = ImageDraw.Draw(mask)
-                        d_mask.rounded_rectangle([0, 0, new_size[0], new_size[1]], fill=255, radius=radius)
-                        
-                        if 'A' in user_logo.getbands():
-                            alpha = user_logo.split()[3]
-                            mask = ImageChops.darker(mask, alpha)
-                        user_logo.putalpha(mask)
-
-                    padding = int(w * 0.02)
-                    logo_x = w - new_size[0] - padding
-                    logo_y = (h - bh_bot) - new_size[1] - padding
-                    
-                    overlay.paste(user_logo, (logo_x, logo_y), user_logo)
-                except Exception as e:
-                    st.warning(f"Konnte Logo im Bild nicht einfügen: {e}")
-
-            final = Image.alpha_composite(base_img.convert('RGBA'), overlay).convert('RGB')
-            st.image(final, use_container_width=True)
-            
-            buf = io.BytesIO()
-            final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "ride_pro_final.jpg", "image/jpeg")
-
-    except Exception as e:
-        st.error(f"Fehler: {e}")
-        
+                mi_la, ma_la, mi_lo,
