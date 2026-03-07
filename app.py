@@ -73,12 +73,32 @@ if up_img and up_gpx:
             draw.rectangle([0, 0, w, bh_top], fill=(0, 0, 0, b_alpha))
             draw.rectangle([0, h - bh_bot, w, h], fill=(0, 0, 0, b_alpha))
 
-            # Höhenprofil
+            # --- HÖHENPROFIL MIT RASTER UND KONTUR ---
             if len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = e_max - e_min if e_max > e_min else 1
+                
+                # 1. Raster (Grid) zeichnen
+                grid_color = (255, 255, 255, 40) # Leicht durchsichtiges Weiß
+                grid_y_start = h - bh_bot
+                
+                # Horizontale Raster-Linien
+                for i in range(1, 4):
+                    gy = grid_y_start + i * (bh_bot / 4)
+                    draw.line([(0, gy), (w, gy)], fill=grid_color, width=max(1, int(w*0.001)))
+                
+                # Vertikale Raster-Linien
+                for i in range(1, 8):
+                    gx = i * (w / 8)
+                    draw.line([(gx, grid_y_start), (gx, h)], fill=grid_color, width=max(1, int(w*0.001)))
+
+                # 2. Profil-Fläche berechnen & zeichnen
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (60,))
+                # Deutlich mehr Farbe (Deckkraft von 60 auf 160 hochgeschraubt)
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb + (160,))
+                
+                # 3. Weiße Konturlinie oben drauf
+                draw.line(profile_pts, fill="white", width=max(3, int(w*0.003)), joint="round")
 
             # Schrift laden
             font_path = "font.ttf" if os.path.exists("font.ttf") else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -118,8 +138,8 @@ if up_img and up_gpx:
             d_elev.polygon([(ax, 0), (ax-icon_size*0.15, icon_size*0.2), (ax+icon_size*0.15, icon_size*0.2)], fill="white")
 
             # --- TEXTE & ICONS POSITIONIEREN ---
-            # Titel oben jetzt in dynamischem Blutrot (rgb)
-            draw.text((w//2, bh_top//2), tour_title, fill=rgb + (255,), font=font_t, anchor="mm")
+            # Titel oben
+            draw.text((w//2, bh_top//2), tour_title, fill="white", font=font_t, anchor="mm")
             
             txt_dist = f"{d_total:.1f} km"
             txt_elev = f"{int(a_gain)} m"
