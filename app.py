@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.9: Global Coordinate Guard) ---
+# --- STANDARDWERTE (v2.6.0: Memory Fix & OSM Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -53,7 +53,7 @@ for key, val in DEFAULTS.items():
 if "persistent_img" not in st.session_state: st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = None
 
-# --- ULTRA-SAFE HELFER FUNKTIONEN ---
+# --- HELFER FUNKTIONEN ---
 def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
@@ -67,7 +67,6 @@ def load_font(size):
     return ImageFont.load_default()
 
 def validate_coords(coords):
-    """Sortiert x0, y0, x1, y1 und stellt sicher, dass x1 >= x0 und y1 >= y0."""
     x0, y0, x1, y1 = coords
     nx0, nx1 = min(x0, x1), max(x0, x1)
     ny0, ny1 = min(y0, y1), max(y0, y1)
@@ -139,15 +138,16 @@ def draw_data_icon(mode, size, color="white"):
         d.polygon([(lw, size*res-lw), (size*res//2, lw), (size*res-lw, size*res-lw)], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
+    # NEU: Nur GPX Dateien erlauben
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
     if up_gpx:
-        new_data = up_gpx.read()
+        new_data = up_gpx.getvalue() # FIX: getvalue() statt read()
         if st.session_state.persistent_gpx != new_data:
             st.session_state.persistent_gpx = new_data
             gpx_obj = gpxpy.parse(io.BytesIO(new_data))
@@ -160,7 +160,8 @@ with c_up1:
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-    if up_img: st.session_state.persistent_img = up_img.read()
+    if up_img: 
+        st.session_state.persistent_img = up_img.getvalue() # FIX: getvalue() statt read()
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Einstellungen & Design", expanded=False):
@@ -177,8 +178,8 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.write("**📏 Raster-Steuerung**")
         st.checkbox("Raster anzeigen", key="show_grid")
         st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
-        st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50, value=250)
-        st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5, value=10)
+        st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
+        st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
 
     with col_opt2:
         st.write("**📝 Texte & Position**")
@@ -197,7 +198,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.5.9")
+    st.markdown("### GPX Share Pro XXL | v2.6.0")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -230,6 +231,15 @@ if st.session_state.persistent_gpx:
             all_pts = [pt for seg in segments_pts for pt in seg]
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
+            
+            # FIX FÜR OSM KARTE: Abstandshalter für extrem kurze/gerade Touren
+            if (ma_la - mi_la) < 0.005:
+                ma_la += 0.0025
+                mi_la -= 0.0025
+            if (ma_lo - mi_lo) < 0.005:
+                ma_lo += 0.0025
+                mi_lo -= 0.0025
+
             w, h = 1080, 1920
             
             # HINTERGRUND
@@ -243,9 +253,8 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                # Bounding Box Fix für Karte
-                if len(all_pts) > 1:
-                    m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
+                # Breite auf 2 gesetzt für sicheres Bounding
+                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 2))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
@@ -302,7 +311,7 @@ if st.session_state.persistent_gpx:
                 draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
                 curr_x += tw + spacing
 
-            # DATUMS-BOX (GLOBAL GUARD)
+            # DATUMS-BOX
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
@@ -343,6 +352,13 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
+            
+            # --- NEUE TEILEN SEKTION ---
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
+            st.markdown("<br><strong>📲 Bild manuell teilen (zuerst speichern):</strong>", unsafe_allow_html=True)
+            st.markdown("""
+                <a href="https://www.facebook.com/sharer/sharer.php?u=https://deine-website.de" target="_blank" class="social-btn fb-btn">📘 Facebook URL teilen</a>
+                <a href="whatsapp://send?text=Schau%20dir%20meine%20neue%20Motorrad-Tour%20an!" class="social-btn wa-btn">💬 WhatsApp öffnen</a>
+                """, unsafe_allow_html=True)
 
     except Exception as e: st.error(f"Fehler: {e}")
