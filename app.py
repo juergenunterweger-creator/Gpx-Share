@@ -10,12 +10,21 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.6.3: iOS Upload Fix) ---
+# --- KARTEN STYLES ---
+MAP_STYLES = {
+    "OSM Standard": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "Topografie (Gelände)": "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+    "Carto Light (Hell)": "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
+    "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
+}
+
+# --- STANDARDWERTE (v2.6.4: Map Layouts & Smart Route Toggle) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "show_date": True,
     "bg_mode": "Automatisch",
+    "map_style": "OSM Standard", # NEU: Karten Layout
     "bg_opacity": 100,
     "font_scale": 1.5,
     "title_y_offset": 0,
@@ -146,10 +155,8 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    # KOMPROMISS FÜR iOS: Keine harte Typ-Beschränkung im HTML, damit die Dateien-App öffnet
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
     if up_gpx:
-        # Software-Prüfung: Ist es wirklich eine GPX?
         if not up_gpx.name.lower().endswith('.gpx'):
             st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
         else:
@@ -178,14 +185,22 @@ with c_up2:
     if up_img: 
         st.session_state.persistent_img = up_img.getvalue()
 
+# --- DYNAMISCHE KARTEN LOGIK ---
+use_map_ui = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
+
 # --- OPTIONEN ---
 with st.expander("⚙️ Einstellungen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**🖼️ Hintergrund & Foto**")
         st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
+        
+        # NEU: Karten-Layout Auswahl (nur sichtbar, wenn Karte aktiv ist)
+        if use_map_ui:
+            st.selectbox("Karten-Design", list(MAP_STYLES.keys()), key="map_style")
+            
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        if st.session_state.persistent_img:
+        if st.session_state.persistent_img and not (st.session_state.bg_mode == "Nur Karte"):
             st.slider("Foto Zoom", 0.5, 5.0, key="img_zoom", step=0.1)
             st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
             st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
@@ -218,7 +233,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.3")
+    st.markdown("### GPX Share Pro XXL | v2.6.4")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -266,6 +281,7 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
             # HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
+            draw_route = not use_map # NEU: Route deaktivieren, wenn Karte gewählt ist
             
             if not use_map and st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
@@ -273,9 +289,10 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
-                m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+                # NEU: Dynamische URL für das gewählte Karten-Layout
+                m = StaticMap(w, h, url_template=MAP_STYLES[st.session_state.map_style])
                 m.add_line(MapLine([(mi_lo-0.005, mi_la-0.005), (ma_lo+0.005, ma_la+0.005)], '#00000000', 1))
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 1))
+                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0)) # Unsichtbare Hilfslinie
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
@@ -362,7 +379,10 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
                             km_marks.append((curr_p, int(next_km_goal)))
                             next_km_goal += marker_step_km
                     last_p, last_raw = curr_p, p
-                if len(s_pts) > 1: draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
+                
+                # NEU: Route nur zeichnen, wenn NICHT die Karte gewählt wurde
+                if draw_route and len(s_pts) > 1: 
+                    draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
             for pos, val in km_marks: draw_km_marker(draw, pos, val)
             if st.session_state.show_markers and all_pts:
