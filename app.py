@@ -18,13 +18,13 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.6.4: Map Layouts & Smart Route Toggle) ---
+# --- STANDARDWERTE (v2.6.5: Icon Crash Fix & Memory Vault) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "show_date": True,
     "bg_mode": "Automatisch",
-    "map_style": "OSM Standard", # NEU: Karten Layout
+    "map_style": "OSM Standard",
     "bg_opacity": 100,
     "font_scale": 1.5,
     "title_y_offset": 0,
@@ -135,18 +135,25 @@ def draw_km_marker(draw, pos, km):
     f = load_font(12)
     draw.text((int(x), int(y)), str(km), fill="white", font=f, anchor="mm")
 
+# FIX: Ultra-sichere Methode für die Icons!
 def draw_data_icon(mode, size, color="white"):
     res = 4
-    size = int(max(1, size))
+    size = int(max(10, size)) # Zwingt eine Mindestgröße, um den x1>=x0 Fehler abzuwehren
     img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
     d = ImageDraw.Draw(img)
-    lw = max(4, int(size*res*0.08))
+    lw = int(max(2, size*res*0.08))
+    
+    x0, y0 = lw, lw
+    x1, y1 = size*res - lw, size*res - lw
+    if x1 <= x0: x1 = x0 + 2
+    if y1 <= y0: y1 = y0 + 2
+    
     if mode == "dist":
-        d.arc([lw, lw, size*res-lw, size*res-lw], 140, 400, fill=color, width=lw)
+        d.arc([x0, y0, x1, y1], 140, 400, fill=color, width=lw)
         cx, cy = size*res//2, size*res//2
         d.line([cx, cy, cx + size*res*0.3, cy - size*res*0.3], fill=color, width=lw)
     elif mode == "elev":
-        d.polygon([(lw, size*res-lw), (size*res//2, lw), (size*res-lw, size*res-lw)], fill=color)
+        d.polygon([(lw, y1), (size*res//2, y0), (x1, y1)], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
@@ -182,8 +189,18 @@ with c_up1:
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+    # MEMORY FIX: Foto in den Tresor schieben und dort sicher verwahren
     if up_img: 
-        st.session_state.persistent_img = up_img.getvalue()
+        new_img_data = up_img.getvalue()
+        if st.session_state.persistent_img != new_img_data:
+            st.session_state.persistent_img = new_img_data
+            st.rerun()
+            
+    # Button zum manuellen Entfernen des Fotos, falls man sich umentscheidet
+    if st.session_state.persistent_img:
+        if st.button("❌ Foto aus Speicher löschen"):
+            st.session_state.persistent_img = None
+            st.rerun()
 
 # --- DYNAMISCHE KARTEN LOGIK ---
 use_map_ui = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
@@ -195,7 +212,6 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.write("**🖼️ Hintergrund & Foto**")
         st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
         
-        # NEU: Karten-Layout Auswahl (nur sichtbar, wenn Karte aktiv ist)
         if use_map_ui:
             st.selectbox("Karten-Design", list(MAP_STYLES.keys()), key="map_style")
             
@@ -233,7 +249,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.4")
+    st.markdown("### GPX Share Pro XXL | v2.6.5")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -268,6 +284,14 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
+            # OSM Sicherheits-Puffer
+            if (ma_la - mi_la) < 0.005:
+                ma_la += 0.005
+                mi_la -= 0.005
+            if (ma_lo - mi_lo) < 0.005:
+                ma_lo += 0.005
+                mi_lo -= 0.005
+            
             if st.session_state.auto_intervals:
                 step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
                 e_range_raw = max(elevs) - min(elevs) if len(elevs) > 1 else 0
@@ -281,7 +305,7 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
             # HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
-            draw_route = not use_map # NEU: Route deaktivieren, wenn Karte gewählt ist
+            draw_route = not use_map 
             
             if not use_map and st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
@@ -289,10 +313,9 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
-                # NEU: Dynamische URL für das gewählte Karten-Layout
                 m = StaticMap(w, h, url_template=MAP_STYLES[st.session_state.map_style])
                 m.add_line(MapLine([(mi_lo-0.005, mi_la-0.005), (ma_lo+0.005, ma_la+0.005)], '#00000000', 1))
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0)) # Unsichtbare Hilfslinie
+                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
@@ -380,7 +403,6 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
                             next_km_goal += marker_step_km
                     last_p, last_raw = curr_p, p
                 
-                # NEU: Route nur zeichnen, wenn NICHT die Karte gewählt wurde
                 if draw_route and len(s_pts) > 1: 
                     draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
