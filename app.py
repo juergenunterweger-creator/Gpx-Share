@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.6.0: Memory Fix & OSM Fix) ---
+# --- STANDARDWERTE (v2.6.1: OSM Double Line Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -144,10 +144,9 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    # NEU: Nur GPX Dateien erlauben
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
     if up_gpx:
-        new_data = up_gpx.getvalue() # FIX: getvalue() statt read()
+        new_data = up_gpx.getvalue()
         if st.session_state.persistent_gpx != new_data:
             st.session_state.persistent_gpx = new_data
             gpx_obj = gpxpy.parse(io.BytesIO(new_data))
@@ -161,7 +160,7 @@ with c_up1:
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
     if up_img: 
-        st.session_state.persistent_img = up_img.getvalue() # FIX: getvalue() statt read()
+        st.session_state.persistent_img = up_img.getvalue()
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Einstellungen & Design", expanded=False):
@@ -198,7 +197,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.0")
+    st.markdown("### GPX Share Pro XXL | v2.6.1")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -232,7 +231,6 @@ if st.session_state.persistent_gpx:
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             
-            # FIX FÜR OSM KARTE: Abstandshalter für extrem kurze/gerade Touren
             if (ma_la - mi_la) < 0.005:
                 ma_la += 0.0025
                 mi_la -= 0.0025
@@ -253,8 +251,8 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                # Breite auf 2 gesetzt für sicheres Bounding
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 2))
+                # FIX: Breite auf 0 gesetzt, damit es nur berechnet, aber nicht sichtbar zeichnet
+                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
@@ -353,7 +351,6 @@ if st.session_state.persistent_gpx:
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             
-            # --- NEUE TEILEN SEKTION ---
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
             st.markdown("<br><strong>📲 Bild manuell teilen (zuerst speichern):</strong>", unsafe_allow_html=True)
             st.markdown("""
