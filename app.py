@@ -18,7 +18,7 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.6.7: Upload Vault Fix) ---
+# --- STANDARDWERTE (v2.6.8: State Memory & Date Deep-Scan) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -63,6 +63,7 @@ for key, val in DEFAULTS.items():
 
 if "persistent_img" not in st.session_state: st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = None
+if "last_gpx_name" not in st.session_state: st.session_state.last_gpx_name = ""
 
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
@@ -158,50 +159,56 @@ def draw_data_icon(mode, size, color="white"):
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOADS (NEUER TRESOR-FIX) ---
+# --- UPLOADS (STABILER STREAMLIT-FLOW) ---
 c_up1, c_up2 = st.columns(2)
 
 with c_up1:
-    if st.session_state.persistent_gpx is None:
-        up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
-        if up_gpx:
-            if not up_gpx.name.lower().endswith('.gpx'):
-                st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
-            else:
-                st.session_state.persistent_gpx = up_gpx.getvalue()
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
+    if up_gpx is not None:
+        # Nur neu berechnen, wenn sich die Datei WIRKLICH geändert hat
+        if st.session_state.last_gpx_name != up_gpx.name:
+            st.session_state.persistent_gpx = up_gpx.getvalue()
+            st.session_state.last_gpx_name = up_gpx.name
+            
+            try:
                 gpx_obj = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
-                
                 parsed_date = ""
+                
+                # DEEP SCAN FÜR DATUM
                 if gpx_obj.time:
                     parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
                 else:
-                    try:
-                        start_time, _ = gpx_obj.get_time_bounds()
-                        if start_time: parsed_date = start_time.strftime("%d.%m.%Y")
-                    except: pass
+                    # Suche in den GPS-Punkten nach dem ersten Zeitstempel
+                    for track in gpx_obj.tracks:
+                        for seg in track.segments:
+                            for pt in seg.points:
+                                if pt.time:
+                                    parsed_date = pt.time.strftime("%d.%m.%Y")
+                                    break
+                            if parsed_date: break
+                        if parsed_date: break
                 
                 if parsed_date:
                     st.session_state.tour_date = parsed_date
                     
                 st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-                st.rerun()
-    else:
-        st.success(f"📍 GPX geladen: {st.session_state.tour_title}")
-        if st.button("❌ GPX ändern / löschen"):
-            st.session_state.persistent_gpx = None
+            except:
+                pass
+            
+            # Seite sofort aktualisieren, damit Textfelder befüllt werden
             st.rerun()
+    else:
+        st.session_state.persistent_gpx = None
+        st.session_state.last_gpx_name = ""
 
 with c_up2:
-    if st.session_state.persistent_img is None:
-        up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-        if up_img: 
-            st.session_state.persistent_img = up_img.getvalue()
-            st.rerun()
+    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+    if up_img is not None:
+        # Foto direkt aus dem Uploader in den State schieben
+        st.session_state.persistent_img = up_img.getvalue()
     else:
-        st.success("📸 Foto ist sicher geladen!")
-        if st.button("❌ Foto ändern / löschen"):
-            st.session_state.persistent_img = None
-            st.rerun()
+        # Wird der Uploader geleert (X-Button), lösche auch das Bild aus dem State
+        st.session_state.persistent_img = None
 
 # --- DYNAMISCHE KARTEN LOGIK ---
 use_map_ui = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
@@ -254,7 +261,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.7")
+    st.markdown("### GPX Share Pro XXL | v2.6.8")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
