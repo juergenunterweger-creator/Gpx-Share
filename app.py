@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.4.7: Profil & Raster Fix) ---
+# --- STANDARDWERTE (v2.4.8: Titel & Datum Editor Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -31,14 +31,13 @@ DEFAULTS = {
     "c_fill": "#8B0000",
     "c_box": "#000000",
     "b_height_adj": 0.20,
-    "show_logo_on_img": True,
+    "show_markers": True,
+    "show_km_steps": True,
+    "km_interval": 20,
     "show_profile": True,
     "show_grid": True,
     "fill_profile": True,
-    "selected_track_idx": 0,
-    "show_markers": True,
-    "show_km_steps": True,
-    "km_interval": 20 
+    "selected_track_idx": 0
 }
 
 for key, val in DEFAULTS.items():
@@ -130,23 +129,27 @@ with c_up2:
 with st.expander("⚙️ Optionen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
-        st.write("**🖼️ Hintergrund & Marker**")
+        st.write("**📝 Texte & Stimmung**")
+        # RESTAURIERTE FELDER
+        st.text_input("Tour Name", key="tour_title")
+        st.text_input("Datum", key="tour_date")
+        
         st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
         st.checkbox("Höhenprofil Raster", key="show_grid")
         st.checkbox("Start/Ziel Markierungen", key="show_markers")
         st.checkbox("Km-Meilensteine", key="show_km_steps")
-        st.select_slider("Km-Intervall", options=[5, 10, 20, 50, 100], key="km_interval")
     with col_opt2:
         st.write("**📐 Skalierung & Farbe**")
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
         st.slider("Vertikaler Abstand Daten", 50, 450, key="data_y_offset")
+        st.select_slider("Km-Intervall", options=[5, 10, 20, 50, 100], key="km_interval")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
     st.button("🔄 Reset", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.4.7")
+    st.markdown("### GPX Share Pro XXL | v2.4.8")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
@@ -202,25 +205,22 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # --- NEU: HÖHENPROFIL & RASTER ---
+            # HÖHENPROFIL & RASTER
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
-                
                 if st.session_state.show_grid:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
-                    for i in range(1, 4): # Horizontal (Meter)
+                    for i in range(1, 4):
                         gy = int(grid_y_start + i * (bh_bot / 4))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
-                        val_m = int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)
-                        draw.text((w*0.01, gy-2), f"{val_m}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
-                    for i in range(1, 8): # Vertikal (Kilometer)
+                        draw.text((w*0.01, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                    for i in range(1, 8):
                         gx = int(i * (w / 8))
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         draw.text((gx+5, grid_y_start+5), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
-                
                 if st.session_state.fill_profile:
                     rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
@@ -268,6 +268,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fix_v247.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_custom_v248.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
