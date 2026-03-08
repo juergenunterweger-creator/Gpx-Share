@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.6.1: OSM Double Line Fix) ---
+# --- STANDARDWERTE (v2.6.2: Auto-Intervals & OSM Deep Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -24,10 +24,12 @@ DEFAULTS = {
     "img_zoom": 1.0,
     "img_x_offset": 0,
     "img_y_offset": 0,
+    "auto_intervals": True,     # NEU: Auto-Intervalle
     "grid_font_scale": 1.0,
     "grid_m_interval": 250,
     "grid_km_interval": 10,
-    "w_line": 9,
+    "w_line": 9,                # NEU: Steuerung Linien-Dicke
+    "shadow_offset": 2,         # NEU: Steuerung Schatten
     "b_alpha": 160,
     "r_alpha": 255,
     "c_line": "#8B0000",
@@ -150,10 +152,20 @@ with c_up1:
         if st.session_state.persistent_gpx != new_data:
             st.session_state.persistent_gpx = new_data
             gpx_obj = gpxpy.parse(io.BytesIO(new_data))
-            try:
-                start_time, _ = gpx_obj.get_time_bounds()
-                if start_time: st.session_state.tour_date = start_time.strftime("%d.%m.%Y")
-            except: pass
+            
+            # NEU: Verbesserter Auto-Datum Scan
+            parsed_date = ""
+            if gpx_obj.time:
+                parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
+            else:
+                try:
+                    start_time, _ = gpx_obj.get_time_bounds()
+                    if start_time: parsed_date = start_time.strftime("%d.%m.%Y")
+                except: pass
+            
+            if parsed_date:
+                st.session_state.tour_date = parsed_date
+                
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
             st.rerun()
 
@@ -174,11 +186,14 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
             st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
             st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
         
-        st.write("**📏 Raster-Steuerung**")
+        st.write("**📏 Raster & Intervalle**")
+        st.checkbox("Auto-Intervalle (KM & Höhe)", key="auto_intervals")
         st.checkbox("Raster anzeigen", key="show_grid")
         st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
-        st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
-        st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
+        if not st.session_state.auto_intervals:
+            st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
+            st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
+            st.select_slider("Meilensteine auf Route", options=[1, 5, 10, 20, 50, 100], key="km_interval")
 
     with col_opt2:
         st.write("**📝 Texte & Position**")
@@ -188,8 +203,10 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.slider("Titel Y-Position", -300, 300, key="title_y_offset")
         st.slider("Daten Größe", 0.5, 4.0, key="data_font_scale")
         st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
+        st.slider("Schatten-Versatz", 0, 10, key="shadow_offset")
         
-        st.write("**🎨 Farben & Reset**")
+        st.write("**🎨 Route & Farben**")
+        st.slider("Dicke der Route", 1, 20, key="w_line")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
         st.checkbox("Icons anzeigen", key="show_icons")
@@ -197,7 +214,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.1")
+    st.markdown("### GPX Share Pro XXL | v2.6.2")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -230,16 +247,19 @@ if st.session_state.persistent_gpx:
             all_pts = [pt for seg in segments_pts for pt in seg]
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-            
-            if (ma_la - mi_la) < 0.005:
-                ma_la += 0.0025
-                mi_la -= 0.0025
-            if (ma_lo - mi_lo) < 0.005:
-                ma_lo += 0.0025
-                mi_lo -= 0.0025
-
             w, h = 1080, 1920
             
+            # --- AUTO INTERVALLE LOGIK ---
+            if st.session_state.auto_intervals:
+                step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
+                e_range_raw = max(elevs) - min(elevs) if len(elevs) > 1 else 0
+                step_m = 50 if e_range_raw < 200 else 100 if e_range_raw < 500 else 250 if e_range_raw < 1500 else 500
+            else:
+                step_km = st.session_state.grid_km_interval
+                step_m = st.session_state.grid_m_interval
+            
+            marker_step_km = step_km if st.session_state.auto_intervals else st.session_state.km_interval
+
             # HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
@@ -251,8 +271,9 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                # FIX: Breite auf 0 gesetzt, damit es nur berechnet, aber nicht sichtbar zeichnet
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
+                # NEU: OSM Stützpfeiler (Unsichtbarer Dummy-Rahmen, um Bounding Box Abstürze zu 100% zu verhindern)
+                m.add_line(MapLine([(mi_lo-0.005, mi_la-0.005), (ma_lo+0.005, ma_la+0.005)], '#00000000', 1))
+                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 1))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
@@ -272,13 +293,13 @@ if st.session_state.persistent_gpx:
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 
-                if st.session_state.show_grid:
+                if st.session_state.show_grid and step_m > 0 and step_km > 0:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
-                    for m_val in range(int(e_min // st.session_state.grid_m_interval + 1) * st.session_state.grid_m_interval, int(e_max), int(st.session_state.grid_m_interval)):
+                    for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
                         draw.text((int(w*0.01), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
-                    for k in range(int(st.session_state.grid_km_interval), int(d_total), int(st.session_state.grid_km_interval)):
+                    for k in range(step_km, int(d_total), step_km):
                         gx = int((k / d_total) * w)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         draw.text((int(gx+5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
@@ -291,7 +312,7 @@ if st.session_state.persistent_gpx:
             # TITEL & DATEN
             t_y = int(bh_top * 0.35) + st.session_state.title_y_offset
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
-            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
+            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, offset=st.session_state.shadow_offset)
             
             txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
             f_data = get_fitted_font(txt_dist + " " + txt_elev, w*0.8, int(w*0.05*st.session_state.data_font_scale))
@@ -306,7 +327,7 @@ if st.session_state.persistent_gpx:
                     overlay.paste(draw_data_icon(mode, icon_size), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size))
                     curr_x += icon_size + i_gap
                 tw = draw.textlength(txt, font=f_data)
-                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
+                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data, offset=st.session_state.shadow_offset)
                 curr_x += tw + spacing
 
             # DATUMS-BOX
@@ -325,7 +346,7 @@ if st.session_state.persistent_gpx:
                 return (int(w*margin + (lon-mi_lo)/lo_eps*w*(1-2*margin)), int(h*(1-margin) - (lat-mi_la)/la_eps*h*(1-2*margin)))
 
             dist_acc, last_p = 0.0, None
-            km_marks, next_km_goal = [], st.session_state.km_interval
+            km_marks, next_km_goal = [], marker_step_km
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
 
             for seg in segments_pts:
@@ -337,7 +358,7 @@ if st.session_state.persistent_gpx:
                         dist_acc += calc_dist(last_raw[0], last_raw[1], p[0], p[1])
                         if st.session_state.show_km_steps and dist_acc >= next_km_goal:
                             km_marks.append((curr_p, int(next_km_goal)))
-                            next_km_goal += st.session_state.km_interval
+                            next_km_goal += marker_step_km
                     last_p, last_raw = curr_p, p
                 if len(s_pts) > 1: draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
