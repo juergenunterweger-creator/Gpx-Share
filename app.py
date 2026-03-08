@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.8: Final Geometry Fix) ---
+# --- STANDARDWERTE (v2.5.9: Global Coordinate Guard) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -46,7 +46,6 @@ DEFAULTS = {
     "route_scale": 1.0
 }
 
-# Initialisierung
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -54,29 +53,36 @@ for key, val in DEFAULTS.items():
 if "persistent_img" not in st.session_state: st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = None
 
-# --- HELFER FUNKTIONEN ---
+# --- ULTRA-SAFE HELFER FUNKTIONEN ---
 def reset_parameters():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
 def load_font(size):
+    size = max(10, int(size))
     paths = ["font.ttf", "DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
     for p in paths:
-        try: return ImageFont.truetype(p, int(size))
+        try: return ImageFont.truetype(p, size)
         except: continue
     return ImageFont.load_default()
 
+def validate_coords(coords):
+    """Sortiert x0, y0, x1, y1 und stellt sicher, dass x1 >= x0 und y1 >= y0."""
+    x0, y0, x1, y1 = coords
+    nx0, nx1 = min(x0, x1), max(x0, x1)
+    ny0, ny1 = min(y0, y1), max(y0, y1)
+    if nx0 == nx1: nx1 += 1
+    if ny0 == ny1: ny1 += 1
+    return [int(nx0), int(ny0), int(nx1), int(ny1)]
+
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
-    """Verhindert den Fehler 'x1 must be greater than or equal to x0' durch Sortierung."""
     try:
-        x0, y0, x1, y1 = coords
-        # Sortiere Koordinaten, damit x0 immer links von x1 liegt
-        nx0, nx1 = min(x0, x1), max(x0, x1)
-        ny0, ny1 = min(y0, y1), max(y0, y1)
-        # Verhindere Null-Flächen
-        if nx0 == nx1: nx1 += 1
-        if ny0 == ny1: ny1 += 1
-        draw.rectangle([int(nx0), int(ny0), int(nx1), int(ny1)], fill=fill, outline=outline, width=int(width))
+        draw.rectangle(validate_coords(coords), fill=fill, outline=outline, width=int(width))
+    except: pass
+
+def safe_ellipse(draw, coords, fill=None, outline=None, width=1):
+    try:
+        draw.ellipse(validate_coords(coords), fill=fill, outline=outline, width=int(width))
     except: pass
 
 def calc_dist(lat1, lon1, lat2, lon2):
@@ -98,15 +104,15 @@ def get_fitted_font(text, max_width, start_size):
     return font
 
 def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="black", offset=2, anchor="mm"):
-    x, y = pos
-    draw.text((int(x+offset), int(y+offset)), text, fill=shadow_color, font=font, anchor=anchor)
-    draw.text((int(x), int(y)), text, fill=fill, font=font, anchor=anchor)
+    x, y = int(pos[0]), int(pos[1])
+    draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor=anchor)
+    draw.text((x, y), text, fill=fill, font=font, anchor=anchor)
 
 def draw_marker(draw, pos, color, label=""):
     x, y = pos
     r = 14
-    draw.ellipse([int(x-r-2), int(y-r-2), int(x+r+2), int(y+r+2)], fill="white")
-    draw.ellipse([int(x-r), int(y-r), int(x+r), int(y+r)], fill=color, outline="black", width=2)
+    safe_ellipse(draw, [x-r-2, y-r-2, x+r+2, y+r+2], fill="white")
+    safe_ellipse(draw, [x-r, y-r, x+r, y+r], fill=color, outline="black", width=2)
     if label:
         f = load_font(16)
         draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
@@ -114,8 +120,8 @@ def draw_marker(draw, pos, color, label=""):
 def draw_km_marker(draw, pos, km):
     x, y = pos
     r = 10
-    draw.ellipse([int(x-r-1), int(y-r-1), int(x+r+1), int(y+r+1)], fill="white")
-    draw.ellipse([int(x-r), int(y-r), int(x+r), int(y+r)], fill="#333333")
+    safe_ellipse(draw, [x-r-1, y-r-1, x+r+1, y+r+1], fill="white")
+    safe_ellipse(draw, [x-r, y-r, x+r, y+r], fill="#333333")
     f = load_font(12)
     draw.text((int(x), int(y)), str(km), fill="white", font=f, anchor="mm")
 
@@ -171,8 +177,8 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.write("**📏 Raster-Steuerung**")
         st.checkbox("Raster anzeigen", key="show_grid")
         st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
-        st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
-        st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
+        st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50, value=250)
+        st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5, value=10)
 
     with col_opt2:
         st.write("**📝 Texte & Position**")
@@ -191,7 +197,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.5.8")
+    st.markdown("### GPX Share Pro XXL | v2.5.9")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -237,7 +243,9 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
+                # Bounding Box Fix für Karte
+                if len(all_pts) > 1:
+                    m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
@@ -259,11 +267,11 @@ if st.session_state.persistent_gpx:
                 
                 if st.session_state.show_grid:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
-                    for m_val in range(int(e_min // st.session_state.grid_m_interval + 1) * st.session_state.grid_m_interval, int(e_max), st.session_state.grid_m_interval):
+                    for m_val in range(int(e_min // st.session_state.grid_m_interval + 1) * st.session_state.grid_m_interval, int(e_max), int(st.session_state.grid_m_interval)):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
                         draw.text((int(w*0.01), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
-                    for k in range(st.session_state.grid_km_interval, int(d_total), st.session_state.grid_km_interval):
+                    for k in range(int(st.session_state.grid_km_interval), int(d_total), int(st.session_state.grid_km_interval)):
                         gx = int((k / d_total) * w)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         draw.text((int(gx+5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
@@ -280,7 +288,7 @@ if st.session_state.persistent_gpx:
             
             txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
             f_data = get_fitted_font(txt_dist + " " + txt_elev, w*0.8, int(w*0.05*st.session_state.data_font_scale))
-            icon_size = int(w * 0.05 * st.session_state.data_font_scale)
+            icon_size = int(max(1, w * 0.05 * st.session_state.data_font_scale))
             i_gap, spacing = int(w*0.015), int(w*0.08)
             
             total_w = (icon_size if st.session_state.show_icons else 0) + i_gap + draw.textlength(txt_dist, f_data) + spacing + (icon_size if st.session_state.show_icons else 0) + i_gap + draw.textlength(txt_elev, f_data)
@@ -294,7 +302,7 @@ if st.session_state.persistent_gpx:
                 draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
                 curr_x += tw + spacing
 
-            # DATUMS-BOX (ULTRA-SAFE)
+            # DATUMS-BOX (GLOBAL GUARD)
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
