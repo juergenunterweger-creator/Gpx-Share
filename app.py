@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.4.4: Kilometer-Meilensteine) ---
+# --- STANDARDWERTE (v2.4.7: Profil & Raster Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -132,10 +132,10 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
     with col_opt1:
         st.write("**🖼️ Hintergrund & Marker**")
         st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
+        st.checkbox("Höhenprofil Raster", key="show_grid")
         st.checkbox("Start/Ziel Markierungen", key="show_markers")
-        st.checkbox("Km-Meilensteine anzeigen", key="show_km_steps")
+        st.checkbox("Km-Meilensteine", key="show_km_steps")
         st.select_slider("Km-Intervall", options=[5, 10, 20, 50, 100], key="km_interval")
-        st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
     with col_opt2:
         st.write("**📐 Skalierung & Farbe**")
         st.slider("Titel-Größe", 0.5, 3.0, key="font_scale")
@@ -146,7 +146,7 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.4.4")
+    st.markdown("### GPX Share Pro XXL | v2.4.7")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
@@ -202,6 +202,30 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
+            # --- NEU: HÖHENPROFIL & RASTER ---
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs)
+                e_range = (e_max - e_min) if e_max > e_min else 1
+                grid_y_start = h - bh_bot
+                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                
+                if st.session_state.show_grid:
+                    f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
+                    for i in range(1, 4): # Horizontal (Meter)
+                        gy = int(grid_y_start + i * (bh_bot / 4))
+                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
+                        val_m = int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)
+                        draw.text((w*0.01, gy-2), f"{val_m}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                    for i in range(1, 8): # Vertikal (Kilometer)
+                        gx = int(i * (w / 8))
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
+                        draw.text((gx+5, grid_y_start+5), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
+                
+                if st.session_state.fill_profile:
+                    rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
+                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
+                draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
+
             # TITEL & DATEN
             t_y = int(bh_top * 0.35)
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
@@ -219,11 +243,8 @@ if st.session_state.persistent_gpx:
                 py = (h*(1-margin) - (lat-mi_la)/la_eps*h*(1-2*margin))
                 return (int(px), int(py))
 
-            # Zeichne Route und sammle Kilometer-Punkte
-            dist_acc = 0.0
-            last_p = None
-            km_marks = []
-            next_km_goal = st.session_state.km_interval
+            dist_acc, last_p = 0.0, None
+            km_marks, next_km_goal = [], st.session_state.km_interval
 
             for seg in segments_pts:
                 s_pts = []
@@ -231,21 +252,14 @@ if st.session_state.persistent_gpx:
                     curr_p = transform(p[0], p[1])
                     s_pts.append(curr_p)
                     if last_p:
-                        # Berechne echte Welt-Distanz für Marker
-                        seg_dist = calc_dist(last_raw[0], last_raw[1], p[0], p[1])
-                        dist_acc += seg_dist
+                        dist_acc += calc_dist(last_raw[0], last_raw[1], p[0], p[1])
                         if st.session_state.show_km_steps and dist_acc >= next_km_goal:
                             km_marks.append((curr_p, int(next_km_goal)))
                             next_km_goal += st.session_state.km_interval
-                    last_p = curr_p
-                    last_raw = p
+                    last_p, last_raw = curr_p, p
                 if len(s_pts) > 1: draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
-            # Km-Meilensteine zeichnen
-            for pos, val in km_marks:
-                draw_km_marker(draw, pos, val)
-
-            # Start/Ziel Marker
+            for pos, val in km_marks: draw_km_marker(draw, pos, val)
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
                 draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
@@ -254,6 +268,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_km_v244.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fix_v247.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
