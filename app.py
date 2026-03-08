@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.4.5: Install-Popup) ---
+# --- STANDARDWERTE (v2.4.4: Kilometer-Meilensteine) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -31,11 +31,14 @@ DEFAULTS = {
     "c_fill": "#8B0000",
     "c_box": "#000000",
     "b_height_adj": 0.20,
+    "show_logo_on_img": True,
+    "show_profile": True,
+    "show_grid": True,
+    "fill_profile": True,
+    "selected_track_idx": 0,
     "show_markers": True,
     "show_km_steps": True,
-    "km_interval": 20,
-    "selected_track_idx": 0,
-    "install_check_done": False # Merkt sich, ob das Popup gezeigt wurde
+    "km_interval": 20 
 }
 
 for key, val in DEFAULTS.items():
@@ -44,28 +47,6 @@ for key, val in DEFAULTS.items():
 
 if "persistent_img" not in st.session_state: st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = None
-
-# --- INSTALLATIONSDIALOG ---
-@st.dialog("GPX Share Pro XXL installieren?")
-def show_install_guide():
-    st.write("Möchtest du die App direkt auf deinem Home-Bildschirm speichern?")
-    st.markdown("""
-    <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff0000;">
-    <strong>Für iPhone / iPad:</strong><br>
-    1. Tippe unten auf das <strong>Teilen-Icon</strong> (Viereck mit Pfeil).<br>
-    2. Wähle <strong>'Zum Home-Bildschirm'</strong>.<br><br>
-    <strong>Für Android:</strong><br>
-    1. Tippe oben rechts auf die <strong>drei Punkte</strong>.<br>
-    2. Wähle <strong>'App installieren'</strong> oder <strong>'Zum Startbildschirm hinzufügen'</strong>.
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Verstanden!"):
-        st.session_state.install_check_done = True
-        st.rerun()
-
-# Automatischer Start des Popups
-if not st.session_state.install_check_done:
-    show_install_guide()
 
 def reset_parameters():
     for key, val in DEFAULTS.items():
@@ -165,7 +146,7 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.4.5")
+    st.markdown("### GPX Share Pro XXL | v2.4.4")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
@@ -238,6 +219,7 @@ if st.session_state.persistent_gpx:
                 py = (h*(1-margin) - (lat-mi_la)/la_eps*h*(1-2*margin))
                 return (int(px), int(py))
 
+            # Zeichne Route und sammle Kilometer-Punkte
             dist_acc = 0.0
             last_p = None
             km_marks = []
@@ -249,6 +231,7 @@ if st.session_state.persistent_gpx:
                     curr_p = transform(p[0], p[1])
                     s_pts.append(curr_p)
                     if last_p:
+                        # Berechne echte Welt-Distanz für Marker
                         seg_dist = calc_dist(last_raw[0], last_raw[1], p[0], p[1])
                         dist_acc += seg_dist
                         if st.session_state.show_km_steps and dist_acc >= next_km_goal:
@@ -258,8 +241,11 @@ if st.session_state.persistent_gpx:
                     last_raw = p
                 if len(s_pts) > 1: draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
-            for pos, val in km_marks: draw_km_marker(draw, pos, val)
+            # Km-Meilensteine zeichnen
+            for pos, val in km_marks:
+                draw_km_marker(draw, pos, val)
 
+            # Start/Ziel Marker
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
                 draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
@@ -268,6 +254,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_pwa_v245.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_km_v244.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
