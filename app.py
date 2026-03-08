@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.3: SessionState Fix & Full Sync) ---
+# --- STANDARDWERTE (v2.5.4: Ultra-Stable Coordinate Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -41,9 +41,10 @@ DEFAULTS = {
     "show_grid": True,
     "fill_profile": True,
     "show_icons": True,
-    "route_autoscale": True, # FIX: Initialisierung hinzugefügt
-    "route_scale": 1.0,      # FIX: Initialisierung hinzugefügt
-    "install_check_done": False
+    "route_autoscale": True,
+    "route_scale": 1.0,
+    "install_check_done": False,
+    "selected_track_idx": 0
 }
 
 for key, val in DEFAULTS.items():
@@ -62,10 +63,15 @@ def load_font(size):
     return ImageFont.load_default()
 
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
+    """Sortiert Koordinaten strikt und verhindert negative Breiten/Höhen."""
     try:
         x0, y0, x1, y1 = coords
-        sorted_coords = [int(min(x0, x1)), int(min(y0, y1)), int(max(x0, x1)), int(max(y0, y1))]
-        draw.rectangle(sorted_coords, fill=fill, outline=outline, width=int(width))
+        # Mindestgröße sicherstellen und sortieren
+        sx0, sx1 = sorted([int(x0), int(x1)])
+        sy0, sy1 = sorted([int(y0), int(y1)])
+        if sx0 == sx1: sx1 += 1
+        if sy0 == sy1: sy1 += 1
+        draw.rectangle([sx0, sy0, sx1, sy1], fill=fill, outline=outline, width=int(width))
     except: pass
 
 def calc_dist(lat1, lon1, lat2, lon2):
@@ -94,19 +100,19 @@ def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="bla
 def draw_marker(draw, pos, color, label=""):
     x, y = pos
     r = 14
-    draw.ellipse([x-r-2, y-r-2, x+r+2, y+r+2], fill="white")
-    draw.ellipse([x-r, y-r, x+r, y+r], fill=color, outline="black", width=2)
+    draw.ellipse([int(x-r-2), int(y-r-2), int(x+r+2), int(y+r+2)], fill="white")
+    draw.ellipse([int(x-r), int(y-r), int(x+r), int(y+r)], fill=color, outline="black", width=2)
     if label:
         f = load_font(16)
-        draw.text((x, y), label, fill="white", font=f, anchor="mm")
+        draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
 
 def draw_km_marker(draw, pos, km):
     x, y = pos
     r = 10
-    draw.ellipse([x-r-1, y-r-1, x+r+1, y+r+1], fill="white")
-    draw.ellipse([x-r, y-r, x+r, y+r], fill="#333333")
+    draw.ellipse([int(x-r-1), int(y-r-1), int(x+r+1), int(y+r+1)], fill="white")
+    draw.ellipse([int(x-r), int(y-r), int(x+r), int(y+r)], fill="#333333")
     f = load_font(12)
-    draw.text((x, y), str(km), fill="white", font=f, anchor="mm")
+    draw.text((int(x), int(y)), str(km), fill="white", font=f, anchor="mm")
 
 def draw_data_icon(mode, size, color="white"):
     res = 4
@@ -126,7 +132,7 @@ def reset_parameters():
         st.session_state[key] = val
     st.rerun()
 
-st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .install-box { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff0000; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -166,7 +172,6 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
         st.number_input("Raster Meter-Schritte (m)", 50, 5000, key="grid_m_interval", step=50)
         st.number_input("Raster Distanz-Schritte (km)", 1, 500, key="grid_km_interval", step=5)
-        st.select_slider("KM-Meilensteine (auf Route)", options=[5, 10, 20, 50, 100], key="km_interval")
 
     with col_opt2:
         st.write("**📝 Texte & Position**")
@@ -193,16 +198,12 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if os.path.exists("logo.png"): st.image("logo.png", width=120)
         else: st.write("🏍️ **Logo**")
     with c_meta:
-        st.markdown("### GPX Share Pro XXL | v2.5.3")
+        st.markdown("### GPX Share Pro XXL | v2.5.4")
         st.markdown("**Copyright: Jürgen Unterweger**")
         st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
     st.markdown("---")
     st.markdown("**📲 App installieren:**")
-    st.markdown("""<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br><strong>Android:</strong> Menü -> 'App installieren' / 'Zum Startbildschirm'</div>""", unsafe_allow_html=True)
-    
-    st.markdown("**Folge mir auf:**")
-    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
+    st.markdown("iPhone: Teilen -> 'Zum Home-Bildschirm' | Android: Menü -> 'App installieren'")
 
 st.divider()
 
@@ -241,7 +242,7 @@ if st.session_state.persistent_gpx:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
                 nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
-                canvas.paste(bg_img, (st.session_state.img_x_offset - (nz_w-w)//2, st.session_state.img_y_offset - (nz_h-h)//2))
+                canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
                 m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
@@ -301,7 +302,7 @@ if st.session_state.persistent_gpx:
                 draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
                 curr_x += tw + spacing
 
-            # DATUMS-BOX
+            # DATUMS-BOX (ULTRA SAFE)
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
@@ -318,7 +319,6 @@ if st.session_state.persistent_gpx:
 
             dist_acc, last_p = 0.0, None
             km_marks, next_km_goal = [], st.session_state.km_interval
-            rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
 
             for seg in segments_pts:
                 s_pts = []
