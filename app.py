@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.7: Reset Fix & Raster Stability) ---
+# --- STANDARDWERTE (v2.5.8: Final Geometry Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -56,7 +56,6 @@ if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = N
 
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
-    """Setzt alle Session-Werte zurück ohne st.rerun() im Callback."""
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
 
@@ -68,13 +67,16 @@ def load_font(size):
     return ImageFont.load_default()
 
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
+    """Verhindert den Fehler 'x1 must be greater than or equal to x0' durch Sortierung."""
     try:
         x0, y0, x1, y1 = coords
-        sx0, sx1 = sorted([int(x0), int(x1)])
-        sy0, sy1 = sorted([int(y0), int(y1)])
-        if sx0 == sx1: sx1 += 1
-        if sy0 == sy1: sy1 += 1
-        draw.rectangle([sx0, sy0, sx1, sy1], fill=fill, outline=outline, width=int(width))
+        # Sortiere Koordinaten, damit x0 immer links von x1 liegt
+        nx0, nx1 = min(x0, x1), max(x0, x1)
+        ny0, ny1 = min(y0, y1), max(y0, y1)
+        # Verhindere Null-Flächen
+        if nx0 == nx1: nx1 += 1
+        if ny0 == ny1: ny1 += 1
+        draw.rectangle([int(nx0), int(ny0), int(nx1), int(ny1)], fill=fill, outline=outline, width=int(width))
     except: pass
 
 def calc_dist(lat1, lon1, lat2, lon2):
@@ -85,7 +87,7 @@ def calc_dist(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(math.sqrt(a))
 
 def get_fitted_font(text, max_width, start_size):
-    size = int(start_size)
+    size = int(max(10, start_size))
     font = load_font(size)
     try:
         d = ImageDraw.Draw(Image.new('RGB', (1,1)))
@@ -119,6 +121,7 @@ def draw_km_marker(draw, pos, km):
 
 def draw_data_icon(mode, size, color="white"):
     res = 4
+    size = int(max(1, size))
     img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
     d = ImageDraw.Draw(img)
     lw = max(4, int(size*res*0.08))
@@ -180,7 +183,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.slider("Daten Größe", 0.5, 4.0, key="data_font_scale")
         st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
         
-        st.write("**🎨 Farben**")
+        st.write("**🎨 Farben & Reset**")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
         st.checkbox("Icons anzeigen", key="show_icons")
@@ -188,7 +191,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.5.7")
+    st.markdown("### GPX Share Pro XXL | v2.5.8")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -259,11 +262,11 @@ if st.session_state.persistent_gpx:
                     for m_val in range(int(e_min // st.session_state.grid_m_interval + 1) * st.session_state.grid_m_interval, int(e_max), st.session_state.grid_m_interval):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
-                        draw.text((w*0.01, gy-2), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                        draw.text((int(w*0.01), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
                     for k in range(st.session_state.grid_km_interval, int(d_total), st.session_state.grid_km_interval):
                         gx = int((k / d_total) * w)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
-                        draw.text((gx+5, grid_y_start+5), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
+                        draw.text((int(gx+5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
                 
                 if st.session_state.fill_profile:
                     rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
@@ -291,7 +294,7 @@ if st.session_state.persistent_gpx:
                 draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
                 curr_x += tw + spacing
 
-            # DATUMS-BOX
+            # DATUMS-BOX (ULTRA-SAFE)
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
@@ -332,7 +335,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final_v257.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
-    
