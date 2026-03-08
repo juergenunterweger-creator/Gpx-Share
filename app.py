@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.5: Full Custom Design Update) ---
+# --- STANDARDWERTE (v2.5.6: Raster & Auto-Date Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -129,7 +129,7 @@ def reset_parameters():
         st.session_state[key] = val
     st.rerun()
 
-st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .install-box { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff0000; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
 # --- UPLOADS ---
@@ -141,10 +141,14 @@ with c_up1:
         if st.session_state.persistent_gpx != new_data:
             st.session_state.persistent_gpx = new_data
             gpx_obj = gpxpy.parse(io.BytesIO(new_data))
+            
+            # AUTOMATISCHES DATUM AUS GPX (v2.5.6 Fix)
             try:
                 start_time, _ = gpx_obj.get_time_bounds()
-                if start_time: st.session_state.tour_date = start_time.strftime("%d.%m.%Y")
+                if start_time:
+                    st.session_state.tour_date = start_time.strftime("%d.%m.%Y")
             except: pass
+            
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
             st.rerun()
 
@@ -164,12 +168,11 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
             st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
             st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
         
-        st.write("**📏 Raster & Meilensteine**")
+        st.write("**📏 Raster-Steuerung**")
         st.checkbox("Raster anzeigen", key="show_grid")
         st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
-        st.number_input("Raster Meter-Schritte (m)", 50, 5000, key="grid_m_interval", step=50)
-        st.number_input("Raster Distanz-Schritte (km)", 1, 500, key="grid_km_interval", step=5)
-        st.select_slider("KM-Meilensteine (auf Route)", options=[5, 10, 20, 50, 100], key="km_interval")
+        st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
+        st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
 
     with col_opt2:
         st.write("**📝 Texte & Position**")
@@ -180,29 +183,19 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.slider("Daten Größe", 0.5, 4.0, key="data_font_scale")
         st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
         
-        st.write("**🎨 Route & Balken**")
+        st.write("**🎨 Farben**")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
         st.checkbox("Icons anzeigen", key="show_icons")
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- REITER ÜBER GPX SHARE ---
+# --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    c_logo, c_meta = st.columns([1, 2])
-    with c_logo:
-        if os.path.exists("logo.png"): st.image("logo.png", width=120)
-        else: st.write("🏍️ **Logo fehlt**")
-    with c_meta:
-        st.markdown("### GPX Share Pro XXL | v2.5.5")
-        st.markdown("**Copyright: Jürgen Unterweger**")
-        st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
+    st.markdown("### GPX Share Pro XXL | v2.5.6")
+    st.markdown("**Copyright: Jürgen Unterweger**")
+    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
-    st.markdown("**📲 App installieren:**")
-    st.markdown("""<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br><strong>Android:</strong> Menü -> 'App installieren' / 'Zum Startbildschirm'</div>""", unsafe_allow_html=True)
-    
-    st.markdown("**Folge mir auf:**")
-    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
+    st.markdown("**📲 Installation:** iPhone (Teilen -> Home-Bildschirm) | Android (Menü -> Installieren)")
 
 st.divider()
 
@@ -257,7 +250,7 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # HÖHENPROFIL & RASTER
+            # --- HÖHENPROFIL & RASTER (FIXED v2.5.6) ---
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -266,10 +259,12 @@ if st.session_state.persistent_gpx:
                 
                 if st.session_state.show_grid:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
+                    # Meter Raster
                     for m_val in range(int(e_min // st.session_state.grid_m_interval + 1) * st.session_state.grid_m_interval, int(e_max), st.session_state.grid_m_interval):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
                         draw.text((w*0.01, gy-2), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                    # KM Raster
                     for k in range(st.session_state.grid_km_interval, int(d_total), st.session_state.grid_km_interval):
                         gx = int((k / d_total) * w)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
@@ -301,7 +296,7 @@ if st.session_state.persistent_gpx:
                 draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
                 curr_x += tw + spacing
 
-            # DATUMS-BOX (ÜBER PROFIL)
+            # DATUMS-BOX
             if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
@@ -342,6 +337,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_fix_v256.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
