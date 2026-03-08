@@ -18,7 +18,7 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.6.6: Marker Toggles) ---
+# --- STANDARDWERTE (v2.6.7: Upload Vault Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -45,8 +45,8 @@ DEFAULTS = {
     "c_fill": "#8B0000",
     "c_box": "#000000",
     "b_height_adj": 0.20,
-    "show_markers": True,      # Jetzt im UI steuerbar
-    "show_km_steps": True,     # Jetzt im UI steuerbar
+    "show_markers": True,
+    "show_km_steps": True,
     "km_interval": 20,
     "show_profile": True,
     "show_grid": True,
@@ -158,18 +158,18 @@ def draw_data_icon(mode, size, color="white"):
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOADS ---
+# --- UPLOADS (NEUER TRESOR-FIX) ---
 c_up1, c_up2 = st.columns(2)
+
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
-    if up_gpx:
-        if not up_gpx.name.lower().endswith('.gpx'):
-            st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
-        else:
-            new_data = up_gpx.getvalue()
-            if st.session_state.persistent_gpx != new_data:
-                st.session_state.persistent_gpx = new_data
-                gpx_obj = gpxpy.parse(io.BytesIO(new_data))
+    if st.session_state.persistent_gpx is None:
+        up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
+        if up_gpx:
+            if not up_gpx.name.lower().endswith('.gpx'):
+                st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
+            else:
+                st.session_state.persistent_gpx = up_gpx.getvalue()
+                gpx_obj = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
                 
                 parsed_date = ""
                 if gpx_obj.time:
@@ -185,17 +185,21 @@ with c_up1:
                     
                 st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
                 st.rerun()
+    else:
+        st.success(f"📍 GPX geladen: {st.session_state.tour_title}")
+        if st.button("❌ GPX ändern / löschen"):
+            st.session_state.persistent_gpx = None
+            st.rerun()
 
 with c_up2:
-    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-    if up_img: 
-        new_img_data = up_img.getvalue()
-        if st.session_state.persistent_img != new_img_data:
-            st.session_state.persistent_img = new_img_data
+    if st.session_state.persistent_img is None:
+        up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+        if up_img: 
+            st.session_state.persistent_img = up_img.getvalue()
             st.rerun()
-            
-    if st.session_state.persistent_img:
-        if st.button("❌ Foto aus Speicher löschen"):
+    else:
+        st.success("📸 Foto ist sicher geladen!")
+        if st.button("❌ Foto ändern / löschen"):
             st.session_state.persistent_img = None
             st.rerun()
 
@@ -242,7 +246,6 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
         
-        # NEU: Steuerung der Marker & Icons
         st.checkbox("Start/Ziel (S/Z) anzeigen", key="show_markers")
         st.checkbox("KM-Meilensteine anzeigen", key="show_km_steps")
         st.checkbox("Daten-Icons anzeigen", key="show_icons")
@@ -251,7 +254,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.6")
+    st.markdown("### GPX Share Pro XXL | v2.6.7")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -407,11 +410,9 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
                 if draw_route and len(s_pts) > 1: 
                     draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
-            # NEU: Steuerung für KM-Meilensteine
             if st.session_state.show_km_steps:
                 for pos, val in km_marks: draw_km_marker(draw, pos, val)
                 
-            # NEU: Steuerung für Start/Ziel Marker
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
                 draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
