@@ -18,7 +18,7 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.6.5: Icon Crash Fix & Memory Vault) ---
+# --- STANDARDWERTE (v2.6.6: Marker Toggles) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -45,8 +45,8 @@ DEFAULTS = {
     "c_fill": "#8B0000",
     "c_box": "#000000",
     "b_height_adj": 0.20,
-    "show_markers": True,
-    "show_km_steps": True,
+    "show_markers": True,      # Jetzt im UI steuerbar
+    "show_km_steps": True,     # Jetzt im UI steuerbar
     "km_interval": 20,
     "show_profile": True,
     "show_grid": True,
@@ -135,10 +135,9 @@ def draw_km_marker(draw, pos, km):
     f = load_font(12)
     draw.text((int(x), int(y)), str(km), fill="white", font=f, anchor="mm")
 
-# FIX: Ultra-sichere Methode für die Icons!
 def draw_data_icon(mode, size, color="white"):
     res = 4
-    size = int(max(10, size)) # Zwingt eine Mindestgröße, um den x1>=x0 Fehler abzuwehren
+    size = int(max(10, size))
     img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
@@ -189,14 +188,12 @@ with c_up1:
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-    # MEMORY FIX: Foto in den Tresor schieben und dort sicher verwahren
     if up_img: 
         new_img_data = up_img.getvalue()
         if st.session_state.persistent_img != new_img_data:
             st.session_state.persistent_img = new_img_data
             st.rerun()
             
-    # Button zum manuellen Entfernen des Fotos, falls man sich umentscheidet
     if st.session_state.persistent_img:
         if st.button("❌ Foto aus Speicher löschen"):
             st.session_state.persistent_img = None
@@ -240,16 +237,21 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
         st.slider("Schatten-Versatz", 0, 10, key="shadow_offset")
         
-        st.write("**🎨 Route & Farben**")
+        st.write("**🎨 Route, Farben & Marker**")
         st.slider("Dicke der Route", 1, 20, key="w_line")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
-        st.checkbox("Icons anzeigen", key="show_icons")
+        
+        # NEU: Steuerung der Marker & Icons
+        st.checkbox("Start/Ziel (S/Z) anzeigen", key="show_markers")
+        st.checkbox("KM-Meilensteine anzeigen", key="show_km_steps")
+        st.checkbox("Daten-Icons anzeigen", key="show_icons")
+        
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.5")
+    st.markdown("### GPX Share Pro XXL | v2.6.6")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -284,7 +286,6 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # OSM Sicherheits-Puffer
             if (ma_la - mi_la) < 0.005:
                 ma_la += 0.005
                 mi_la -= 0.005
@@ -406,7 +407,11 @@ if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"
                 if draw_route and len(s_pts) > 1: 
                     draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
-            for pos, val in km_marks: draw_km_marker(draw, pos, val)
+            # NEU: Steuerung für KM-Meilensteine
+            if st.session_state.show_km_steps:
+                for pos, val in km_marks: draw_km_marker(draw, pos, val)
+                
+            # NEU: Steuerung für Start/Ziel Marker
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
                 draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
