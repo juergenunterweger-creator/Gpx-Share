@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.1: Full Control Update) ---
+# --- STANDARDWERTE (v2.5.2: Marker Fix & Full Control) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -18,15 +18,15 @@ DEFAULTS = {
     "bg_mode": "Automatisch",
     "bg_opacity": 100,
     "font_scale": 1.5,
-    "title_y_offset": 0, # NEU: Titel Position
+    "title_y_offset": 0,
     "data_font_scale": 1.2,
     "data_y_offset": 150,
-    "img_zoom": 1.0,     # NEU: Bild Zoom
-    "img_x_offset": 0,   # NEU: Bild X
-    "img_y_offset": 0,   # NEU: Bild Y
-    "grid_font_scale": 1.0, # NEU: Raster Schriftgröße
-    "grid_m_interval": 250, # NEU: Raster Meter Schritte
-    "grid_km_interval": 10, # NEU: Raster KM Schritte
+    "img_zoom": 1.0,
+    "img_x_offset": 0,
+    "img_y_offset": 0,
+    "grid_font_scale": 1.0,
+    "grid_m_interval": 250,
+    "grid_km_interval": 10,
     "w_line": 9,
     "b_alpha": 160,
     "r_alpha": 255,
@@ -51,12 +51,7 @@ for key, val in DEFAULTS.items():
 if "persistent_img" not in st.session_state: st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = None
 
-def reset_parameters():
-    for key, val in DEFAULTS.items():
-        st.session_state[key] = val
-    st.rerun()
-
-# --- HELFER FUNKTIONEN ---
+# --- HELFER FUNKTIONEN (DEFINITIONEN) ---
 def load_font(size):
     paths = ["font.ttf", "DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
     for p in paths:
@@ -94,6 +89,23 @@ def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="bla
     draw.text((int(x+offset), int(y+offset)), text, fill=shadow_color, font=font, anchor=anchor)
     draw.text((int(x), int(y)), text, fill=fill, font=font, anchor=anchor)
 
+def draw_marker(draw, pos, color, label=""):
+    x, y = pos
+    r = 14
+    draw.ellipse([x-r-2, y-r-2, x+r+2, y+r+2], fill="white")
+    draw.ellipse([x-r, y-r, x+r, y+r], fill=color, outline="black", width=2)
+    if label:
+        f = load_font(16)
+        draw.text((x, y), label, fill="white", font=f, anchor="mm")
+
+def draw_km_marker(draw, pos, km):
+    x, y = pos
+    r = 10
+    draw.ellipse([x-r-1, y-r-1, x+r+1, y+r+1], fill="white")
+    draw.ellipse([x-r, y-r, x+r, y+r], fill="#333333")
+    f = load_font(12)
+    draw.text((x, y), str(km), fill="white", font=f, anchor="mm")
+
 def draw_data_icon(mode, size, color="white"):
     res = 4
     img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
@@ -106,6 +118,11 @@ def draw_data_icon(mode, size, color="white"):
     elif mode == "elev":
         d.polygon([(lw, size*res-lw), (size*res//2, lw), (size*res-lw, size*res-lw)], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
+
+def reset_parameters():
+    for key, val in DEFAULTS.items():
+        st.session_state[key] = val
+    st.rerun()
 
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .install-box { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #ff0000; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
@@ -138,25 +155,25 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.selectbox("Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
         if st.session_state.persistent_img:
-            st.slider("Foto Zoom", 0.5, 3.0, key="img_zoom", step=0.05)
-            st.slider("Foto X-Versatz", -1000, 1000, key="img_x_offset")
-            st.slider("Foto Y-Versatz", -1000, 1000, key="img_y_offset")
+            st.slider("Foto Zoom", 0.5, 5.0, key="img_zoom", step=0.1)
+            st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
+            st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
         
         st.write("**📏 Raster & Meilensteine**")
         st.checkbox("Raster anzeigen", key="show_grid")
-        st.slider("Raster Schriftgröße", 0.5, 2.5, key="grid_font_scale")
-        st.number_input("Raster Meter (m)", 50, 2000, key="grid_m_interval", step=50)
-        st.number_input("Raster Distanz (km)", 1, 100, key="grid_km_interval", step=1)
+        st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
+        st.number_input("Raster Meter-Schritte (m)", 50, 5000, key="grid_m_interval", step=50)
+        st.number_input("Raster Distanz-Schritte (km)", 1, 500, key="grid_km_interval", step=5)
         st.select_slider("KM-Meilensteine (auf Route)", options=[5, 10, 20, 50, 100], key="km_interval")
 
     with col_opt2:
         st.write("**📝 Texte & Position**")
         st.text_input("Tour Name", key="tour_title")
         st.text_input("Datum", key="tour_date")
-        st.slider("Titel Größe", 0.5, 3.0, key="font_scale")
-        st.slider("Titel Y-Versatz", -200, 200, key="title_y_offset")
-        st.slider("Daten Größe", 0.5, 3.0, key="data_font_scale")
-        st.slider("Daten Y-Abstand", 50, 450, key="data_y_offset")
+        st.slider("Titel Größe", 0.5, 4.0, key="font_scale")
+        st.slider("Titel Y-Position", -300, 300, key="title_y_offset")
+        st.slider("Daten Größe", 0.5, 4.0, key="data_font_scale")
+        st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
         
         st.write("**🎨 Farben**")
         st.color_picker("Routenfarbe", key="c_line")
@@ -171,8 +188,8 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if os.path.exists("logo.png"): st.image("logo.png", width=120)
         else: st.write("🏍️ **Logo**")
     with c_meta:
-        st.markdown("### GPX Share Pro XXL | v2.5.1")
-        st.markdown("**Entwickelt für Jürgen Unterweger**")
+        st.markdown("### GPX Share Pro XXL | v2.5.2")
+        st.markdown("**Copyright: Jürgen Unterweger**")
         st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     
     st.markdown("---")
@@ -180,9 +197,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("""<div class="install-box"><strong>iPhone / iPad:</strong> Teilen -> 'Zum Home-Bildschirm'<br><strong>Android:</strong> Menü -> 'App installieren' / 'Zum Startbildschirm'</div>""", unsafe_allow_html=True)
     
     st.markdown("**Folge mir auf:**")
-    c_ig, c_fb = st.columns(2)
-    with c_ig: st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/)")
-    with c_fb: st.markdown("👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
+    st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
 st.divider()
 
@@ -219,7 +234,7 @@ if st.session_state.persistent_gpx:
             
             if not use_map and st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
-                # Zoom & Crop
+                # Zoom & Verschieben Logik
                 nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (st.session_state.img_x_offset - (nz_w-w)//2, st.session_state.img_y_offset - (nz_h-h)//2))
@@ -238,15 +253,6 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # DATUMS-BOX
-            if st.session_state.show_date and st.session_state.tour_date:
-                f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
-                tw = draw.textlength(st.session_state.tour_date, font=f_date)
-                bx2, by2 = int(w - 30), int(h - bh_bot - 20)
-                bx1, by1 = int(bx2 - tw - 40), int(by2 - 60)
-                safe_rect(draw, [bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=2)
-                draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
-
             # HÖHENPROFIL & RASTER
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
@@ -256,12 +262,10 @@ if st.session_state.persistent_gpx:
                 
                 if st.session_state.show_grid:
                     f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
-                    # Dynamisches Meter-Raster
                     for m_val in range(int(e_min // st.session_state.grid_m_interval + 1) * st.session_state.grid_m_interval, int(e_max), st.session_state.grid_m_interval):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
                         draw.text((w*0.01, gy-2), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
-                    # Dynamisches KM-Raster
                     for k in range(st.session_state.grid_km_interval, int(d_total), st.session_state.grid_km_interval):
                         gx = int((k / d_total) * w)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
@@ -292,6 +296,15 @@ if st.session_state.persistent_gpx:
                 tw = draw.textlength(txt, font=f_data)
                 draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data)
                 curr_x += tw + spacing
+
+            # DATUMS-BOX
+            if st.session_state.show_date and st.session_state.tour_date:
+                f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
+                tw = draw.textlength(st.session_state.tour_date, font=f_date)
+                bx2, by2 = int(w - 30), int(h - bh_bot - 20)
+                bx1, by1 = int(bx2 - tw - 40), int(by2 - 60)
+                safe_rect(draw, [bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=2)
+                draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
 
             # ROUTE & MARKER
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
@@ -325,6 +338,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_pro_v251.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
