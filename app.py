@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.4.8: Titel & Datum Editor Fix) ---
+# --- STANDARDWERTE (v2.4.9: Auto-Datum & Neue Box-Position) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -117,7 +117,14 @@ with c_up1:
         if st.session_state.persistent_gpx != new_data:
             st.session_state.persistent_gpx = new_data
             gpx_obj = gpxpy.parse(io.BytesIO(new_data))
-            if gpx_obj.time: st.session_state.tour_date = gpx_obj.time.strftime("%d.%m.%Y")
+            
+            # AUTOMATISCHES DATUM AUS GPX
+            try:
+                start_time, _ = gpx_obj.get_time_bounds()
+                if start_time:
+                    st.session_state.tour_date = start_time.strftime("%d.%m.%Y")
+            except: pass
+            
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
             st.rerun()
 
@@ -130,10 +137,8 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Texte & Stimmung**")
-        # RESTAURIERTE FELDER
         st.text_input("Tour Name", key="tour_title")
         st.text_input("Datum", key="tour_date")
-        
         st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
         st.checkbox("Höhenprofil Raster", key="show_grid")
         st.checkbox("Start/Ziel Markierungen", key="show_markers")
@@ -149,7 +154,7 @@ with st.expander("⚙️ Optionen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.4.8")
+    st.markdown("### GPX Share Pro XXL | v2.4.9")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown("📸 [Instagram](https://www.instagram.com/juergen_rocks/) | 👥 [Facebook](https://www.facebook.com/JuergenRocks/)")
 
@@ -182,10 +187,9 @@ if st.session_state.persistent_gpx:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # Hintergrund
+            # 1. HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
             use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and not st.session_state.persistent_img)
-            
             if not use_map and st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
                 bg_img = ImageOps.fit(bg_img, (w, h), Image.Resampling.LANCZOS)
@@ -198,6 +202,7 @@ if st.session_state.persistent_gpx:
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
+            # 2. OVERLAY & BALKEN
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
@@ -205,7 +210,17 @@ if st.session_state.persistent_gpx:
             safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
 
-            # HÖHENPROFIL & RASTER
+            # 3. NEUE DATUMS-BOX (ÜBER PROFILBALKEN)
+            if st.session_state.show_date and st.session_state.tour_date:
+                f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
+                tw = draw.textlength(st.session_state.tour_date, font=f_date)
+                # Positionierung oberhalb des unteren Balkens (h - bh_bot)
+                bx2, by2 = int(w - 30), int(h - bh_bot - 20)
+                bx1, by1 = int(bx2 - tw - 40), int(by2 - 60)
+                safe_rect(draw, [bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=2)
+                draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
+
+            # 4. HÖHENPROFIL & RASTER
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -217,27 +232,21 @@ if st.session_state.persistent_gpx:
                         gy = int(grid_y_start + i * (bh_bot / 4))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
                         draw.text((w*0.01, gy-2), f"{int(e_min + ((grid_y_start+bh_bot*0.85-gy)/(bh_bot*0.7))*e_range)}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
-                    for i in range(1, 8):
-                        gx = int(i * (w / 8))
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
-                        draw.text((gx+5, grid_y_start+5), f"{int((i/8)*d_total)}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
                 if st.session_state.fill_profile:
                     rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
                     draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
-            # TITEL & DATEN
+            # 5. TITEL & DATEN
             t_y = int(bh_top * 0.35)
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title)
             draw_text_with_shadow(draw, (w//2, t_y + st.session_state.data_y_offset), f"{d_total:.1f} km | {int(a_gain)} m", get_fitted_font("X km", w*0.7, int(w*0.05*st.session_state.data_font_scale)))
 
-            # ROUTE TRANSFORMATION
+            # 6. ROUTE TRANSFORMATION & MARKER
             margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
-            rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
             la_eps = ma_la - mi_la if ma_la > mi_la else 0.001
             lo_eps = ma_lo - mi_lo if ma_lo > mi_lo else 0.001
-            
             def transform(lat, lon):
                 px = (w*margin + (lon-mi_lo)/lo_eps*w*(1-2*margin))
                 py = (h*(1-margin) - (lat-mi_la)/la_eps*h*(1-2*margin))
@@ -245,6 +254,7 @@ if st.session_state.persistent_gpx:
 
             dist_acc, last_p = 0.0, None
             km_marks, next_km_goal = [], st.session_state.km_interval
+            rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
 
             for seg in segments_pts:
                 s_pts = []
@@ -268,6 +278,6 @@ if st.session_state.persistent_gpx:
             st.image(final, use_container_width=True)
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_custom_v248.jpg", "image/jpeg")
+            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_custom_v249.jpg", "image/jpeg")
 
     except Exception as e: st.error(f"Fehler: {e}")
