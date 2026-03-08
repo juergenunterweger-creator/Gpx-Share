@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.5.2: Marker Fix & Full Control) ---
+# --- STANDARDWERTE (v2.5.3: SessionState Fix & Full Sync) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -41,6 +41,8 @@ DEFAULTS = {
     "show_grid": True,
     "fill_profile": True,
     "show_icons": True,
+    "route_autoscale": True, # FIX: Initialisierung hinzugefügt
+    "route_scale": 1.0,      # FIX: Initialisierung hinzugefügt
     "install_check_done": False
 }
 
@@ -51,7 +53,7 @@ for key, val in DEFAULTS.items():
 if "persistent_img" not in st.session_state: st.session_state.persistent_img = None
 if "persistent_gpx" not in st.session_state: st.session_state.persistent_gpx = None
 
-# --- HELFER FUNKTIONEN (DEFINITIONEN) ---
+# --- HELFER FUNKTIONEN ---
 def load_font(size):
     paths = ["font.ttf", "DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
     for p in paths:
@@ -175,7 +177,10 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.slider("Daten Größe", 0.5, 4.0, key="data_font_scale")
         st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
         
-        st.write("**🎨 Farben**")
+        st.write("**🎨 Route & Balken**")
+        st.checkbox("Route Auto-Skalierung", key="route_autoscale")
+        if not st.session_state.route_autoscale:
+            st.slider("Routen Skalierung", 0.1, 2.0, key="route_scale")
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
         st.checkbox("Icons anzeigen", key="show_icons")
@@ -188,7 +193,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if os.path.exists("logo.png"): st.image("logo.png", width=120)
         else: st.write("🏍️ **Logo**")
     with c_meta:
-        st.markdown("### GPX Share Pro XXL | v2.5.2")
+        st.markdown("### GPX Share Pro XXL | v2.5.3")
         st.markdown("**Copyright: Jürgen Unterweger**")
         st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     
@@ -234,7 +239,6 @@ if st.session_state.persistent_gpx:
             
             if not use_map and st.session_state.persistent_img:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.persistent_img))).convert("RGBA")
-                # Zoom & Verschieben Logik
                 nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (st.session_state.img_x_offset - (nz_w-w)//2, st.session_state.img_y_offset - (nz_h-h)//2))
