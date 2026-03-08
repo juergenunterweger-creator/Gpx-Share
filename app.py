@@ -10,7 +10,7 @@ from staticmap import StaticMap, Line as MapLine
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.6.2: Auto-Intervals & OSM Deep Fix) ---
+# --- STANDARDWERTE (v2.6.3: iOS Upload Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -24,12 +24,12 @@ DEFAULTS = {
     "img_zoom": 1.0,
     "img_x_offset": 0,
     "img_y_offset": 0,
-    "auto_intervals": True,     # NEU: Auto-Intervalle
+    "auto_intervals": True,
     "grid_font_scale": 1.0,
     "grid_m_interval": 250,
     "grid_km_interval": 10,
-    "w_line": 9,                # NEU: Steuerung Linien-Dicke
-    "shadow_offset": 2,         # NEU: Steuerung Schatten
+    "w_line": 9,
+    "shadow_offset": 2,
     "b_alpha": 160,
     "r_alpha": 255,
     "c_line": "#8B0000",
@@ -146,28 +146,32 @@ st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
+    # KOMPROMISS FÜR iOS: Keine harte Typ-Beschränkung im HTML, damit die Dateien-App öffnet
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
     if up_gpx:
-        new_data = up_gpx.getvalue()
-        if st.session_state.persistent_gpx != new_data:
-            st.session_state.persistent_gpx = new_data
-            gpx_obj = gpxpy.parse(io.BytesIO(new_data))
-            
-            # NEU: Verbesserter Auto-Datum Scan
-            parsed_date = ""
-            if gpx_obj.time:
-                parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
-            else:
-                try:
-                    start_time, _ = gpx_obj.get_time_bounds()
-                    if start_time: parsed_date = start_time.strftime("%d.%m.%Y")
-                except: pass
-            
-            if parsed_date:
-                st.session_state.tour_date = parsed_date
+        # Software-Prüfung: Ist es wirklich eine GPX?
+        if not up_gpx.name.lower().endswith('.gpx'):
+            st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
+        else:
+            new_data = up_gpx.getvalue()
+            if st.session_state.persistent_gpx != new_data:
+                st.session_state.persistent_gpx = new_data
+                gpx_obj = gpxpy.parse(io.BytesIO(new_data))
                 
-            st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-            st.rerun()
+                parsed_date = ""
+                if gpx_obj.time:
+                    parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
+                else:
+                    try:
+                        start_time, _ = gpx_obj.get_time_bounds()
+                        if start_time: parsed_date = start_time.strftime("%d.%m.%Y")
+                    except: pass
+                
+                if parsed_date:
+                    st.session_state.tour_date = parsed_date
+                    
+                st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+                st.rerun()
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
@@ -214,7 +218,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.6.2")
+    st.markdown("### GPX Share Pro XXL | v2.6.3")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -223,7 +227,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 st.divider()
 
 # --- VERARBEITUNG ---
-if st.session_state.persistent_gpx:
+if st.session_state.persistent_gpx and st.session_state.persistent_gpx[:5] != b"error":
     try:
         gpx = gpxpy.parse(io.BytesIO(st.session_state.persistent_gpx))
         segments_pts, elevs = [], []
@@ -249,7 +253,6 @@ if st.session_state.persistent_gpx:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # --- AUTO INTERVALLE LOGIK ---
             if st.session_state.auto_intervals:
                 step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
                 e_range_raw = max(elevs) - min(elevs) if len(elevs) > 1 else 0
@@ -271,7 +274,6 @@ if st.session_state.persistent_gpx:
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
                 m = StaticMap(w, h, url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png")
-                # NEU: OSM Stützpfeiler (Unsichtbarer Dummy-Rahmen, um Bounding Box Abstürze zu 100% zu verhindern)
                 m.add_line(MapLine([(mi_lo-0.005, mi_la-0.005), (ma_lo+0.005, ma_la+0.005)], '#00000000', 1))
                 m.add_line(MapLine(list(zip(lons, lats)), 'blue', 1))
                 canvas.paste(m.render().convert("RGBA"), (0, 0))
