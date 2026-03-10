@@ -230,7 +230,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.8.1:**\n- Vollständiger Rollback auf stabile Version.\n- Keine externen Verbindungen.\n- Favicon-Support aktiv.")
+    st.info("**v2.8.1:**\n- Voller Rollback auf stabile Version.\n- Keine Datenbank-Verbindungen.\n- Favicon-Support aktiv.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
