@@ -3,11 +3,12 @@ import gpxpy
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import io
 import math
+import os
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.17: Grafisches Logo & Premium Header) ---
+# --- STANDARDWERTE (v2.7.18: Logo.png Integration) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -29,7 +30,7 @@ DEFAULTS = {
     "size_date": 1.0,
     "size_data": 1.0,
     "size_grid": 1.0,
-    "size_logo": 1.0  # NEU: Logo-Größe
+    "size_logo": 1.0
 }
 
 for key, val in DEFAULTS.items():
@@ -113,31 +114,11 @@ def draw_data_icon(mode, size, color="white"):
         
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-# NEU: Das grafische Premium-Logo (Wird im Bild und im Menü verwendet)
-def draw_graphical_logo(draw, pos, scale=1.0, color="#8B0000"):
-    x, y = int(pos[0]), int(pos[1])
-    icon_size = int(50 * scale)
-    
-    # Roter Hintergrund-Kreis
-    rgb_color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb_color, outline="white", width=max(1, int(2*scale)))
-    
-    # Weißer Berg / Strecke im Logo
-    draw.polygon([
-        (x + int(icon_size*0.2), y + int(icon_size*0.75)), 
-        (x + int(icon_size*0.5), y + int(icon_size*0.25)), 
-        (x + int(icon_size*0.8), y + int(icon_size*0.75))
-    ], fill="white")
-    
-    # GPX Share Pro Text daneben
-    f_logo = load_font(int(32 * scale))
-    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", f_logo, fill="white", shadow_color="black", offset=max(1, int(2*scale)), anchor="lm")
-
 def hex_to_rgba(hex_color, alpha=255):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
 
-# NEUE GRAFISCHE APP-ÜBERSCHRIFT
+# APP-ÜBERSCHRIFT GRAFISCH
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
@@ -230,20 +211,20 @@ with st.expander("🛠️ Einstellungen & Design", expanded=False):
             st.number_input("Größe Datum", min_value=0.5, max_value=4.0, key="size_date", step=0.1)
             st.number_input("Größe Daten", min_value=0.5, max_value=4.0, key="size_data", step=0.1)
             st.number_input("Größe Raster", min_value=0.5, max_value=3.0, key="size_grid", step=0.1)
-            st.number_input("Größe Logo", min_value=0.5, max_value=3.0, key="size_logo", step=0.1) # NEU
+            st.number_input("Größe Logo", min_value=0.5, max_value=3.0, key="size_logo", step=0.1)
         with col_color:
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Datum", key="c_date")
             st.color_picker("Farbe Daten", key="c_data")
             st.color_picker("Farbe Raster", key="c_grid")
-            st.write("") # Platzhalter für saubere Ausrichtung
+            st.write("")
 
     with col_opt2:
         st.write("**✅ Ein- / Ausblenden**")
         st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
-        st.checkbox("7. App Logo (Wasserzeichen)", key="show_logo")
+        st.checkbox("7. App Logo (Logo.png)", key="show_logo")
         
         st.write("**📏 10. Raster & Intervalle**")
         st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
@@ -253,14 +234,15 @@ with st.expander("🛠️ Einstellungen & Design", expanded=False):
             
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER (MIT GENERIERTEM LOGO) ---
+# --- INFO REITER (MIT EIGENEM LOGO.PNG) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    # Generiere ein schickes Bild des Logos für das Menü
-    menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
-    draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
-    st.image(menu_logo, use_container_width=False)
-    
-    st.markdown("### GPX Share Pro XXL | v2.7.17")
+    # Versuche das eigene Logo zu laden
+    if os.path.exists("Logo.png"):
+        st.image("Logo.png", width=250)
+    else:
+        st.warning("⚠️ 'Logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
+        
+    st.markdown("### GPX Share Pro XXL | v2.7.18")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -418,11 +400,29 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
 
-            # --- GRAFISCHES APP LOGO IM BILD ---
+            # --- EIGENES LOGO.PNG IM BILD PLATZIEREN ---
             if st.session_state.show_logo:
-                # Oben links, direkt unter der Infobox positioniert
-                logo_pos = (int(w * 0.03), bh_top + int(h * 0.02))
-                draw_graphical_logo(draw, logo_pos, scale=st.session_state.size_logo, color=st.session_state.c_line)
+                try:
+                    my_logo = Image.open("Logo.png").convert("RGBA")
+                    # Basisgröße (z.B. 15% der 1080px Bildbreite)
+                    base_logo_width = int(w * 0.15)
+                    # Mit dem Schieberegler skalieren
+                    target_w = int(base_logo_width * st.session_state.size_logo)
+                    # Seitenverhältnis beibehalten
+                    aspect_ratio = my_logo.height / my_logo.width
+                    target_h = int(target_w * aspect_ratio)
+                    
+                    my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                    
+                    # Positionierung: Oben links, direkt unter der schwarzen Infobox
+                    logo_x = int(w * 0.03)
+                    logo_y = bh_top + int(h * 0.02)
+                    
+                    overlay.paste(my_logo, (logo_x, logo_y), my_logo)
+                except Exception as e:
+                    # Falls das Bild beim Rendern fehlt, wird das im Hintergrund ignoriert, 
+                    # um den Bild-Export nicht zu zerstören. Die Warnung steht ja bereits im Info-Menü.
+                    pass
 
             # ROUTE & MARKER ZEICHNEN
             margin_x = 0.15
