@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.25: Logoart Auswahl hinzugefügt) ---
+# --- STANDARDWERTE (v2.7.26: Share Buttons Clean-Up & App Share Button) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -22,7 +22,7 @@ DEFAULTS = {
     "show_speed": True,
     "show_profile": True,
     "show_logo": False,
-    "logo_type": "Grafik", # NEU: Auswahl zwischen Grafik und logo.png
+    "logo_type": "Grafik",
     "show_date": True,
     "auto_intervals": True,
     "grid_m_interval": 250,
@@ -205,7 +205,7 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.25]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.26]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -242,7 +242,6 @@ with st.expander("⚙️ Einstellungen [v2.7.25]", expanded=False):
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
         st.checkbox("7. App Logo (Im Bild)", key="show_logo")
-        # NEU: Logoart Auswahl (als Radio-Buttons für 1-Klick Bedienung)
         st.radio("Logoart", ["Grafik", "logo.png"], horizontal=True, key="logo_type")
         st.checkbox("Datum anzeigen", key="show_date")
         
@@ -254,9 +253,8 @@ with st.expander("⚙️ Einstellungen [v2.7.25]", expanded=False):
             
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER (DYNAMISCHES LOGO) ---
+# --- INFO REITER (DYNAMISCHES LOGO & APP TEILEN) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    # NEU: Der Info-Reiter passt sich an die gewählte Logoart an
     if st.session_state.logo_type == "Grafik":
         menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
         draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
@@ -268,11 +266,16 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else:
             st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
         
-    st.markdown("### GPX Share Pro XXL | v2.7.25")
+    st.markdown("### GPX Share Pro XXL | v2.7.26")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("**📲 Installation:** iPhone (Teilen -> Home-Bildschirm) | Android (Menü -> Installieren)")
+    
+    # NEU: App Teilen Button integriert im Menü
+    app_url = "https://deine-app-url.de" # <-- Hier deine echte URL eintragen!
+    share_text = f"whatsapp://send?text=Hey!%20Schau%20dir%20mal%20diese%20geniale%20App%20für%20Motorrad-Touren%20an:%20{app_url}"
+    st.markdown(f'<a href="{share_text}" class="social-btn wa-btn" style="display: block; width: 100%; margin-top: 15px; margin-bottom: 10px; box-sizing: border-box;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
 
 st.divider()
 
@@ -462,7 +465,6 @@ if up_gpx is not None:
             if st.session_state.show_logo:
                 if st.session_state.logo_type == "Grafik":
                     logo_pos_img = (int(w * 0.03), bh_top + int(h * 0.02))
-                    # NEU: Der Size-Regler greift jetzt auch auf das Grafik-Logo zu
                     draw_graphical_logo(draw, logo_pos_img, scale=st.session_state.size_logo, color=st.session_state.c_line)
                 else:
                     logo_file = get_logo_path()
@@ -488,11 +490,7 @@ if up_gpx is not None:
             buf = io.BytesIO()
             final.save(buf, format="JPEG", quality=95)
             
+            # --- NEU: NUR NOCH DER DOWNLOAD BUTTON ---
             st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
-            st.markdown("<br><strong>📲 Bild manuell teilen (zuerst speichern):</strong>", unsafe_allow_html=True)
-            st.markdown("""
-                <a href="https://www.facebook.com/sharer/sharer.php?u=https://deine-website.de" target="_blank" class="social-btn fb-btn">📘 Facebook URL teilen</a>
-                <a href="whatsapp://send?text=Schau%20dir%20meine%20neue%20Motorrad-Tour%20an!" class="social-btn wa-btn">💬 WhatsApp öffnen</a>
-                """, unsafe_allow_html=True)
 
     except Exception as e: st.error(f"Fehler: {e}")
