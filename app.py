@@ -8,12 +8,12 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.37: Default Title Color Blood Red) ---
+# --- STANDARDWERTE (v2.7.38: Custom Red #DA2323) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
-    "c_line": "#8B0000",
-    "c_title": "#8B0000", # FIX: Jetzt standardmäßig Blutrot
+    "c_line": "#DA2323", # FIX: Angepasst auf #DA2323
+    "c_title": "#DA2323", # FIX: Angepasst auf #DA2323
     "c_date": "#FFFFFF",
     "c_data": "#FFFFFF",
     "c_grid": "#FFFFFF",
@@ -173,7 +173,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.37]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.38]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -220,7 +220,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.37 (Aktuell):**\n- Standardfarbe für Tour-Titel auf Blutrot (#8B0000) geändert.")
+    st.info("**v2.7.38 (Aktuell):**\n- Standardfarbe auf Kundenwunsch #DA2323 angepasst.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
