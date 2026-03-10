@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.34: Info-Reiter Position Fixed) ---
+# --- STANDARDWERTE (v2.7.35: Distinct Distance Icon Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -90,6 +90,7 @@ def draw_marker(draw, pos, color, label=""):
         f = load_font(16)
         draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
 
+# --- ICON ZEICHNEN FIX ---
 def draw_data_icon(mode, size, color="white"):
     res = 4
     size = int(max(10, size))
@@ -97,12 +98,16 @@ def draw_data_icon(mode, size, color="white"):
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
     x0, y0, x1, y1 = lw, lw, size*res - lw, size*res - lw
+    
     if mode == "dist":
-        d.arc([x0, y0, x1, y1], 140, 400, fill=color, width=lw)
-        d.line([size*res//2, size*res//2, size*res*0.8, size*res*0.2], fill=color, width=lw)
+        # NEU: Distanz Icon als Pfad/Wegstrecke
+        d.line([(x0, y1-lw), (x1//2, y1-lw), (x1//2, y0+lw), (x1, y0+lw)], fill=color, width=lw, joint="round")
+        d.ellipse([x0-lw, y1-2*lw, x0+lw, y1], fill=color) # Startpunkt
+        d.ellipse([x1-lw, y0, x1+lw, y0+2*lw], fill=color) # Zielpunkt
     elif mode == "elev":
         d.polygon([(lw, y1), (size*res//2, y0), (x1, y1)], fill=color)
     elif mode == "speed": 
+        # Bleibt Tacho für Geschwindigkeit
         d.arc([x0, y0, x1, y1], 150, 390, fill=color, width=lw)
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
@@ -172,7 +177,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.34]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.35]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -213,7 +218,7 @@ with st.expander("⚙️ Einstellungen [v2.7.34]", expanded=False):
             
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER (ZURÜCK AN PROMINENTER STELLE) ---
+# --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     if st.session_state.logo_type == "Grafik":
         menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
@@ -225,7 +230,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.34 (Aktuell):**\n- Info-Reiter zurück nach oben verschoben.\n- Fehlerbehebung bei der UI-Struktur.\n- App-Empfehlungstext für WhatsApp fixiert.")
+    st.info("**v2.7.35 (Aktuell):**\n- Distanz-Icon korrigiert (eigenes Pfad-Symbol).\n- Durchschnittsgeschwindigkeit behält Tacho-Icon.")
     
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
