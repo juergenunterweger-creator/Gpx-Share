@@ -8,7 +8,20 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.42: Split Story Margins Top/Bottom) ---
+# --- BRANDING KILLER (CSS) ---
+# Blendet das Streamlit-Menü, den Footer und die Kopfzeile aus
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            #stDecoration {display:none;}
+            [data-testid="stHeader"] {background: rgba(0,0,0,0); height: 0rem;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# --- STANDARDWERTE (v2.7.43: No-Branding & Story Margins) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -37,8 +50,8 @@ DEFAULTS = {
     "size_logo": 1.0,
     "size_minibox": 1.0,
     "story_margins_active": True,
-    "margin_top": 150, # NEU: Separater Wert oben
-    "margin_bottom": 100 # NEU: Separater Wert unten
+    "margin_top": 150,
+    "margin_bottom": 100
 }
 
 for key, val in DEFAULTS.items():
@@ -176,7 +189,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.42]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.43]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -230,7 +243,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.42 (Aktuell):**\n- Ränder oben und unten separat steuerbar.\n- Höherer Standardwert für den oberen Rand (150px) für besseres Story-Layout.")
+    st.info("**v2.7.43 (Aktuell):**\n- Branding-Killer (CSS) integriert: Streamlit-UI ausgeblendet.\n- Clean Mode für Einbettung auf Websites.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -246,7 +259,7 @@ with st.expander("📲 App installieren", expanded=False):
     with col_ios:
         st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
     with col_android:
-        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
+        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **three Dots**.\n2. Wähle **'App installieren'**.")
 
 st.divider()
 
