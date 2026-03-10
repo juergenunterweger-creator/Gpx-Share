@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.19: Hard Cache Breaker) ---
+# --- STANDARDWERTE (v2.7.21: Smart Logo Name Check) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -22,6 +22,7 @@ DEFAULTS = {
     "show_speed": True,
     "show_profile": True,
     "show_logo": False,
+    "show_date": True,
     "auto_intervals": True,
     "grid_m_interval": 250,
     "grid_km_interval": 10,
@@ -118,6 +119,13 @@ def hex_to_rgba(hex_color, alpha=255):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
 
+# NEU: Flexible Datei-Suche für das Logo
+def get_logo_path():
+    for name in ["logo.png", "Logo.png", "LOGO.png"]:
+        if os.path.exists(name):
+            return name
+    return None
+
 # APP-ÜBERSCHRIFT GRAFISCH
 st.markdown("""
 <style>
@@ -188,8 +196,7 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-# CACHE-BREAKER: Neue Überschrift mit Version zwingt Streamlit zur Neu-Darstellung!
-with st.expander("⚙️ Einstellungen [v2.7.19]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.21]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -225,7 +232,8 @@ with st.expander("⚙️ Einstellungen [v2.7.19]", expanded=False):
         st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
-        st.checkbox("7. App Logo (Logo.png)", key="show_logo")
+        st.checkbox("7. App Logo (logo.png)", key="show_logo")
+        st.checkbox("Datum anzeigen", key="show_date")
         
         st.write("**📏 10. Raster & Intervalle**")
         st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
@@ -235,14 +243,15 @@ with st.expander("⚙️ Einstellungen [v2.7.19]", expanded=False):
             
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER (MIT EIGENEM LOGO.PNG) ---
+# --- INFO REITER (MIT EIGENEM LOGO) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    if os.path.exists("Logo.png"):
-        st.image("Logo.png", width=250)
+    logo_file = get_logo_path()
+    if logo_file:
+        st.image(logo_file, width=250)
     else:
-        st.warning("⚠️ 'Logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
+        st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
         
-    st.markdown("### GPX Share Pro XXL | v2.7.19")
+    st.markdown("### GPX Share Pro XXL | v2.7.21")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -392,7 +401,7 @@ if up_gpx is not None:
                 curr_x += tw + spacing
 
             # DATUMS-BOX
-            if st.session_state.tour_date:
+            if st.session_state.show_date and st.session_state.tour_date:
                 f_date = load_font(int(w * 0.028 * st.session_state.size_date))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
                 bx2, by2 = int(w - 30), int(h - bh_bot - 20)
@@ -400,23 +409,25 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
 
-            # --- EIGENES LOGO.PNG IM BILD PLATZIEREN ---
+            # --- EIGENES LOGO IM BILD PLATZIEREN ---
             if st.session_state.show_logo:
-                try:
-                    my_logo = Image.open("Logo.png").convert("RGBA")
-                    base_logo_width = int(w * 0.15)
-                    target_w = int(base_logo_width * st.session_state.size_logo)
-                    aspect_ratio = my_logo.height / my_logo.width
-                    target_h = int(target_w * aspect_ratio)
-                    
-                    my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                    
-                    logo_x = int(w * 0.03)
-                    logo_y = bh_top + int(h * 0.02)
-                    
-                    overlay.paste(my_logo, (logo_x, logo_y), my_logo)
-                except Exception as e:
-                    pass
+                logo_file = get_logo_path()
+                if logo_file:
+                    try:
+                        my_logo = Image.open(logo_file).convert("RGBA")
+                        base_logo_width = int(w * 0.15)
+                        target_w = int(base_logo_width * st.session_state.size_logo)
+                        aspect_ratio = my_logo.height / my_logo.width
+                        target_h = int(target_w * aspect_ratio)
+                        
+                        my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                        
+                        logo_x = int(w * 0.03)
+                        logo_y = bh_top + int(h * 0.02)
+                        
+                        overlay.paste(my_logo, (logo_x, logo_y), my_logo)
+                    except Exception as e:
+                        pass
 
             # ROUTE & MARKER ZEICHNEN
             margin_x = 0.15
