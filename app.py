@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.27: Echte URL & WhatsApp Text integriert) ---
+# --- STANDARDWERTE (v2.7.28: Präsente Uploads & Optional entfernt) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -175,7 +175,9 @@ st.markdown("""
 c_up1, c_up2 = st.columns(2)
 
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", key="gpx_uploader")
+    # NEU: Überschrift präsenter gemacht, kleines Label ausgeblendet
+    st.markdown("### 📍 1. GPX Datei wählen")
+    up_gpx = st.file_uploader("GPX Upload", label_visibility="collapsed", key="gpx_uploader")
     if up_gpx is not None:
         if st.session_state.last_gpx_file != up_gpx.name:
             st.session_state.last_gpx_file = up_gpx.name
@@ -202,10 +204,12 @@ with c_up1:
             st.rerun()
 
 with c_up2:
-    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
+    # NEU: Überschrift präsenter gemacht, "Optional" restlos entfernt
+    st.markdown("### 📸 2. Foto wählen")
+    up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.27]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.28]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -266,16 +270,14 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else:
             st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
         
-    st.markdown("### GPX Share Pro XXL | v2.7.27")
+    st.markdown("### GPX Share Pro XXL | v2.7.28")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("**📲 Installation:** iPhone (Teilen -> Home-Bildschirm) | Android (Menü -> Installieren)")
     
-    # NEU: App Teilen Button mit der exakten Live-URL und angepasstem Text
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     raw_msg = f"Hey! Schau dir mal diese geniale App zum teilen deiner Motorrad-Touren an: {app_url}"
-    # Leerzeichen werden für den WhatsApp Link sicher kodiert
     share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
     
     st.markdown(f'<a href="{share_link}" class="social-btn wa-btn" style="display: block; width: 100%; margin-top: 15px; margin-bottom: 10px; box-sizing: border-box;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
