@@ -5,7 +5,7 @@ import io
 import math
 import os
 
-# --- PERSISTENTER COUNTER SETUP ---
+# --- PERSISTENTER COUNTER SETUP (v2.9.1) ---
 try:
     from streamlit_gsheets import GSheetsConnection
     HAS_GSHEETS = True
@@ -59,7 +59,7 @@ def increment_counter():
         except:
             pass
 
-# --- STANDARDWERTE ---
+# --- STANDARDWERTE (v2.8.1 Basis) ---
 DEFAULTS = {
     "tour_title": "Meine Tour", "tour_date": "", "c_line": "#DA2323", "c_title": "#DA2323",
     "c_date": "#FFFFFF", "c_data": "#FFFFFF", "c_grid": "#FFFFFF", "w_line": 9,
@@ -181,7 +181,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.8.2 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.1]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.text_input("Tour Name", key="tour_title")
@@ -207,6 +207,7 @@ with st.expander("⚙️ Einstellungen [v2.8.2 Beta]", expanded=False):
 # --- INFO REITER MIT COUNTER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown(f"### 🔥 Schon **{get_counter_value()}** Storys erstellt!")
+    st.info("**Version 2.9.1:** Stabiles Release. Domain-Redirect & Favicon aktiv.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
