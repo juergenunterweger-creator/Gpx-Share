@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.28: Präsente Uploads & Optional entfernt) ---
+# --- STANDARDWERTE (v2.7.30: Minibox Karte integriert) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -22,6 +22,8 @@ DEFAULTS = {
     "show_speed": True,
     "show_profile": True,
     "show_logo": False,
+    "show_route": True,
+    "show_minibox": True, # NEU: Minibox Karte
     "logo_type": "Grafik",
     "show_date": True,
     "auto_intervals": True,
@@ -57,9 +59,7 @@ def load_font(size):
 
 def validate_coords(coords):
     x0, y0, x1, y1 = coords
-    nx0, nx1 = min(x0, x1), max(x0, x1)
-    ny0, ny1 = min(y0, y1), max(y0, y1)
-    return [nx0, ny0, nx1 + 1, ny1 + 1]
+    return [min(x0, x1), min(y0, y1), max(x0, x1) + 1, max(y0, y1) + 1]
 
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
     try: draw.rectangle(validate_coords(coords), fill=fill, outline=outline, width=int(width))
@@ -96,149 +96,100 @@ def draw_data_icon(mode, size, color="white"):
     img = Image.new('RGBA', (size*res, size*res), (0,0,0,0))
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
-    
-    x0, y0 = lw, lw
-    x1 = max(x0 + 2, size*res - lw) 
-    y1 = max(y0 + 2, size*res - lw)
-    
+    x0, y0, x1, y1 = lw, lw, size*res - lw, size*res - lw
     if mode == "dist":
         d.arc([x0, y0, x1, y1], 140, 400, fill=color, width=lw)
-        cx, cy = size*res//2, size*res//2
-        d.line([cx, cy, cx + size*res*0.3, cy - size*res*0.3], fill=color, width=lw)
+        d.line([size*res//2, size*res//2, size*res*0.8, size*res*0.2], fill=color, width=lw)
     elif mode == "elev":
         d.polygon([(lw, y1), (size*res//2, y0), (x1, y1)], fill=color)
     elif mode == "speed": 
         d.arc([x0, y0, x1, y1], 150, 390, fill=color, width=lw)
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
-        rad = max(1, lw)
-        d.ellipse([cx-rad, cy-rad, cx+rad+1, cy+rad+1], fill=color)
-        
+        d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 def draw_graphical_logo(draw, pos, scale=1.0, color="#8B0000"):
     x, y = int(pos[0]), int(pos[1])
     icon_size = int(50 * scale)
-    rgb_color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb_color, outline="white", width=max(1, int(2*scale)))
-    draw.polygon([(x + int(icon_size*0.2), y + int(icon_size*0.75)), (x + int(icon_size*0.5), y + int(icon_size*0.25)), (x + int(icon_size*0.8), y + int(icon_size*0.75))], fill="white")
-    f_logo = load_font(int(32 * scale))
-    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", f_logo, fill="white", shadow_color="black", offset=max(1, int(2*scale)), anchor="lm")
+    rgb = hex_to_rgba(color)
+    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb, outline="white", width=max(1, int(2*scale)))
+    draw.polygon([(x+icon_size*0.2, y+icon_size*0.75), (x+icon_size*0.5, y+icon_size*0.25), (x+icon_size*0.8, y+icon_size*0.75)], fill="white")
+    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", load_font(int(32 * scale)), fill="white", anchor="lm")
 
 def hex_to_rgba(hex_color, alpha=255):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
+    h = hex_color.lstrip('#')
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
 
 def get_logo_path():
     for name in ["logo.png", "Logo.png", "LOGO.png"]:
-        if os.path.exists(name):
-            return name
+        if os.path.exists(name): return name
     return None
 
-# --- APP-HEADER UI UPDATE ---
+# --- APP-HEADER UI ---
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
 .header-box {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0px 10px 20px rgba(139, 0, 0, 0.4);
-    margin-bottom: 30px;
-    border: 1px solid #333;
+    padding: 20px; border-radius: 15px; box-shadow: 0px 10px 20px rgba(139, 0, 0, 0.4);
+    margin-bottom: 30px; border: 1px solid #333;
 }
-.header-icon { font-size: 45px; margin-right: 15px; display: none; } 
 .header-title {
-    font-size: 38px;
-    font-weight: 900;
+    font-size: 38px; font-weight: 900;
     background: linear-gradient(90deg, #ff4b4b 0%, #8b0000 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-align: center;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0; text-transform: uppercase; text-align: center;
 }
-.social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } 
-.fb-btn { background-color: #1877F2; } 
+.social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; text-align: center; } 
 .wa-btn { background-color: #25D366; }
 </style>
-<div class="header-box">
-    <p class="header-title">GPX Share Pro XXL</p>
-</div>
+<div class="header-box"><p class="header-title">GPX Share Pro XXL</p></div>
 """, unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
-
 with c_up1:
-    # NEU: Überschrift präsenter gemacht, kleines Label ausgeblendet
     st.markdown("### 📍 1. GPX Datei wählen")
     up_gpx = st.file_uploader("GPX Upload", label_visibility="collapsed", key="gpx_uploader")
-    if up_gpx is not None:
+    if up_gpx:
         if st.session_state.last_gpx_file != up_gpx.name:
             st.session_state.last_gpx_file = up_gpx.name
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-            
             try:
-                gpx_obj = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
-                parsed_date = ""
-                if gpx_obj.time:
-                    parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
-                else:
-                    for track in gpx_obj.tracks:
-                        for seg in track.segments:
-                            for pt in seg.points:
-                                if pt.time:
-                                    parsed_date = pt.time.strftime("%d.%m.%Y")
-                                    break
-                            if parsed_date: break
-                        if parsed_date: break
-                if parsed_date:
-                    st.session_state.tour_date = parsed_date
+                g = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
+                d = g.time.strftime("%d.%m.%Y") if g.time else ""
+                if not d:
+                    for p in [p for t in g.tracks for s in t.segments for p in s.points if p.time]:
+                        d = p.time.strftime("%d.%m.%Y"); break
+                if d: st.session_state.tour_date = d
             except: pass
-            
             st.rerun()
 
 with c_up2:
-    # NEU: Überschrift präsenter gemacht, "Optional" restlos entfernt
     st.markdown("### 📸 2. Foto wählen")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.28]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.30]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
-    
     with col_opt1:
         st.write("**📝 Tour & Design**")
         st.text_input("2. Tour Name", key="tour_title")
         st.text_input("3. Datum", key="tour_date")
-        
-        c_color1, c_color2 = st.columns(2)
-        with c_color1:
-            st.color_picker("1a. Routenfarbe", key="c_line")
-        with c_color2:
-            st.number_input("1b. Routenstärke", min_value=1, max_value=20, key="w_line", step=1)
-            
-        st.number_input("8. Hintergrund Dimmer (%)", min_value=0, max_value=100, key="bg_opacity", step=5)
-        
-        st.write("**🔠 9. Texte (Größe & Farbe)**")
-        col_size, col_color = st.columns(2)
-        with col_size:
-            st.number_input("Größe Titel", min_value=0.5, max_value=4.0, key="size_title", step=0.1)
-            st.number_input("Größe Datum", min_value=0.5, max_value=4.0, key="size_date", step=0.1)
-            st.number_input("Größe Daten", min_value=0.5, max_value=4.0, key="size_data", step=0.1)
-            st.number_input("Größe Raster", min_value=0.5, max_value=3.0, key="size_grid", step=0.1)
-            st.number_input("Größe Logo", min_value=0.5, max_value=3.0, key="size_logo", step=0.1)
-        with col_color:
+        c_c1, c_c2 = st.columns(2)
+        with c_c1: st.color_picker("1a. Routenfarbe", key="c_line")
+        with c_c2: st.number_input("1b. Routenstärke", 1, 20, key="w_line")
+        st.number_input("8. Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
+        st.write("**🔠 Texte**")
+        cs, cc = st.columns(2)
+        with cs:
+            st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
+            st.number_input("Größe Daten", 0.5, 4.0, key="size_data", step=0.1)
+        with cc:
             st.color_picker("Farbe Titel", key="c_title")
-            st.color_picker("Farbe Datum", key="c_date")
             st.color_picker("Farbe Daten", key="c_data")
-            st.color_picker("Farbe Raster", key="c_grid")
-            st.write("")
 
     with col_opt2:
         st.write("**✅ Ein- / Ausblenden**")
@@ -246,255 +197,137 @@ with st.expander("⚙️ Einstellungen [v2.7.28]", expanded=False):
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
         st.checkbox("7. App Logo (Im Bild)", key="show_logo")
-        st.radio("Logoart", ["Grafik", "logo.png"], horizontal=True, key="logo_type")
+        st.checkbox("8. Route anzeigen", key="show_route")
+        st.checkbox("9. Minibox (Karte)", key="show_minibox") # NEU
         st.checkbox("Datum anzeigen", key="show_date")
-        
-        st.write("**📏 10. Raster & Intervalle**")
-        st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
-        if not st.session_state.auto_intervals:
-            st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
-            st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
-            
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
-
-# --- INFO REITER (DYNAMISCHES LOGO & APP TEILEN) ---
-with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    if st.session_state.logo_type == "Grafik":
-        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
-        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
-        st.image(menu_logo, use_container_width=False)
-    else:
-        logo_file = get_logo_path()
-        if logo_file:
-            st.image(logo_file, width=250)
-        else:
-            st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
-        
-    st.markdown("### GPX Share Pro XXL | v2.7.28")
-    st.markdown("**Copyright: Jürgen Unterweger**")
-    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("**📲 Installation:** iPhone (Teilen -> Home-Bildschirm) | Android (Menü -> Installieren)")
-    
-    app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
-    raw_msg = f"Hey! Schau dir mal diese geniale App zum teilen deiner Motorrad-Touren an: {app_url}"
-    share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
-    
-    st.markdown(f'<a href="{share_link}" class="social-btn wa-btn" style="display: block; width: 100%; margin-top: 15px; margin-bottom: 10px; box-sizing: border-box;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
 
 st.divider()
 
 # --- VERARBEITUNG ---
-if up_gpx is not None:
+if up_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
-        segments_pts, elevs = [], []
-        d_total, a_gain = 0.0, 0.0
-        last, last_elev, last_time = None, None, None
-        total_time_s = 0.0 
-        
-        target_track = gpx.tracks[0] 
-        for seg in target_track.segments:
-            current_seg = []
+        pts, elevs = [], []
+        d_total, a_gain, total_time = 0.0, 0.0, 0.0
+        l_p, l_e, l_t = None, None, None
+        for seg in gpx.tracks[0].segments:
+            s_pts = []
             for p in seg.points:
-                current_seg.append([p.latitude, p.longitude])
-                elevs.append(p.elevation if p.elevation is not None else 0)
-                if last:
-                    d_total += calc_dist(last[0], last[1], p.latitude, p.longitude)
-                    if p.elevation is not None and last_elev is not None:
-                        diff_e = p.elevation - last_elev
-                        if diff_e > 0: a_gain += diff_e
-                    if p.time and last_time:
-                        diff_t = (p.time - last_time).total_seconds()
-                        if 0 < diff_t < 1800: 
-                            total_time_s += diff_t
-                            
-                last, last_elev, last_time = [p.latitude, p.longitude], p.elevation, p.time
-            if current_seg: segments_pts.append(current_seg)
+                s_pts.append([p.latitude, p.longitude])
+                elevs.append(p.elevation or 0)
+                if l_p:
+                    d_total += calc_dist(l_p[0], l_p[1], p.latitude, p.longitude)
+                    if p.elevation and l_e and p.elevation > l_e: a_gain += (p.elevation - l_e)
+                    if p.time and l_t:
+                        dt = (p.time - l_t).total_seconds()
+                        if 0 < dt < 1800: total_time += dt
+                l_p, l_e, l_t = [p.latitude, p.longitude], p.elevation, p.time
+            if s_pts: pts.append(s_pts)
 
-        avg_speed = 0.0
-        if total_time_s > 0:
-            avg_speed = d_total / (total_time_s / 3600.0)
+        avg_s = d_total / (total_time / 3600.0) if total_time > 0 else 0.0
+        w, h = 1080, 1920
+        canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255))
+        if up_img:
+            bg = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
+            canvas.paste(ImageOps.fit(bg, (w, h), Image.Resampling.LANCZOS), (0, 0))
+        if st.session_state.bg_opacity < 100:
+            canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
-        if segments_pts:
-            all_pts = [pt for seg in segments_pts for pt in seg]
+        overlay = Image.new('RGBA', (w, h), (0,0,0,0))
+        draw = ImageDraw.Draw(overlay)
+        bh_t, bh_b = int(h * 0.20), int(h * 0.12)
+        safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
+        safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
+
+        # --- HÖHENPROFIL ---
+        if st.session_state.show_profile and len(elevs) > 1:
+            e_min, e_max = min(elevs), max(elevs)
+            e_r = (e_max - e_min) or 1
+            px_m, p_w = 10, w - 20
+            profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
+            if st.session_state.show_route:
+                rgb = hex_to_rgba(st.session_state.c_line)
+                draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
+                draw.line(profile_pts, fill=(255,255,255,255), width=4)
+
+        # --- TITEL & DATEN ---
+        draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
+        items = [("dist", f"{d_total:.1f} km"), ("speed", f"{avg_s:.1f} km/h"), ("elev", f"{int(a_gain)} m")]
+        f_d, i_s = load_font(int(w*0.05*st.session_state.size_data)), int(w*0.05*st.session_state.size_data)
+        tw_tot = sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.08)*2
+        cx, dy = (w - tw_tot) // 2, bh_t*0.35 + 150
+        for m, t in items:
+            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(dy-i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
+            cx += i_s + 15
+            draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, dy), t, f_d, fill=st.session_state.c_data)
+            cx += draw.textlength(t, f_d) + w*0.08
+
+        # --- HAUPTROUTE ---
+        all_pts = [p for s in pts for p in s]
+        if all_pts:
             lats, lons = zip(*all_pts)
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
-            w, h = 1080, 1920
+            la_e, lo_e = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             
-            if (ma_la - mi_la) < 0.005:
-                ma_la += 0.005
-                mi_la -= 0.005
-            if (ma_lo - mi_lo) < 0.005:
-                ma_lo += 0.005
-                mi_lo -= 0.005
+            if st.session_state.show_route:
+                ssf = 3
+                ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0))
+                rd = ImageDraw.Draw(ro)
+                rgb = hex_to_rgba(st.session_state.c_line)
+                for s in pts:
+                    s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
+                    if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
+                overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
+                if st.session_state.show_markers:
+                    def tr(la, lo): return (int(0.15*w + (lo-mi_lo)/lo_e*w*0.7), int(h*0.75 - (la-mi_la)/la_e*h*0.5))
+                    draw_marker(draw, tr(all_pts[0][0], all_pts[0][1]), "green", "S")
+                    draw_marker(draw, tr(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
+
+        # --- MINIBOX KARTE (NEU) ---
+        if st.session_state.show_minibox and all_pts:
+            mb_w, mb_h = 280, 280
+            mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
+            safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
             
-            if st.session_state.auto_intervals:
-                step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
-                e_range_raw = max(elevs) - min(elevs) if len(elevs) > 1 else 0
-                step_m = 50 if e_range_raw < 200 else 100 if e_range_raw < 500 else 250 if e_range_raw < 1500 else 500
+            # Mini-Karte zeichnen
+            m_m = 20
+            m_la_e, m_lo_e = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
+            # Proportionale Skalierung in der Box
+            aspect = m_la_e / m_lo_e
+            if aspect > 1: # Höher als breit
+                draw_h = mb_h - 2*m_m
+                draw_w = draw_h / aspect
+            else: # Breiter als hoch
+                draw_w = mb_w - 2*m_m
+                draw_h = draw_w * aspect
+            
+            off_x = mb_x + (mb_w - draw_w)//2
+            off_y = mb_y + (mb_h - draw_h)//2
+            
+            rgb = hex_to_rgba(st.session_state.c_line)
+            for s in pts:
+                m_pts = [(int(off_x + (p[1]-mi_lo)/m_lo_e*draw_w), int(off_y + draw_h - (p[0]-mi_la)/m_la_e*draw_h)) for p in s]
+                if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=4, joint="round")
+            
+            # Mini Marker
+            ms_p = (int(off_x + (all_pts[0][1]-mi_lo)/m_lo_e*draw_w), int(off_y + draw_h - (all_pts[0][0]-mi_la)/m_la_e*draw_h))
+            me_p = (int(off_x + (all_pts[-1][1]-mi_lo)/m_lo_e*draw_w), int(off_y + draw_h - (all_pts[-1][0]-mi_la)/m_la_e*draw_h))
+            safe_ellipse(draw, [ms_p[0]-6, ms_p[1]-6, ms_p[0]+6, ms_p[1]+6], fill="green")
+            safe_ellipse(draw, [me_p[0]-6, me_p[1]-6, me_p[0]+6, me_p[1]+6], fill="red")
+
+        if st.session_state.show_logo:
+            lp = (30, bh_t + 30)
+            if st.session_state.logo_type == "Grafik": draw_graphical_logo(draw, lp, st.session_state.size_logo, st.session_state.c_line)
             else:
-                step_km = st.session_state.grid_km_interval
-                step_m = st.session_state.grid_m_interval
+                p = get_logo_path()
+                if p:
+                    ml = Image.open(p).convert("RGBA")
+                    tw = int(w*0.15*st.session_state.size_logo); th = int(tw * (ml.height/ml.width))
+                    overlay.paste(ml.resize((tw, th), Image.Resampling.LANCZOS), lp, ml.resize((tw, th), Image.Resampling.LANCZOS))
 
-            canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255)) 
-            
-            if up_img is not None:
-                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
-                bg_img = ImageOps.fit(bg_img, (w, h), Image.Resampling.LANCZOS)
-                canvas.paste(bg_img, (0, 0))
-
-            if st.session_state.bg_opacity < 100:
-                canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
-
-            overlay = Image.new('RGBA', (w, h), (0,0,0,0))
-            draw = ImageDraw.Draw(overlay)
-            
-            bh_top, bh_bot = int(h * 0.20), int(h * 0.12)
-            safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
-            safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
-
-            c_grid_transp = hex_to_rgba(st.session_state.c_grid, 160)
-            c_grid_lines = hex_to_rgba(st.session_state.c_grid, 50)
-
-            if st.session_state.show_profile and len(elevs) > 1:
-                e_min, e_max = min(elevs), max(elevs)
-                e_range = (e_max - e_min) if e_max > e_min else 1
-                grid_y_start = h - bh_bot
-                
-                px_margin = 10
-                p_width = w - 2 * px_margin
-                
-                profile_pts = [(px_margin + (i/max(1, len(elevs)-1))*p_width, 
-                               (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) 
-                               for i, ev in enumerate(elevs)]
-                
-                f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
-                if step_m > 0 and step_km > 0:
-                    for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
-                        gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
-                        draw.line([(px_margin, gy), (w - px_margin, gy)], fill=c_grid_lines, width=1)
-                    
-                    last_text_end = -100 
-                    for k in range(step_km, int(d_total), step_km):
-                        gx = int(px_margin + (k / d_total) * p_width)
-                        
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=c_grid_lines, width=1)
-                        
-                        text_str = f"{k}km"
-                        tw = draw.textlength(text_str, font=f_grid)
-                        
-                        if gx + tw/2 > w - px_margin:
-                            anchor = "rt"
-                            t_start = gx - tw
-                            t_end = gx
-                        else:
-                            anchor = "mt"
-                            t_start = gx - tw/2
-                            t_end = gx + tw/2
-                            
-                        if t_start > last_text_end + 20:
-                            draw.text((int(gx), int(grid_y_start+5)), text_str, fill=c_grid_transp, font=f_grid, anchor=anchor)
-                            last_text_end = t_end
-                
-                rgb_fill = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
-                draw.polygon(profile_pts + [(px_margin + p_width, h), (px_margin, h)], fill=rgb_fill + (120,))
-                draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
-
-            # TITEL & DATEN
-            t_y = int(bh_top * 0.35)
-            f_title = load_font(int(w * 0.08 * st.session_state.size_title))
-            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, fill=st.session_state.c_title, offset=2)
-            
-            data_items = [("dist", f"{d_total:.1f} km")]
-            if st.session_state.show_speed and avg_speed > 0:
-                data_items.append(("speed", f"{avg_speed:.1f} km/h"))
-            data_items.append(("elev", f"{int(a_gain)} m"))
-            
-            f_data = load_font(int(w * 0.05 * st.session_state.size_data))
-            icon_size = int(max(1, w * 0.05 * st.session_state.size_data))
-            i_gap, spacing = int(w*0.015), int(w*0.08)
-            
-            total_w = sum([icon_size + i_gap + draw.textlength(txt, f_data) for _, txt in data_items]) + spacing * (len(data_items) - 1)
-            curr_x, d_y = (w - total_w) // 2, t_y + 150
-            
-            for mode, txt in data_items:
-                overlay.paste(draw_data_icon(mode, icon_size, color=st.session_state.c_data), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size, color=st.session_state.c_data))
-                curr_x += icon_size + i_gap
-                tw = draw.textlength(txt, font=f_data)
-                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data, fill=st.session_state.c_data, offset=2)
-                curr_x += tw + spacing
-
-            # DATUMS-BOX
-            if st.session_state.show_date and st.session_state.tour_date:
-                f_date = load_font(int(w * 0.028 * st.session_state.size_date))
-                tw = draw.textlength(st.session_state.tour_date, font=f_date)
-                bx2, by2 = int(w - 30), int(h - bh_bot - 20)
-                bx1, by1 = int(bx2 - tw - 40), int(by2 - 60)
-                safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
-                draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
-
-            # ROUTE & MARKER ZEICHNEN
-            margin_x = 0.15
-            margin_y = 0.25 
-            la_eps, lo_eps = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
-            
-            def transform(lat, lon):
-                return (int(w*margin_x + (lon-mi_lo)/lo_eps*w*(1-2*margin_x)), 
-                        int(h*(1-margin_y) - (lat-mi_la)/la_eps*h*(1-2*margin_y)))
-
-            rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
-
-            # Supersampling
-            ssf = 3 
-            route_overlay = Image.new('RGBA', (w * ssf, h * ssf), (0,0,0,0))
-            route_draw = ImageDraw.Draw(route_overlay)
-            
-            def transform_ss(lat, lon):
-                return (int((w*margin_x + (lon-mi_lo)/lo_eps*w*(1-2*margin_x)) * ssf), 
-                        int((h*(1-margin_y) - (lat-mi_la)/la_eps*h*(1-2*margin_y)) * ssf))
-
-            for seg in segments_pts:
-                s_pts = [transform_ss(p[0], p[1]) for p in seg]
-                if len(s_pts) > 1: 
-                    route_draw.line(s_pts, fill=rgb_route + (255,), width=int(st.session_state.w_line * ssf), joint="round")
-            
-            route_overlay = route_overlay.resize((w, h), Image.Resampling.LANCZOS)
-            overlay.paste(route_overlay, (0, 0), route_overlay)
-                
-            if st.session_state.show_markers and all_pts:
-                draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
-                draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
-
-            # --- DYNAMISCHES LOGO IM BILD ---
-            if st.session_state.show_logo:
-                if st.session_state.logo_type == "Grafik":
-                    logo_pos_img = (int(w * 0.03), bh_top + int(h * 0.02))
-                    draw_graphical_logo(draw, logo_pos_img, scale=st.session_state.size_logo, color=st.session_state.c_line)
-                else:
-                    logo_file = get_logo_path()
-                    if logo_file:
-                        try:
-                            my_logo = Image.open(logo_file).convert("RGBA")
-                            base_logo_width = int(w * 0.15)
-                            target_w = int(base_logo_width * st.session_state.size_logo)
-                            aspect_ratio = my_logo.height / my_logo.width
-                            target_h = int(target_w * aspect_ratio)
-                            
-                            my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                            
-                            logo_x = int(w * 0.03)
-                            logo_y = bh_top + int(h * 0.02)
-                            
-                            overlay.paste(my_logo, (logo_x, logo_y), my_logo)
-                        except Exception as e:
-                            pass
-
-            final = Image.alpha_composite(canvas, overlay).convert('RGB')
-            st.image(final, use_container_width=True)
-            buf = io.BytesIO()
-            final.save(buf, format="JPEG", quality=95)
-            
-            st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
-
+        final = Image.alpha_composite(canvas, overlay).convert('RGB')
+        st.image(final, use_container_width=True)
+        buf = io.BytesIO(); final.save(buf, format="JPEG", quality=95)
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
