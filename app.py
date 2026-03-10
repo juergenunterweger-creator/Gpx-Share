@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.22: Header Adapted to logo.png, Motorcycle Icon Removed) ---
+# --- STANDARDWERTE (v2.7.23: Fixed Branding - Logo in App Header, Image Reverted) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -21,7 +21,7 @@ DEFAULTS = {
     "show_markers": True,
     "show_speed": True,
     "show_profile": True,
-    "show_logo": False,
+    "show_logo": True,
     "show_date": True,
     "auto_intervals": True,
     "grid_m_interval": 250,
@@ -30,8 +30,7 @@ DEFAULTS = {
     "size_title": 1.5,
     "size_date": 1.0,
     "size_data": 1.0,
-    "size_grid": 1.0,
-    "size_logo": 1.0
+    "size_grid": 1.0
 }
 
 for key, val in DEFAULTS.items():
@@ -115,6 +114,16 @@ def draw_data_icon(mode, size, color="white"):
         
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
+# Das grafische Premium-Logo (für das Bild)
+def draw_graphical_logo(draw, pos, scale=1.0, color="#8B0000"):
+    x, y = int(pos[0]), int(pos[1])
+    icon_size = int(50 * scale)
+    rgb_color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb_color, outline="white", width=max(1, int(2*scale)))
+    draw.polygon([(x + int(icon_size*0.2), y + int(icon_size*0.75)), (x + int(icon_size*0.5), y + int(icon_size*0.25)), (x + int(icon_size*0.8), y + int(icon_size*0.75))], fill="white")
+    f_logo = load_font(int(32 * scale))
+    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", f_logo, fill="white", shadow_color="black", offset=max(1, int(2*scale)), anchor="lm")
+
 def hex_to_rgba(hex_color, alpha=255):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
@@ -125,15 +134,14 @@ def get_logo_path():
             return name
     return None
 
-# --- GRAFISCHE APP-ÜBERSCHRIFT ---
-# NEU: Dunkles Banner, Motorrad Icon entfernt, Header anpassend
+# --- FIX: APP-HEADER UI UPDATE (Icon entfernt, Text zentriert) ---
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
 .header-box {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: center; /* NEU: Text in der Mitte zentrieren */
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
     padding: 20px;
     border-radius: 15px;
@@ -141,7 +149,8 @@ st.markdown("""
     margin-bottom: 30px;
     border: 1px solid #333;
 }
-.header-icon { font-size: 45px; margin-right: 15px; display: none; } /* Motorrad Icon entfernt */
+/* Motorrad Icon aus dem UI entfernt */
+.header-icon { font-size: 45px; margin-right: 15px; display: none; } 
 .header-title {
     font-size: 38px;
     font-weight: 900;
@@ -151,13 +160,14 @@ st.markdown("""
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 1px;
+    text-align: center; /* NEU: Text zentrieren */
 }
 .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } 
 .fb-btn { background-color: #1877F2; } 
 .wa-btn { background-color: #25D366; }
 </style>
 <div class="header-box">
-    <p class="header-title">GPX Share Pro</p>
+    <p class="header-title">GPX Share Pro Pro XXL</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -195,7 +205,7 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.22]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.23]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -218,7 +228,6 @@ with st.expander("⚙️ Einstellungen [v2.7.22]", expanded=False):
             st.number_input("Größe Datum", min_value=0.5, max_value=4.0, key="size_date", step=0.1)
             st.number_input("Größe Daten", min_value=0.5, max_value=4.0, key="size_data", step=0.1)
             st.number_input("Größe Raster", min_value=0.5, max_value=3.0, key="size_grid", step=0.1)
-            st.number_input("Größe Logo", min_value=0.5, max_value=3.0, key="size_logo", step=0.1)
         with col_color:
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Datum", key="c_date")
@@ -231,7 +240,7 @@ with st.expander("⚙️ Einstellungen [v2.7.22]", expanded=False):
         st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
-        st.checkbox("7. App Logo (logo.png)", key="show_logo")
+        st.checkbox("7. App Logo (Im Info-Reiter)", key="show_logo")
         st.checkbox("Datum anzeigen", key="show_date")
         
         st.write("**📏 10. Raster & Intervalle**")
@@ -250,7 +259,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     else:
         st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
         
-    st.markdown("### GPX Share Pro XXL | v2.7.22")
+    st.markdown("### GPX Share Pro XXL | v2.7.23")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -324,9 +333,7 @@ if up_gpx is not None:
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             
-            # NEU: Der Header wurde anpassend an das Logo vergrößert
-            bh_top = int(h * 0.28) # Header-Höhe deutlich vergrößert (von 20% auf 28%)
-            bh_bot = int(h * 0.12)
+            bh_top, bh_bot = int(h * 0.20), int(h * 0.12)
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
@@ -378,8 +385,7 @@ if up_gpx is not None:
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
             # TITEL & DATEN
-            # NEU: Titel-Position an neuen Header angepasst
-            t_y = int(bh_top * 0.45) # Titel nach unten gerückt, um Platz für das Logo zu lassen
+            t_y = int(bh_top * 0.35)
             f_title = load_font(int(w * 0.08 * st.session_state.size_title))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, fill=st.session_state.c_title, offset=2)
             
@@ -411,32 +417,12 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
 
-            # --- EIGENES LOGO IM BILD PLATZIEREN ---
-            # NEU: Optimierte Position im vergrößerten Header
-            if st.session_state.show_logo:
-                logo_file = get_logo_path()
-                if logo_file:
-                    try:
-                        my_logo = Image.open(logo_file).convert("RGBA")
-                        base_logo_width = int(w * 0.15)
-                        target_w = int(base_logo_width * st.session_state.size_logo)
-                        aspect_ratio = my_logo.height / my_logo.width
-                        target_h = int(target_w * aspect_ratio)
-                        
-                        my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                        
-                        logo_x = int(w * 0.03)
-                        # NEU: Optimierte Position: Vertikal zentriert zwischen oberem Rand und Titel
-                        logo_y = int(bh_top * 0.04) + int(h * 0.03) # y-Position nach oben korrigiert
-                        
-                        overlay.paste(my_logo, (logo_x, logo_y), my_logo)
-                    except Exception as e:
-                        pass
+            # --- EIGENES LOGO NICHT IM BILD PLATZIEREN ---
+            # (Dieser Block wurde entfernt, um das Foto wiederherzustellen)
 
             # ROUTE & MARKER ZEICHNEN
-            # NEU: Routen-Position an neuen Header angepasst
             margin_x = 0.15
-            margin_y = 0.22 # Routen-Marge nach oben leicht vergrößert
+            margin_y = 0.25 
             la_eps, lo_eps = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             
             def transform(lat, lon):
@@ -465,6 +451,11 @@ if up_gpx is not None:
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
                 draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
+
+            # --- FIX: Grafisches Logo wieder links oben im Foto einfügen ---
+            # (Wiederherstellung von v2.7.21 Zustand)
+            logo_pos_img = (int(w * 0.03), bh_top + int(h * 0.02))
+            draw_graphical_logo(draw, logo_pos_img, scale=1.0, color=st.session_state.c_line)
 
             final = Image.alpha_composite(canvas, overlay).convert('RGB')
             st.image(final, use_container_width=True)
