@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.15: App Logo Toggle) ---
+# --- STANDARDWERTE (v2.7.16: Cache-Breaker & Logo Toggle) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -20,7 +20,7 @@ DEFAULTS = {
     "show_markers": True,
     "show_speed": True,
     "show_profile": True,
-    "show_logo": False, # NEU: Standardmäßig AUS
+    "show_logo": False,
     "auto_intervals": True,
     "grid_m_interval": 250,
     "grid_km_interval": 10,
@@ -153,7 +153,8 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen", expanded=False): 
+# CACHE-BREAKER: Neuer Titel zwingt das Menü zum Zuklappen!
+with st.expander("🛠️ Einstellungen & Design", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -161,8 +162,12 @@ with st.expander("⚙️ Einstellungen", expanded=False):
         st.text_input("2. Tour Name", key="tour_title")
         st.text_input("3. Datum", key="tour_date")
         
-        st.color_picker("1a. Routenfarbe", key="c_line")
-        st.number_input("1b. Routenstärke", min_value=1, max_value=20, key="w_line", step=1)
+        c_color1, c_color2 = st.columns(2)
+        with c_color1:
+            st.color_picker("1a. Routenfarbe", key="c_line")
+        with c_color2:
+            st.number_input("1b. Routenstärke", min_value=1, max_value=20, key="w_line", step=1)
+            
         st.number_input("8. Hintergrund Dimmer (%)", min_value=0, max_value=100, key="bg_opacity", step=5)
         
         st.write("**🔠 9. Texte (Größe & Farbe)**")
@@ -183,7 +188,7 @@ with st.expander("⚙️ Einstellungen", expanded=False):
         st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
-        st.checkbox("7. App Logo", key="show_logo") # NEUE LOGO CHECKBOX
+        st.checkbox("7. App Logo", key="show_logo")
         
         st.write("**📏 10. Raster & Intervalle**")
         st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
@@ -195,7 +200,7 @@ with st.expander("⚙️ Einstellungen", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.15")
+    st.markdown("### GPX Share Pro XXL | v2.7.16")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -312,7 +317,8 @@ if up_gpx is not None:
                             t_start = gx - tw/2
                             t_end = gx + tw/2
                             
-                        if t_start > last_text_end + 10:
+                        # ANTI-OVERLAP VERSTÄRKT: Jetzt 20 Pixel Mindestabstand!
+                        if t_start > last_text_end + 20:
                             draw.text((int(gx), int(grid_y_start+5)), text_str, fill=c_grid_transp, font=f_grid, anchor=anchor)
                             last_text_end = t_end
                 
@@ -353,11 +359,11 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
 
-            # --- NEU: APP LOGO / WASSERZEICHEN ---
+            # APP LOGO / WASSERZEICHEN
             if st.session_state.show_logo:
                 f_logo = load_font(int(w * 0.025))
                 logo_y = int(h - bh_bot - 15)
-                # Logo rutscht nach oben, falls die Datumsbox im Weg ist
+                # Logo weicht aus, wenn das Datum dort platziert ist
                 if st.session_state.tour_date:
                     logo_y -= 75 
                 draw_text_with_shadow(draw, (w - 20, logo_y), "GPX Share Pro", f_logo, fill=(255, 255, 255, 180), offset=2, anchor="rb")
