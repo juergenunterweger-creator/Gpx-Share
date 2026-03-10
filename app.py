@@ -8,12 +8,12 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.38: Custom Red #DA2323) ---
+# --- STANDARDWERTE (v2.7.39: Neuer Reiter App installieren) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
-    "c_line": "#DA2323", # FIX: Angepasst auf #DA2323
-    "c_title": "#DA2323", # FIX: Angepasst auf #DA2323
+    "c_line": "#DA2323",
+    "c_title": "#DA2323",
     "c_date": "#FFFFFF",
     "c_data": "#FFFFFF",
     "c_grid": "#FFFFFF",
@@ -110,7 +110,7 @@ def draw_data_icon(mode, size, color="white"):
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-def draw_graphical_logo(draw, pos, scale=1.0, color="#8B0000"):
+def draw_graphical_logo(draw, pos, scale=1.0, color="#DA2323"):
     x, y = int(pos[0]), int(pos[1])
     icon_size = int(50 * scale)
     rgb = hex_to_rgba(color)
@@ -134,12 +134,12 @@ st.markdown("""
 .header-box {
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
-    padding: 20px; border-radius: 15px; box-shadow: 0px 10px 20px rgba(139, 0, 0, 0.4);
+    padding: 20px; border-radius: 15px; box-shadow: 0px 10px 20px rgba(218, 35, 35, 0.4);
     margin-bottom: 30px; border: 1px solid #333;
 }
 .header-title {
     font-size: 38px; font-weight: 900;
-    background: linear-gradient(90deg, #ff4b4b 0%, #8b0000 100%);
+    background: linear-gradient(90deg, #ff4b4b 0%, #da2323 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin: 0; text-transform: uppercase; text-align: center;
 }
@@ -173,7 +173,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.38]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.39]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -220,7 +220,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.38 (Aktuell):**\n- Standardfarbe auf Kundenwunsch #DA2323 angepasst.")
+    st.info("**v2.7.39 (Aktuell):**\n- Neuer Reiter 'App installieren' für Mobilgeräte hinzugefügt.\n- Verbesserte Navigation durch Trennung von Info und Installation.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -228,6 +228,24 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     raw_msg = f"Hey! Schau dir mal diese geniale App zum teilen deiner Motorrad-Touren an: {app_url}"
     share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
     st.markdown(f'<a href="{share_link}" class="social-btn wa-btn" style="display: block; width: 100%; margin-top: 15px;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
+
+# --- NEU: APP INSTALLIEREN REITER ---
+with st.expander("📲 App installieren", expanded=False):
+    st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
+    st.markdown("Damit die App immer griffbereit ist, kannst du sie direkt auf deinem Startbildschirm speichern.")
+    
+    col_ios, col_android = st.columns(2)
+    with col_ios:
+        st.markdown("**🍎 iPhone / iPad (Safari)**")
+        st.markdown("1. Tippe unten auf das **Teilen-Symbol** (Viereck mit Pfeil).")
+        st.markdown("2. Scrolle nach unten und wähle **'Zum Home-Bildschirm'**.")
+        st.markdown("3. Tippe auf **'Hinzufügen'**.")
+        
+    with col_android:
+        st.markdown("**🤖 Android (Chrome)**")
+        st.markdown("1. Tippe oben rechts auf die **drei Punkte**.")
+        st.markdown("2. Wähle **'App installieren'** oder **'Zum Startbildschirm hinzufügen'**.")
+        st.markdown("3. Bestätige die Installation.")
 
 st.divider()
 
