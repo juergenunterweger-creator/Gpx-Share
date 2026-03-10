@@ -8,20 +8,25 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- BRANDING KILLER (CSS) ---
-# Blendet das Streamlit-Menü, den Footer und die Kopfzeile aus
+# --- AGGRESSIVER BRANDING KILLER (CSS) ---
+# Diese Version erzwingt das Ausblenden mit !important
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            #stDecoration {display:none;}
-            [data-testid="stHeader"] {background: rgba(0,0,0,0); height: 0rem;}
+            #MainMenu {visibility: hidden !important;}
+            footer {visibility: hidden !important;}
+            header {visibility: hidden !important;}
+            #stDecoration {display:none !important;}
+            [data-testid="stHeader"] {display: none !important;}
+            .stDeployButton {display:none !important;}
+            [data-testid="stToolbar"] {display: none !important;}
+            div.stActionButton {display:none !important;}
+            /* Verhindert den weißen Abstand oben */
+            .main .block-container {padding-top: 1rem !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.7.43: No-Branding & Story Margins) ---
+# --- STANDARDWERTE (v2.7.44: Aggressive No-Branding Mode) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -159,8 +164,6 @@ st.markdown("""
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin: 0; text-transform: uppercase; text-align: center;
 }
-.social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; text-align: center; } 
-.wa-btn { background-color: #25D366; }
 </style>
 <div class="header-box"><p class="header-title">GPX Share Pro XXL</p></div>
 """, unsafe_allow_html=True)
@@ -189,7 +192,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.43]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.44]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -222,13 +225,11 @@ with st.expander("⚙️ Einstellungen [v2.7.43]", expanded=False):
         st.checkbox("8. Route in Bild anzeigen", key="show_route")
         st.checkbox("9. Minibox (Karte)", key="show_minibox")
         st.checkbox("Datum anzeigen", key="show_date")
-        
         st.write("**📏 Story Ränder**")
         st.checkbox("Ränder für Storys", key="story_margins_active")
         if st.session_state.story_margins_active:
             st.number_input("Rand oben (px)", 0, 500, key="margin_top", step=10)
             st.number_input("Rand unten (px)", 0, 500, key="margin_bottom", step=10)
-            
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
@@ -240,26 +241,22 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     else:
         logo_file = get_logo_path()
         if logo_file: st.image(logo_file, width=250)
-        else: st.warning("⚠️ 'logo.png' nicht gefunden.")
-    
+        else: st.warning("⚠️ 'logo.png' fehlt.")
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.43 (Aktuell):**\n- Branding-Killer (CSS) integriert: Streamlit-UI ausgeblendet.\n- Clean Mode für Einbettung auf Websites.")
+    st.info("**v2.7.44:** Aggressiver Branding-Killer integriert. Alle Streamlit-UI-Elemente werden nun mit hoher Priorität ausgeblendet.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
-    raw_msg = f"Hey! Schau dir mal diese geniale App zum teilen deiner Motorrad-Touren an: {app_url}"
+    raw_msg = f"Hey! Schau dir mal diese geniale App an: {app_url}"
     share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
-    st.markdown(f'<a href="{share_link}" class="social-btn wa-btn" style="display: block; width: 100%; margin-top: 15px;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
 
 # --- APP INSTALLIEREN REITER ---
 with st.expander("📲 App installieren", expanded=False):
-    st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
     col_ios, col_android = st.columns(2)
-    with col_ios:
-        st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
-    with col_android:
-        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **three Dots**.\n2. Wähle **'App installieren'**.")
+    with col_ios: st.markdown("**🍎 iOS:** Teilen -> Zum Home-Bildschirm")
+    with col_android: st.markdown("**🤖 Android:** Drei Punkte -> App installieren")
 
 st.divider()
 
@@ -273,8 +270,7 @@ if up_gpx:
         for seg in gpx.tracks[0].segments:
             s_pts = []
             for p in seg.points:
-                s_pts.append([p.latitude, p.longitude])
-                elevs.append(p.elevation or 0)
+                s_pts.append([p.latitude, p.longitude]); elevs.append(p.elevation or 0)
                 if l_p:
                     d_total += calc_dist(l_p[0], l_p[1], p.latitude, p.longitude)
                     if p.elevation and l_e and p.elevation > l_e: a_gain += (p.elevation - l_e)
@@ -301,11 +297,8 @@ if up_gpx:
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
             px_m, p_w, grid_y_s = 10, w - 20, h - bh_b
-            if st.session_state.auto_intervals:
-                step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
-                step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
-            else:
-                step_km, step_m = st.session_state.grid_km_interval, st.session_state.grid_m_interval
+            step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
+            step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
             f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
             c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
             for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
@@ -376,26 +369,14 @@ if up_gpx:
                     ml = Image.open(p).convert("RGBA"); tw = int(w*0.15*st.session_state.size_logo); th = int(tw * (ml.height/ml.width))
                     overlay.paste(ml.resize((tw, th), Image.Resampling.LANCZOS), lp, ml.resize((tw, th), Image.Resampling.LANCZOS))
 
-        # --- ZUSAMMENSUMMEN & RÄNDER HINZUFÜGEN ---
-        final = Image.alpha_composite(canvas, overlay)
-        st_image_display = final.convert('RGB')
-        
-        # --- VERARBEITUNG FÜR DOWNLOAD (PNG) MIT GETRENNTEN RÄNDERN ---
-        m_top = st.session_state.margin_top
-        m_bot = st.session_state.margin_bottom
-        story_margins_active = st.session_state.story_margins_active
-
-        if story_margins_active and (m_top > 0 or m_bot > 0):
+        final = Image.alpha_composite(canvas, overlay); st_image_display = final.convert('RGB')
+        m_top, m_bot = st.session_state.margin_top, st.session_state.margin_bottom
+        if st.session_state.story_margins_active and (m_top > 0 or m_bot > 0):
             new_w, new_h = final.width, final.height + m_top + m_bot
             canvas_with_margins = Image.new('RGBA', (new_w, new_h), (0, 0, 0, 0))
-            canvas_with_margins.paste(final, (0, m_top))
-            final_download = canvas_with_margins
-        else:
-            final_download = final
-
+            canvas_with_margins.paste(final, (0, m_top)); final_download = canvas_with_margins
+        else: final_download = final
         st.image(st_image_display, use_container_width=True)
-        buf = io.BytesIO()
-        final_download.save(buf, format="PNG")
+        buf = io.BytesIO(); final_download.save(buf, format="PNG")
         st.download_button("🚀 BILD ALS PNG SPEICHERN (für Storys)", buf.getvalue(), f"tour_final.png", "image/png")
-        
     except Exception as e: st.error(f"Fehler: {e}")
