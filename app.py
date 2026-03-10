@@ -1,51 +1,29 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import io
 import math
-import os
-from datetime import datetime
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.5: No Maps, Pure Photo Overlay) ---
+# --- STANDARDWERTE (v2.7.6: Ultra Clean Edition) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
-    "show_date": True,
-    "bg_opacity": 100,
-    "font_scale": 1.5,
-    "title_y_offset": 0,
-    "data_font_scale": 1.2,
-    "data_y_offset": 150,
-    "img_zoom": 1.0,
-    "img_x_offset": 0,
-    "img_y_offset": 0,
+    "c_line": "#8B0000",
+    "w_line": 9,
+    "show_markers": True,
+    "show_speed": True,
+    "show_profile": True,
     "auto_intervals": True,
-    "grid_font_scale": 1.0,
     "grid_m_interval": 250,
     "grid_km_interval": 10,
-    "w_line": 9,
-    "shadow_offset": 2,
-    "b_alpha": 160,
-    "r_alpha": 255,
-    "c_line": "#8B0000",
-    "c_fill": "#8B0000",
-    "c_box": "#000000",
-    "b_height_adj": 0.20,
-    "show_route_line": True, # NEU: Routenlinie auf Foto zeichnen
-    "show_markers": True,
-    "show_km_steps": True,
-    "show_speed": True, 
-    "km_interval": 20,
-    "show_profile": True,
-    "show_grid": True,
-    "fill_profile": True,
-    "selected_track_idx": 0,
-    "show_icons": True,
-    "route_autoscale": True,
-    "route_scale": 1.0
+    "bg_opacity": 100,
+    "size_title": 1.5,
+    "size_date": 1.0,
+    "size_data": 1.2,
+    "size_grid": 1.0
 }
 
 for key, val in DEFAULTS.items():
@@ -68,21 +46,19 @@ def load_font(size):
         except: continue
     return ImageFont.load_default()
 
+# SICHERHEIT: Absoluter Schutz vor "x1 must be greater than x0" Fehlern
 def validate_coords(coords):
-    # Absoluter Schutz vor "x1 must be greater than x0" Fehlern
     x0, y0, x1, y1 = coords
     nx0, nx1 = min(x0, x1), max(x0, x1)
     ny0, ny1 = min(y0, y1), max(y0, y1)
     return [nx0, ny0, nx1 + 1, ny1 + 1]
 
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
-    try:
-        draw.rectangle(validate_coords(coords), fill=fill, outline=outline, width=int(width))
+    try: draw.rectangle(validate_coords(coords), fill=fill, outline=outline, width=int(width))
     except: pass
 
 def safe_ellipse(draw, coords, fill=None, outline=None, width=1):
-    try:
-        draw.ellipse(validate_coords(coords), fill=fill, outline=outline, width=int(width))
+    try: draw.ellipse(validate_coords(coords), fill=fill, outline=outline, width=int(width))
     except: pass
 
 def calc_dist(lat1, lon1, lat2, lon2):
@@ -91,17 +67,6 @@ def calc_dist(lat1, lon1, lat2, lon2):
     dp, dl = math.radians(lat2-lat1), math.radians(lon2-lon1)
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return 2 * R * math.asin(math.sqrt(a))
-
-def get_fitted_font(text, max_width, start_size):
-    size = int(max(10, start_size))
-    font = load_font(size)
-    try:
-        d = ImageDraw.Draw(Image.new('RGB', (1,1)))
-        while d.textlength(text, font=font) > max_width and size > 10:
-            size -= 2
-            font = load_font(size)
-    except: pass
-    return font
 
 def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="black", offset=2, anchor="mm"):
     x, y = int(pos[0]), int(pos[1])
@@ -117,14 +82,6 @@ def draw_marker(draw, pos, color, label=""):
         f = load_font(16)
         draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
 
-def draw_km_marker(draw, pos, km):
-    x, y = pos
-    r = 10
-    safe_ellipse(draw, [x-r-1, y-r-1, x+r+1, y+r+1], fill="white")
-    safe_ellipse(draw, [x-r, y-r, x+r, y+r], fill="#333333")
-    f = load_font(12)
-    draw.text((int(x), int(y)), str(km), fill="white", font=f, anchor="mm")
-
 def draw_data_icon(mode, size, color="white"):
     res = 4
     size = int(max(10, size))
@@ -132,9 +89,10 @@ def draw_data_icon(mode, size, color="white"):
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
     
+    # Schutz vor 0-Pixel Berechnungen
     x0, y0 = lw, lw
-    x1 = max(x0 + 1, size*res - lw) # Garantierter Schutz vor Minus-Werten
-    y1 = max(y0 + 1, size*res - lw)
+    x1 = max(x0 + 2, size*res - lw) 
+    y1 = max(y0 + 2, size*res - lw)
     
     if mode == "dist":
         d.arc([x0, y0, x1, y1], 140, 400, fill=color, width=lw)
@@ -146,7 +104,8 @@ def draw_data_icon(mode, size, color="white"):
         d.arc([x0, y0, x1, y1], 150, 390, fill=color, width=lw)
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
-        d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
+        rad = max(1, lw)
+        d.ellipse([cx-rad, cy-rad, cx+rad+1, cy+rad+1], fill=color)
         
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
@@ -159,7 +118,6 @@ c_up1, c_up2 = st.columns(2)
 with c_up1:
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen", key="gpx_uploader")
     if up_gpx is not None:
-        # 100% zuverlässige Erkennung, ob eine NEUE Datei hochgeladen wurde
         if st.session_state.last_gpx_file != up_gpx.name:
             st.session_state.last_gpx_file = up_gpx.name
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
@@ -182,59 +140,48 @@ with c_up1:
                     st.session_state.tour_date = parsed_date
             except: pass
             
-            # Die Oberfläche SOFORT neu laden, damit der Name im Textfeld steht!
+            # Seite SOFORT neu laden, damit die Felder ausgefüllt werden!
             st.rerun()
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
-# --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen & Design", expanded=False):
+# --- OPTIONEN (DEINE 9 PUNKTE) ---
+with st.expander("⚙️ Einstellungen (Aufgeräumt)", expanded=True):
     col_opt1, col_opt2 = st.columns(2)
+    
     with col_opt1:
-        st.write("**🖼️ Hintergrund & Foto**")
-        st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
+        st.write("**📝 Tour & Design**")
+        st.text_input("2. Tour Name", key="tour_title")
+        st.text_input("3. Datum", key="tour_date")
         
-        if up_img is not None:
-            st.slider("Foto Zoom", 0.5, 5.0, key="img_zoom", step=0.1)
-            st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
-            st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
+        st.color_picker("1a. Routenfarbe", key="c_line")
+        st.slider("1b. Routenstärke", 1, 20, key="w_line")
+        st.slider("8. Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
         
-        st.write("**📏 Raster & Intervalle**")
-        st.checkbox("Auto-Intervalle (KM & Höhe)", key="auto_intervals")
-        st.checkbox("Raster anzeigen", key="show_grid")
-        st.slider("Raster Schriftgröße", 0.5, 3.0, key="grid_font_scale")
+        st.write("**🔠 9. Textgrößen separat**")
+        st.slider("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
+        st.slider("Größe Datum", 0.5, 4.0, key="size_date", step=0.1)
+        st.slider("Größe Daten (KM/H/Höhe)", 0.5, 4.0, key="size_data", step=0.1)
+        st.slider("Größe Raster", 0.5, 3.0, key="size_grid", step=0.1)
+
+    with col_opt2:
+        st.write("**✅ Ein- / Ausblenden**")
+        st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
+        st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
+        st.checkbox("6. Höhenprofil", key="show_profile")
+        
+        st.write("**📏 7. Raster & Intervalle**")
+        st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
         if not st.session_state.auto_intervals:
             st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
             st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
-            st.select_slider("Meilensteine auf Route", options=[1, 5, 10, 20, 50, 100], key="km_interval")
-
-    with col_opt2:
-        st.write("**📝 Texte & Position**")
-        st.text_input("Tour Name", key="tour_title")
-        st.text_input("Datum", key="tour_date")
-        st.slider("Titel Größe", 0.5, 4.0, key="font_scale")
-        st.slider("Titel Y-Position", -300, 300, key="title_y_offset")
-        st.slider("Daten Größe", 0.5, 4.0, key="data_font_scale")
-        st.slider("Daten Y-Abstand", 0, 600, key="data_y_offset")
-        st.slider("Schatten-Versatz", 0, 10, key="shadow_offset")
-        
-        st.write("**🎨 Route, Farben & Marker**")
-        st.slider("Dicke der Route", 1, 20, key="w_line")
-        st.color_picker("Routenfarbe", key="c_line")
-        st.color_picker("Balkenfarbe", key="c_box")
-        
-        st.checkbox("Routen-Linie zeichnen", key="show_route_line")
-        st.checkbox("Start/Ziel (S/Z) anzeigen", key="show_markers")
-        st.checkbox("KM-Meilensteine anzeigen", key="show_km_steps")
-        st.checkbox("Ø Geschwindigkeit anzeigen", key="show_speed") 
-        st.checkbox("Daten-Icons anzeigen", key="show_icons")
-        
+            
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.5")
+    st.markdown("### GPX Share Pro XXL | v2.7.6")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -251,7 +198,7 @@ if up_gpx is not None:
         last, last_elev, last_time = None, None, None
         total_time_s = 0.0 
         
-        target_track = gpx.tracks[st.session_state.selected_track_idx]
+        target_track = gpx.tracks[0] # Immer den ersten Track nehmen
         for seg in target_track.segments:
             current_seg = []
             for p in seg.points:
@@ -264,7 +211,7 @@ if up_gpx is not None:
                         if diff_e > 0: a_gain += diff_e
                     if p.time and last_time:
                         diff_t = (p.time - last_time).total_seconds()
-                        if 0 < diff_t < 1800: 
+                        if 0 < diff_t < 1800: # Pausen über 30 Min ignorieren
                             total_time_s += diff_t
                             
                 last, last_elev, last_time = [p.latitude, p.longitude], p.elevation, p.time
@@ -280,6 +227,7 @@ if up_gpx is not None:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
+            # Verhindern von Abstürzen bei sehr kurzen Touren
             if (ma_la - mi_la) < 0.005:
                 ma_la += 0.005
                 mi_la -= 0.005
@@ -294,27 +242,26 @@ if up_gpx is not None:
             else:
                 step_km = st.session_state.grid_km_interval
                 step_m = st.session_state.grid_m_interval
-            
-            marker_step_km = step_km if st.session_state.auto_intervals else st.session_state.km_interval
 
-            # REINER BILD-HINTERGRUND (KEINE KARTE MEHR)
-            canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255)) # Dunkelgrau als Basis
+            # BILD-HINTERGRUND ERSTELLEN
+            canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255)) 
             
             if up_img is not None:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
-                nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
-                bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
-                canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
+                # Auto-Fit: Passt das Bild perfekt ins 1080x1920 Format ohne Verzerrung an!
+                bg_img = ImageOps.fit(bg_img, (w, h), Image.Resampling.LANCZOS)
+                canvas.paste(bg_img, (0, 0))
 
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
-            rgb_box = tuple(int(st.session_state.c_box[i*2+1:i*2+3], 16) for i in range(3))
-            bh_top, bh_bot = int(h * st.session_state.b_height_adj), int(h * 0.12)
-            safe_rect(draw, [0, 0, w, bh_top], fill=rgb_box + (st.session_state.b_alpha,))
-            safe_rect(draw, [0, h - bh_bot, w, h], fill=rgb_box + (st.session_state.b_alpha,))
+            
+            # Schwarze Info-Balken oben und unten
+            bh_top, bh_bot = int(h * 0.20), int(h * 0.12)
+            safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
+            safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
             # HÖHENPROFIL & RASTER
             if st.session_state.show_profile and len(elevs) > 1:
@@ -323,8 +270,8 @@ if up_gpx is not None:
                 grid_y_start = h - bh_bot
                 profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
                 
-                if st.session_state.show_grid and step_m > 0 and step_km > 0:
-                    f_grid = load_font(int(w * 0.025 * st.session_state.grid_font_scale))
+                f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
+                if step_m > 0 and step_km > 0:
                     for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
@@ -334,73 +281,56 @@ if up_gpx is not None:
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         draw.text((int(gx+5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
                 
-                if st.session_state.fill_profile:
-                    rgb_fill = tuple(int(st.session_state.c_fill[i*2+1:i*2+3], 16) for i in range(3))
-                    draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
+                rgb_fill = tuple(int("#8B0000"[i*2+1:i*2+3], 16) for i in range(3))
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
             # TITEL & DATEN
-            t_y = int(bh_top * 0.35) + st.session_state.title_y_offset
-            f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
-            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, offset=st.session_state.shadow_offset)
+            t_y = int(bh_top * 0.35)
+            f_title = load_font(int(w * 0.08 * st.session_state.size_title))
+            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, offset=2)
             
             data_items = [("dist", f"{d_total:.1f} km")]
             if st.session_state.show_speed and avg_speed > 0:
                 data_items.append(("speed", f"{avg_speed:.1f} km/h"))
             data_items.append(("elev", f"{int(a_gain)} m"))
             
-            f_data = get_fitted_font(" ".join([txt for _, txt in data_items]), w*0.9, int(w*0.05*st.session_state.data_font_scale))
-            icon_size = int(max(1, w * 0.05 * st.session_state.data_font_scale))
+            f_data = load_font(int(w * 0.05 * st.session_state.size_data))
+            icon_size = int(max(1, w * 0.05 * st.session_state.size_data))
             i_gap, spacing = int(w*0.015), int(w*0.08)
             
-            total_w = sum([(icon_size if st.session_state.show_icons else 0) + i_gap + draw.textlength(txt, f_data) for _, txt in data_items]) + spacing * (len(data_items) - 1)
-            curr_x, d_y = (w - total_w) // 2, t_y + st.session_state.data_y_offset
+            total_w = sum([icon_size + i_gap + draw.textlength(txt, f_data) for _, txt in data_items]) + spacing * (len(data_items) - 1)
+            curr_x, d_y = (w - total_w) // 2, t_y + 150
             
             for mode, txt in data_items:
-                if st.session_state.show_icons:
-                    overlay.paste(draw_data_icon(mode, icon_size), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size))
-                    curr_x += icon_size + i_gap
+                overlay.paste(draw_data_icon(mode, icon_size), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size))
+                curr_x += icon_size + i_gap
                 tw = draw.textlength(txt, font=f_data)
-                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data, offset=st.session_state.shadow_offset)
+                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data, offset=2)
                 curr_x += tw + spacing
 
             # DATUMS-BOX
-            if st.session_state.show_date and st.session_state.tour_date:
-                f_date = load_font(int(w * 0.028 * st.session_state.font_scale))
+            if st.session_state.tour_date:
+                f_date = load_font(int(w * 0.028 * st.session_state.size_date))
                 tw = draw.textlength(st.session_state.tour_date, font=f_date)
                 bx2, by2 = int(w - 30), int(h - bh_bot - 20)
                 bx1, by1 = int(bx2 - tw - 40), int(by2 - 60)
-                safe_rect(draw, [bx1, by1, bx2, by2], fill=rgb_box + (st.session_state.b_alpha,), outline="white", width=2)
+                safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline="white", width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
 
-            # ROUTE & MARKER
-            margin = 0.20 if st.session_state.route_autoscale else 0.5 * (1.0 - (0.4 * st.session_state.route_scale))
+            # ROUTE & MARKER ZEICHNEN
+            margin = 0.20
             la_eps, lo_eps = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             def transform(lat, lon):
                 return (int(w*margin + (lon-mi_lo)/lo_eps*w*(1-2*margin)), int(h*(1-margin) - (lat-mi_la)/la_eps*h*(1-2*margin)))
 
-            dist_acc, last_p = 0.0, None
-            km_marks, next_km_goal = [], marker_step_km
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
 
             for seg in segments_pts:
-                s_pts = []
-                for p in seg:
-                    curr_p = transform(p[0], p[1])
-                    s_pts.append(curr_p)
-                    if last_p:
-                        dist_acc += calc_dist(last_raw[0], last_raw[1], p[0], p[1])
-                        if st.session_state.show_km_steps and dist_acc >= next_km_goal:
-                            km_marks.append((curr_p, int(next_km_goal)))
-                            next_km_goal += marker_step_km
-                    last_p, last_raw = curr_p, p
-                
-                # Routen-Linie nur zeichnen, wenn die Option aktiv ist
-                if st.session_state.show_route_line and len(s_pts) > 1: 
-                    draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
-
-            if st.session_state.show_km_steps:
-                for pos, val in km_marks: draw_km_marker(draw, pos, val)
+                s_pts = [transform(p[0], p[1]) for p in seg]
+                if len(s_pts) > 1: 
+                    # Die Linie wird jetzt garantiert immer gezeichnet!
+                    draw.line(s_pts, fill=rgb_route + (255,), width=int(st.session_state.w_line), joint="round")
                 
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
