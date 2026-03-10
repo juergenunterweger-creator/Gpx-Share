@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.6: Ultra Clean Edition) ---
+# --- STANDARDWERTE (v2.7.7: Anti-Aliased Lines & Margin Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -140,7 +140,6 @@ with c_up1:
                     st.session_state.tour_date = parsed_date
             except: pass
             
-            # Seite SOFORT neu laden, damit die Felder ausgefüllt werden!
             st.rerun()
 
 with c_up2:
@@ -181,7 +180,7 @@ with st.expander("⚙️ Einstellungen (Aufgeräumt)", expanded=True):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.6")
+    st.markdown("### GPX Share Pro XXL | v2.7.7")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -198,7 +197,7 @@ if up_gpx is not None:
         last, last_elev, last_time = None, None, None
         total_time_s = 0.0 
         
-        target_track = gpx.tracks[0] # Immer den ersten Track nehmen
+        target_track = gpx.tracks[0] 
         for seg in target_track.segments:
             current_seg = []
             for p in seg.points:
@@ -211,7 +210,7 @@ if up_gpx is not None:
                         if diff_e > 0: a_gain += diff_e
                     if p.time and last_time:
                         diff_t = (p.time - last_time).total_seconds()
-                        if 0 < diff_t < 1800: # Pausen über 30 Min ignorieren
+                        if 0 < diff_t < 1800: 
                             total_time_s += diff_t
                             
                 last, last_elev, last_time = [p.latitude, p.longitude], p.elevation, p.time
@@ -227,7 +226,6 @@ if up_gpx is not None:
             mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             w, h = 1080, 1920
             
-            # Verhindern von Abstürzen bei sehr kurzen Touren
             if (ma_la - mi_la) < 0.005:
                 ma_la += 0.005
                 mi_la -= 0.005
@@ -248,7 +246,6 @@ if up_gpx is not None:
             
             if up_img is not None:
                 bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
-                # Auto-Fit: Passt das Bild perfekt ins 1080x1920 Format ohne Verzerrung an!
                 bg_img = ImageOps.fit(bg_img, (w, h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (0, 0))
 
@@ -258,7 +255,6 @@ if up_gpx is not None:
             overlay = Image.new('RGBA', (w, h), (0,0,0,0))
             draw = ImageDraw.Draw(overlay)
             
-            # Schwarze Info-Balken oben und unten
             bh_top, bh_bot = int(h * 0.20), int(h * 0.12)
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
@@ -318,19 +314,34 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline="white", width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
 
-            # ROUTE & MARKER ZEICHNEN
-            margin = 0.20
+            # ROUTE & MARKER ZEICHNEN (Anti-Aliasing & Margin Fix)
+            margin_x = 0.15
+            margin_y = 0.25 # Viel mehr Abstand nach oben und unten!
             la_eps, lo_eps = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
+            
             def transform(lat, lon):
-                return (int(w*margin + (lon-mi_lo)/lo_eps*w*(1-2*margin)), int(h*(1-margin) - (lat-mi_la)/la_eps*h*(1-2*margin)))
+                return (int(w*margin_x + (lon-mi_lo)/lo_eps*w*(1-2*margin_x)), 
+                        int(h*(1-margin_y) - (lat-mi_la)/la_eps*h*(1-2*margin_y)))
 
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
 
+            # Supersampling für butterweiche Linien (3x größere Zeichenfläche)
+            ssf = 3 
+            route_overlay = Image.new('RGBA', (w * ssf, h * ssf), (0,0,0,0))
+            route_draw = ImageDraw.Draw(route_overlay)
+            
+            def transform_ss(lat, lon):
+                return (int((w*margin_x + (lon-mi_lo)/lo_eps*w*(1-2*margin_x)) * ssf), 
+                        int((h*(1-margin_y) - (lat-mi_la)/la_eps*h*(1-2*margin_y)) * ssf))
+
             for seg in segments_pts:
-                s_pts = [transform(p[0], p[1]) for p in seg]
+                s_pts = [transform_ss(p[0], p[1]) for p in seg]
                 if len(s_pts) > 1: 
-                    # Die Linie wird jetzt garantiert immer gezeichnet!
-                    draw.line(s_pts, fill=rgb_route + (255,), width=int(st.session_state.w_line), joint="round")
+                    route_draw.line(s_pts, fill=rgb_route + (255,), width=int(st.session_state.w_line * ssf), joint="round")
+            
+            # Die Riesen-Linie wird wieder verkleinert -> LANCZOS glättet die Ränder perfekt
+            route_overlay = route_overlay.resize((w, h), Image.Resampling.LANCZOS)
+            overlay.paste(route_overlay, (0, 0), route_overlay)
                 
             if st.session_state.show_markers and all_pts:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
