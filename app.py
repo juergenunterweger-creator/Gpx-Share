@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.16: Cache-Breaker & Logo Toggle) ---
+# --- STANDARDWERTE (v2.7.17: Grafisches Logo & Premium Header) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -28,7 +28,8 @@ DEFAULTS = {
     "size_title": 1.5,
     "size_date": 1.0,
     "size_data": 1.0,
-    "size_grid": 1.0
+    "size_grid": 1.0,
+    "size_logo": 1.0  # NEU: Logo-Größe
 }
 
 for key, val in DEFAULTS.items():
@@ -112,12 +113,65 @@ def draw_data_icon(mode, size, color="white"):
         
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
+# NEU: Das grafische Premium-Logo (Wird im Bild und im Menü verwendet)
+def draw_graphical_logo(draw, pos, scale=1.0, color="#8B0000"):
+    x, y = int(pos[0]), int(pos[1])
+    icon_size = int(50 * scale)
+    
+    # Roter Hintergrund-Kreis
+    rgb_color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb_color, outline="white", width=max(1, int(2*scale)))
+    
+    # Weißer Berg / Strecke im Logo
+    draw.polygon([
+        (x + int(icon_size*0.2), y + int(icon_size*0.75)), 
+        (x + int(icon_size*0.5), y + int(icon_size*0.25)), 
+        (x + int(icon_size*0.8), y + int(icon_size*0.75))
+    ], fill="white")
+    
+    # GPX Share Pro Text daneben
+    f_logo = load_font(int(32 * scale))
+    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", f_logo, fill="white", shadow_color="black", offset=max(1, int(2*scale)), anchor="lm")
+
 def hex_to_rgba(hex_color, alpha=255):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
 
-st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
-st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
+# NEUE GRAFISCHE APP-ÜBERSCHRIFT
+st.markdown("""
+<style>
+.stApp { background-color: #ffffff; color: #000000; } 
+.header-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0px 10px 20px rgba(139, 0, 0, 0.4);
+    margin-bottom: 30px;
+    border: 1px solid #333;
+}
+.header-icon { font-size: 45px; margin-right: 15px; }
+.header-title {
+    font-size: 38px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #ff4b4b 0%, #8b0000 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } 
+.fb-btn { background-color: #1877F2; } 
+.wa-btn { background-color: #25D366; }
+</style>
+<div class="header-box">
+    <span class="header-icon">🏍️</span>
+    <p class="header-title">GPX Share Pro</p>
+</div>
+""", unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -153,7 +207,6 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-# CACHE-BREAKER: Neuer Titel zwingt das Menü zum Zuklappen!
 with st.expander("🛠️ Einstellungen & Design", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
@@ -177,18 +230,20 @@ with st.expander("🛠️ Einstellungen & Design", expanded=False):
             st.number_input("Größe Datum", min_value=0.5, max_value=4.0, key="size_date", step=0.1)
             st.number_input("Größe Daten", min_value=0.5, max_value=4.0, key="size_data", step=0.1)
             st.number_input("Größe Raster", min_value=0.5, max_value=3.0, key="size_grid", step=0.1)
+            st.number_input("Größe Logo", min_value=0.5, max_value=3.0, key="size_logo", step=0.1) # NEU
         with col_color:
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Datum", key="c_date")
             st.color_picker("Farbe Daten", key="c_data")
             st.color_picker("Farbe Raster", key="c_grid")
+            st.write("") # Platzhalter für saubere Ausrichtung
 
     with col_opt2:
         st.write("**✅ Ein- / Ausblenden**")
         st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
-        st.checkbox("7. App Logo", key="show_logo")
+        st.checkbox("7. App Logo (Wasserzeichen)", key="show_logo")
         
         st.write("**📏 10. Raster & Intervalle**")
         st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
@@ -198,9 +253,14 @@ with st.expander("🛠️ Einstellungen & Design", expanded=False):
             
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER ---
+# --- INFO REITER (MIT GENERIERTEM LOGO) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.16")
+    # Generiere ein schickes Bild des Logos für das Menü
+    menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
+    draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
+    st.image(menu_logo, use_container_width=False)
+    
+    st.markdown("### GPX Share Pro XXL | v2.7.17")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -317,7 +377,6 @@ if up_gpx is not None:
                             t_start = gx - tw/2
                             t_end = gx + tw/2
                             
-                        # ANTI-OVERLAP VERSTÄRKT: Jetzt 20 Pixel Mindestabstand!
                         if t_start > last_text_end + 20:
                             draw.text((int(gx), int(grid_y_start+5)), text_str, fill=c_grid_transp, font=f_grid, anchor=anchor)
                             last_text_end = t_end
@@ -359,14 +418,11 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
 
-            # APP LOGO / WASSERZEICHEN
+            # --- GRAFISCHES APP LOGO IM BILD ---
             if st.session_state.show_logo:
-                f_logo = load_font(int(w * 0.025))
-                logo_y = int(h - bh_bot - 15)
-                # Logo weicht aus, wenn das Datum dort platziert ist
-                if st.session_state.tour_date:
-                    logo_y -= 75 
-                draw_text_with_shadow(draw, (w - 20, logo_y), "GPX Share Pro", f_logo, fill=(255, 255, 255, 180), offset=2, anchor="rb")
+                # Oben links, direkt unter der Infobox positioniert
+                logo_pos = (int(w * 0.03), bh_top + int(h * 0.02))
+                draw_graphical_logo(draw, logo_pos, scale=st.session_state.size_logo, color=st.session_state.c_line)
 
             # ROUTE & MARKER ZEICHNEN
             margin_x = 0.15
