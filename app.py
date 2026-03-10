@@ -5,16 +5,8 @@ import io
 import math
 import os
 
-# --- NEU: GOOGLE SHEETS IMPORT ---
-try:
-    from streamlit_gsheets import GSheetsConnection
-    HAS_GSHEETS = True
-except ImportError:
-    HAS_GSHEETS = False
-
 # --- APP KONFIGURATION ---
-# Wir binden das Logo als Favicon ein. 
-# Wichtig: Die Datei "logo_icon.png" muss im selben Ordner wie die app.py liegen.
+# Sucht nach deinem Logo für den Browser-Tab
 def get_fav_icon():
     if os.path.exists("logo_icon.png"):
         return "logo_icon.png"
@@ -26,7 +18,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- AGGRESSIVER BRANDING KILLER (v2.8.1 Beta) ---
+# --- AGGRESSIVER BRANDING KILLER ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden !important;}
@@ -41,22 +33,6 @@ hide_st_style = """
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
-
-# --- ADMIN & COUNTER LOGIK ---
-is_admin = st.query_params.get("admin") == "true"
-
-def trigger_counter():
-    """Erhöht den Zähler im Google Sheet, außer für den Admin."""
-    if HAS_GSHEETS and not is_admin:
-        try:
-            conn = st.connection("gsheets", type=GSheetsConnection)
-            # Worksheet muss "Stats" heißen und in A1 die Zahl haben
-            df = conn.read(worksheet="Stats", ttl=0)
-            current_count = int(df.iloc[0, 0])
-            df.iloc[0, 0] = current_count + 1
-            conn.update(worksheet="Stats", data=df)
-        except Exception:
-            pass
 
 # --- STANDARDWERTE (v2.8.1 Beta) ---
 DEFAULTS = {
@@ -277,7 +253,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.8.1 Beta:**\n- Browser-Favicon (logo_icon.png) integriert.\n- Rollback auf v2.8.1 Basis.\n- Counter-Logik aktiv.")
+    st.info("**v2.8.1 Beta:**\n- Alle externen Datenbank-Verbindungen (Counter) entfernt.\n- Volle Stabilität wiederhergestellt.\n- Browser-Favicon aktiv.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -418,8 +394,6 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        # DOWNLOAD BUTTON MIT COUNTER TRIGGER
-        if st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v281_beta.png", "image/png"):
-            trigger_counter()
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v281_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
