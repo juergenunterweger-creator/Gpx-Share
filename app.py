@@ -19,7 +19,7 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.7.0: Native Streamlit Flow) ---
+# --- STANDARDWERTE (v2.7.1: Iron Memory & Speed Feature) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -48,6 +48,7 @@ DEFAULTS = {
     "b_height_adj": 0.20,
     "show_markers": True,
     "show_km_steps": True,
+    "show_speed": True, # NEU: Durchschnittsgeschwindigkeit 
     "km_interval": 20,
     "show_profile": True,
     "show_grid": True,
@@ -62,8 +63,10 @@ for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-if "last_gpx_hash" not in st.session_state: 
-    st.session_state.last_gpx_hash = ""
+# EISERNER SPEICHER: Hier speichern wir die Daten dauerhaft
+if "my_gpx_data" not in st.session_state: st.session_state.my_gpx_data = None
+if "my_img_data" not in st.session_state: st.session_state.my_img_data = None
+if "last_gpx_hash" not in st.session_state: st.session_state.last_gpx_hash = ""
 
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
@@ -154,60 +157,70 @@ def draw_data_icon(mode, size, color="white"):
         d.line([cx, cy, cx + size*res*0.3, cy - size*res*0.3], fill=color, width=lw)
     elif mode == "elev":
         d.polygon([(lw, y1), (size*res//2, y0), (x1, y1)], fill=color)
+    elif mode == "speed": # NEU: Speed-Icon
+        d.arc([x0, y0, x1, y1], 150, 390, fill=color, width=lw)
+        cx, cy = size*res//2, size*res//2 + lw
+        d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
+        d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
+        
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOADS (NATIVE STREAMLIT FLOW) ---
+# --- UPLOADS (EISERNER SPEICHER FLOW) ---
 c_up1, c_up2 = st.columns(2)
-gpx_data = None
-img_data = None
 
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
+    # Nur speichern, wenn WIRKLICH eine Datei ankommt
     if up_gpx is not None:
-        if not up_gpx.name.lower().endswith('.gpx'):
-            st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
-        else:
-            gpx_data = up_gpx.getvalue()
-            # Eindeutigen Hash der Datei erstellen
-            curr_hash = hashlib.md5(gpx_data).hexdigest()
+        st.session_state.my_gpx_data = up_gpx.getvalue()
+        curr_hash = hashlib.md5(st.session_state.my_gpx_data).hexdigest()
+        
+        if st.session_state.last_gpx_hash != curr_hash:
+            st.session_state.last_gpx_hash = curr_hash
+            st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
             
-            # Nur bei einer WIRKLICH neuen Datei Titel & Datum überschreiben
-            if st.session_state.last_gpx_hash != curr_hash:
-                st.session_state.last_gpx_hash = curr_hash
-                st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-                
-                try:
-                    gpx_obj = gpxpy.parse(io.BytesIO(gpx_data))
-                    parsed_date = ""
-                    
-                    if gpx_obj.time:
-                        parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
-                    else:
-                        for track in gpx_obj.tracks:
-                            for seg in track.segments:
-                                for pt in seg.points:
-                                    if pt.time:
-                                        parsed_date = pt.time.strftime("%d.%m.%Y")
-                                        break
-                                if parsed_date: break
+            try:
+                gpx_obj = gpxpy.parse(io.BytesIO(st.session_state.my_gpx_data))
+                parsed_date = ""
+                if gpx_obj.time:
+                    parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
+                else:
+                    for track in gpx_obj.tracks:
+                        for seg in track.segments:
+                            for pt in seg.points:
+                                if pt.time:
+                                    parsed_date = pt.time.strftime("%d.%m.%Y")
+                                    break
                             if parsed_date: break
-                    
-                    if parsed_date:
-                        st.session_state.tour_date = parsed_date
-                except:
-                    pass
+                        if parsed_date: break
+                if parsed_date:
+                    st.session_state.tour_date = parsed_date
+            except: pass
+            
+    # Manueller Lösch-Button für GPX
+    if st.session_state.my_gpx_data:
+        if st.button("🗑️ GPX löschen"):
+            st.session_state.my_gpx_data = None
+            st.session_state.last_gpx_hash = ""
+            st.rerun()
 
 with c_up2:
-    # Das Bild wird live aus dem Uploader gelesen. Keine Memory-Tricks mehr!
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
+    # Nur speichern, wenn WIRKLICH ein Bild ankommt
     if up_img is not None:
-        img_data = up_img.getvalue()
+        st.session_state.my_img_data = up_img.getvalue()
+
+    # Manueller Lösch-Button für Foto (Einziger Weg, das Bild zu löschen!)
+    if st.session_state.my_img_data:
+        if st.button("🗑️ Foto löschen"):
+            st.session_state.my_img_data = None
+            st.rerun()
 
 # --- DYNAMISCHE KARTEN LOGIK ---
-use_map_ui = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and img_data is None)
+use_map_ui = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and st.session_state.my_img_data is None)
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Einstellungen & Design", expanded=False):
@@ -220,7 +233,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
             st.selectbox("Karten-Design", list(MAP_STYLES.keys()), key="map_style")
             
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        if img_data and not (st.session_state.bg_mode == "Nur Karte"):
+        if st.session_state.my_img_data and not (st.session_state.bg_mode == "Nur Karte"):
             st.slider("Foto Zoom", 0.5, 5.0, key="img_zoom", step=0.1)
             st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
             st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
@@ -251,13 +264,14 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         
         st.checkbox("Start/Ziel (S/Z) anzeigen", key="show_markers")
         st.checkbox("KM-Meilensteine anzeigen", key="show_km_steps")
+        st.checkbox("Ø Geschwindigkeit anzeigen", key="show_speed") # NEUER SCHALTER
         st.checkbox("Daten-Icons anzeigen", key="show_icons")
         
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.0")
+    st.markdown("### GPX Share Pro XXL | v2.7.1")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -266,11 +280,13 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 st.divider()
 
 # --- VERARBEITUNG ---
-if gpx_data:
+if st.session_state.my_gpx_data:
     try:
-        gpx = gpxpy.parse(io.BytesIO(gpx_data))
+        gpx = gpxpy.parse(io.BytesIO(st.session_state.my_gpx_data))
         segments_pts, elevs = [], []
-        d_total, a_gain, last, last_elev = 0.0, 0.0, None, None
+        d_total, a_gain = 0.0, 0.0
+        last, last_elev, last_time = None, None, None
+        total_time_s = 0.0 # Für Geschwindigkeit
         
         target_track = gpx.tracks[st.session_state.selected_track_idx]
         for seg in target_track.segments:
@@ -281,10 +297,21 @@ if gpx_data:
                 if last:
                     d_total += calc_dist(last[0], last[1], p.latitude, p.longitude)
                     if p.elevation is not None and last_elev is not None:
-                        diff = p.elevation - last_elev
-                        if diff > 0: a_gain += diff
-                last, last_elev = [p.latitude, p.longitude], p.elevation
+                        diff_e = p.elevation - last_elev
+                        if diff_e > 0: a_gain += diff_e
+                    # Zeitberechnung für Ø Geschwindigkeit (Pausen über 30 Min ignorieren)
+                    if p.time and last_time:
+                        diff_t = (p.time - last_time).total_seconds()
+                        if 0 < diff_t < 1800: 
+                            total_time_s += diff_t
+                            
+                last, last_elev, last_time = [p.latitude, p.longitude], p.elevation, p.time
             if current_seg: segments_pts.append(current_seg)
+
+        # Berechne Durchschnittsgeschwindigkeit
+        avg_speed = 0.0
+        if total_time_s > 0:
+            avg_speed = d_total / (total_time_s / 3600.0)
 
         if segments_pts:
             all_pts = [pt for seg in segments_pts for pt in seg]
@@ -311,11 +338,11 @@ if gpx_data:
 
             # HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
-            use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and img_data is None)
+            use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and st.session_state.my_img_data is None)
             draw_route = not use_map 
             
-            if not use_map and img_data:
-                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(img_data))).convert("RGBA")
+            if not use_map and st.session_state.my_img_data:
+                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.my_img_data))).convert("RGBA")
                 nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
@@ -363,15 +390,20 @@ if gpx_data:
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, offset=st.session_state.shadow_offset)
             
-            txt_dist, txt_elev = f"{d_total:.1f} km", f"{int(a_gain)} m"
-            f_data = get_fitted_font(txt_dist + " " + txt_elev, w*0.8, int(w*0.05*st.session_state.data_font_scale))
+            # Dynamische Daten-Leiste zusammenbauen
+            data_items = [("dist", f"{d_total:.1f} km")]
+            if st.session_state.show_speed and avg_speed > 0:
+                data_items.append(("speed", f"{avg_speed:.1f} km/h"))
+            data_items.append(("elev", f"{int(a_gain)} m"))
+            
+            f_data = get_fitted_font(" ".join([txt for _, txt in data_items]), w*0.9, int(w*0.05*st.session_state.data_font_scale))
             icon_size = int(max(1, w * 0.05 * st.session_state.data_font_scale))
             i_gap, spacing = int(w*0.015), int(w*0.08)
             
-            total_w = (icon_size if st.session_state.show_icons else 0) + i_gap + draw.textlength(txt_dist, f_data) + spacing + (icon_size if st.session_state.show_icons else 0) + i_gap + draw.textlength(txt_elev, f_data)
+            total_w = sum([(icon_size if st.session_state.show_icons else 0) + i_gap + draw.textlength(txt, f_data) for _, txt in data_items]) + spacing * (len(data_items) - 1)
             curr_x, d_y = (w - total_w) // 2, t_y + st.session_state.data_y_offset
             
-            for mode, txt in [("dist", txt_dist), ("elev", txt_elev)]:
+            for mode, txt in data_items:
                 if st.session_state.show_icons:
                     overlay.paste(draw_data_icon(mode, icon_size), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size))
                     curr_x += icon_size + i_gap
