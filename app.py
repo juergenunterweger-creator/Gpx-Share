@@ -19,7 +19,7 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.7.1: Iron Memory & Speed Feature) ---
+# --- STANDARDWERTE (v2.7.2: iOS Upload Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -48,7 +48,7 @@ DEFAULTS = {
     "b_height_adj": 0.20,
     "show_markers": True,
     "show_km_steps": True,
-    "show_speed": True, # NEU: Durchschnittsgeschwindigkeit 
+    "show_speed": True, 
     "km_interval": 20,
     "show_profile": True,
     "show_grid": True,
@@ -63,7 +63,7 @@ for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# EISERNER SPEICHER: Hier speichern wir die Daten dauerhaft
+# EISERNER SPEICHER
 if "my_gpx_data" not in st.session_state: st.session_state.my_gpx_data = None
 if "my_img_data" not in st.session_state: st.session_state.my_img_data = None
 if "last_gpx_hash" not in st.session_state: st.session_state.last_gpx_hash = ""
@@ -157,7 +157,7 @@ def draw_data_icon(mode, size, color="white"):
         d.line([cx, cy, cx + size*res*0.3, cy - size*res*0.3], fill=color, width=lw)
     elif mode == "elev":
         d.polygon([(lw, y1), (size*res//2, y0), (x1, y1)], fill=color)
-    elif mode == "speed": # NEU: Speed-Icon
+    elif mode == "speed": 
         d.arc([x0, y0, x1, y1], 150, 390, fill=color, width=lw)
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
@@ -168,39 +168,43 @@ def draw_data_icon(mode, size, color="white"):
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOADS (EISERNER SPEICHER FLOW) ---
+# --- UPLOADS (EISERNER SPEICHER FLOW + iOS FIX) ---
 c_up1, c_up2 = st.columns(2)
 
 with c_up1:
-    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", type=["gpx"])
-    # Nur speichern, wenn WIRKLICH eine Datei ankommt
+    # WICHTIG: Kein 'type' Parameter, damit iPhone nicht blockiert!
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
+    
     if up_gpx is not None:
-        st.session_state.my_gpx_data = up_gpx.getvalue()
-        curr_hash = hashlib.md5(st.session_state.my_gpx_data).hexdigest()
-        
-        if st.session_state.last_gpx_hash != curr_hash:
-            st.session_state.last_gpx_hash = curr_hash
-            st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+        # Software-Check als Ersatz für den harten HTML-Filter
+        if not up_gpx.name.lower().endswith('.gpx'):
+            st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
+        else:
+            st.session_state.my_gpx_data = up_gpx.getvalue()
+            curr_hash = hashlib.md5(st.session_state.my_gpx_data).hexdigest()
             
-            try:
-                gpx_obj = gpxpy.parse(io.BytesIO(st.session_state.my_gpx_data))
-                parsed_date = ""
-                if gpx_obj.time:
-                    parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
-                else:
-                    for track in gpx_obj.tracks:
-                        for seg in track.segments:
-                            for pt in seg.points:
-                                if pt.time:
-                                    parsed_date = pt.time.strftime("%d.%m.%Y")
-                                    break
+            if st.session_state.last_gpx_hash != curr_hash:
+                st.session_state.last_gpx_hash = curr_hash
+                st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+                
+                try:
+                    gpx_obj = gpxpy.parse(io.BytesIO(st.session_state.my_gpx_data))
+                    parsed_date = ""
+                    if gpx_obj.time:
+                        parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
+                    else:
+                        for track in gpx_obj.tracks:
+                            for seg in track.segments:
+                                for pt in seg.points:
+                                    if pt.time:
+                                        parsed_date = pt.time.strftime("%d.%m.%Y")
+                                        break
+                                if parsed_date: break
                             if parsed_date: break
-                        if parsed_date: break
-                if parsed_date:
-                    st.session_state.tour_date = parsed_date
-            except: pass
+                    if parsed_date:
+                        st.session_state.tour_date = parsed_date
+                except: pass
             
-    # Manueller Lösch-Button für GPX
     if st.session_state.my_gpx_data:
         if st.button("🗑️ GPX löschen"):
             st.session_state.my_gpx_data = None
@@ -209,11 +213,9 @@ with c_up1:
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-    # Nur speichern, wenn WIRKLICH ein Bild ankommt
     if up_img is not None:
         st.session_state.my_img_data = up_img.getvalue()
 
-    # Manueller Lösch-Button für Foto (Einziger Weg, das Bild zu löschen!)
     if st.session_state.my_img_data:
         if st.button("🗑️ Foto löschen"):
             st.session_state.my_img_data = None
@@ -264,14 +266,14 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         
         st.checkbox("Start/Ziel (S/Z) anzeigen", key="show_markers")
         st.checkbox("KM-Meilensteine anzeigen", key="show_km_steps")
-        st.checkbox("Ø Geschwindigkeit anzeigen", key="show_speed") # NEUER SCHALTER
+        st.checkbox("Ø Geschwindigkeit anzeigen", key="show_speed") 
         st.checkbox("Daten-Icons anzeigen", key="show_icons")
         
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.1")
+    st.markdown("### GPX Share Pro XXL | v2.7.2")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -286,7 +288,7 @@ if st.session_state.my_gpx_data:
         segments_pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last, last_elev, last_time = None, None, None
-        total_time_s = 0.0 # Für Geschwindigkeit
+        total_time_s = 0.0 
         
         target_track = gpx.tracks[st.session_state.selected_track_idx]
         for seg in target_track.segments:
@@ -299,7 +301,6 @@ if st.session_state.my_gpx_data:
                     if p.elevation is not None and last_elev is not None:
                         diff_e = p.elevation - last_elev
                         if diff_e > 0: a_gain += diff_e
-                    # Zeitberechnung für Ø Geschwindigkeit (Pausen über 30 Min ignorieren)
                     if p.time and last_time:
                         diff_t = (p.time - last_time).total_seconds()
                         if 0 < diff_t < 1800: 
@@ -308,7 +309,6 @@ if st.session_state.my_gpx_data:
                 last, last_elev, last_time = [p.latitude, p.longitude], p.elevation, p.time
             if current_seg: segments_pts.append(current_seg)
 
-        # Berechne Durchschnittsgeschwindigkeit
         avg_speed = 0.0
         if total_time_s > 0:
             avg_speed = d_total / (total_time_s / 3600.0)
@@ -390,7 +390,6 @@ if st.session_state.my_gpx_data:
             f_title = get_fitted_font(st.session_state.tour_title, w*0.9, int(w*0.08*st.session_state.font_scale))
             draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, offset=st.session_state.shadow_offset)
             
-            # Dynamische Daten-Leiste zusammenbauen
             data_items = [("dist", f"{d_total:.1f} km")]
             if st.session_state.show_speed and avg_speed > 0:
                 data_items.append(("speed", f"{avg_speed:.1f} km/h"))
