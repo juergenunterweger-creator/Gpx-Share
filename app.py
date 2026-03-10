@@ -8,12 +8,12 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.36: Logo Selection Restored & Renamed) ---
+# --- STANDARDWERTE (v2.7.37: Default Title Color Blood Red) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "c_line": "#8B0000",
-    "c_title": "#FFFFFF",
+    "c_title": "#8B0000", # FIX: Jetzt standardmäßig Blutrot
     "c_date": "#FFFFFF",
     "c_data": "#FFFFFF",
     "c_grid": "#FFFFFF",
@@ -24,7 +24,7 @@ DEFAULTS = {
     "show_logo": False,
     "show_route": False,
     "show_minibox": True,
-    "logo_type": "Smartes Logo", # Standard auf Smart
+    "logo_type": "Smartes Logo",
     "show_date": True,
     "auto_intervals": True,
     "grid_m_interval": 250,
@@ -173,7 +173,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.36]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.37]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -202,7 +202,6 @@ with st.expander("⚙️ Einstellungen [v2.7.36]", expanded=False):
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
         st.checkbox("7. App Logo (Im Bild)", key="show_logo")
-        # NEU/WIEDERHERGESTELLT: Logoart Auswahl mit neuen Namen
         st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
         st.checkbox("8. Route in Bild anzeigen", key="show_route")
         st.checkbox("9. Minibox (Karte)", key="show_minibox")
@@ -221,7 +220,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.36 (Aktuell):**\n- Logoart-Auswahl wiederhergestellt.\n- Umbenennung in 'Grafisches logo' (logo.png) und 'Smartes Logo' (Vektor).")
+    st.info("**v2.7.37 (Aktuell):**\n- Standardfarbe für Tour-Titel auf Blutrot (#8B0000) geändert.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
