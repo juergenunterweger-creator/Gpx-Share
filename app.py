@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.23: Fixed Branding - Logo in App Header, Image Reverted) ---
+# --- STANDARDWERTE (v2.7.25: Logoart Auswahl hinzugefügt) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -21,7 +21,8 @@ DEFAULTS = {
     "show_markers": True,
     "show_speed": True,
     "show_profile": True,
-    "show_logo": True,
+    "show_logo": False,
+    "logo_type": "Grafik", # NEU: Auswahl zwischen Grafik und logo.png
     "show_date": True,
     "auto_intervals": True,
     "grid_m_interval": 250,
@@ -30,7 +31,8 @@ DEFAULTS = {
     "size_title": 1.5,
     "size_date": 1.0,
     "size_data": 1.0,
-    "size_grid": 1.0
+    "size_grid": 1.0,
+    "size_logo": 1.0
 }
 
 for key, val in DEFAULTS.items():
@@ -114,7 +116,6 @@ def draw_data_icon(mode, size, color="white"):
         
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-# Das grafische Premium-Logo (für das Bild)
 def draw_graphical_logo(draw, pos, scale=1.0, color="#8B0000"):
     x, y = int(pos[0]), int(pos[1])
     icon_size = int(50 * scale)
@@ -134,14 +135,14 @@ def get_logo_path():
             return name
     return None
 
-# --- FIX: APP-HEADER UI UPDATE (Icon entfernt, Text zentriert) ---
+# --- APP-HEADER UI UPDATE ---
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
 .header-box {
     display: flex;
     align-items: center;
-    justify-content: center; /* NEU: Text in der Mitte zentrieren */
+    justify-content: center;
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
     padding: 20px;
     border-radius: 15px;
@@ -149,7 +150,6 @@ st.markdown("""
     margin-bottom: 30px;
     border: 1px solid #333;
 }
-/* Motorrad Icon aus dem UI entfernt */
 .header-icon { font-size: 45px; margin-right: 15px; display: none; } 
 .header-title {
     font-size: 38px;
@@ -160,14 +160,14 @@ st.markdown("""
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 1px;
-    text-align: center; /* NEU: Text zentrieren */
+    text-align: center;
 }
 .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } 
 .fb-btn { background-color: #1877F2; } 
 .wa-btn { background-color: #25D366; }
 </style>
 <div class="header-box">
-    <p class="header-title">GPX Share Pro Pro XXL</p>
+    <p class="header-title">GPX Share Pro XXL</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -205,7 +205,7 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.23]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.25]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -228,6 +228,7 @@ with st.expander("⚙️ Einstellungen [v2.7.23]", expanded=False):
             st.number_input("Größe Datum", min_value=0.5, max_value=4.0, key="size_date", step=0.1)
             st.number_input("Größe Daten", min_value=0.5, max_value=4.0, key="size_data", step=0.1)
             st.number_input("Größe Raster", min_value=0.5, max_value=3.0, key="size_grid", step=0.1)
+            st.number_input("Größe Logo", min_value=0.5, max_value=3.0, key="size_logo", step=0.1)
         with col_color:
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Datum", key="c_date")
@@ -240,7 +241,9 @@ with st.expander("⚙️ Einstellungen [v2.7.23]", expanded=False):
         st.checkbox("4. Start/Ziel (S/Z)", key="show_markers")
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
-        st.checkbox("7. App Logo (Im Info-Reiter)", key="show_logo")
+        st.checkbox("7. App Logo (Im Bild)", key="show_logo")
+        # NEU: Logoart Auswahl (als Radio-Buttons für 1-Klick Bedienung)
+        st.radio("Logoart", ["Grafik", "logo.png"], horizontal=True, key="logo_type")
         st.checkbox("Datum anzeigen", key="show_date")
         
         st.write("**📏 10. Raster & Intervalle**")
@@ -251,15 +254,21 @@ with st.expander("⚙️ Einstellungen [v2.7.23]", expanded=False):
             
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER (MIT EIGENEM LOGO) ---
+# --- INFO REITER (DYNAMISCHES LOGO) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    logo_file = get_logo_path()
-    if logo_file:
-        st.image(logo_file, width=250)
+    # NEU: Der Info-Reiter passt sich an die gewählte Logoart an
+    if st.session_state.logo_type == "Grafik":
+        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
+        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
+        st.image(menu_logo, use_container_width=False)
     else:
-        st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
+        logo_file = get_logo_path()
+        if logo_file:
+            st.image(logo_file, width=250)
+        else:
+            st.warning("⚠️ 'logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
         
-    st.markdown("### GPX Share Pro XXL | v2.7.23")
+    st.markdown("### GPX Share Pro XXL | v2.7.25")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -417,9 +426,6 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline=st.session_state.c_date, width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
 
-            # --- EIGENES LOGO NICHT IM BILD PLATZIEREN ---
-            # (Dieser Block wurde entfernt, um das Foto wiederherzustellen)
-
             # ROUTE & MARKER ZEICHNEN
             margin_x = 0.15
             margin_y = 0.25 
@@ -452,10 +458,30 @@ if up_gpx is not None:
                 draw_marker(draw, transform(all_pts[0][0], all_pts[0][1]), "green", "S")
                 draw_marker(draw, transform(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
 
-            # --- FIX: Grafisches Logo wieder links oben im Foto einfügen ---
-            # (Wiederherstellung von v2.7.21 Zustand)
-            logo_pos_img = (int(w * 0.03), bh_top + int(h * 0.02))
-            draw_graphical_logo(draw, logo_pos_img, scale=1.0, color=st.session_state.c_line)
+            # --- DYNAMISCHES LOGO IM BILD ---
+            if st.session_state.show_logo:
+                if st.session_state.logo_type == "Grafik":
+                    logo_pos_img = (int(w * 0.03), bh_top + int(h * 0.02))
+                    # NEU: Der Size-Regler greift jetzt auch auf das Grafik-Logo zu
+                    draw_graphical_logo(draw, logo_pos_img, scale=st.session_state.size_logo, color=st.session_state.c_line)
+                else:
+                    logo_file = get_logo_path()
+                    if logo_file:
+                        try:
+                            my_logo = Image.open(logo_file).convert("RGBA")
+                            base_logo_width = int(w * 0.15)
+                            target_w = int(base_logo_width * st.session_state.size_logo)
+                            aspect_ratio = my_logo.height / my_logo.width
+                            target_h = int(target_w * aspect_ratio)
+                            
+                            my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                            
+                            logo_x = int(w * 0.03)
+                            logo_y = bh_top + int(h * 0.02)
+                            
+                            overlay.paste(my_logo, (logo_x, logo_y), my_logo)
+                        except Exception as e:
+                            pass
 
             final = Image.alpha_composite(canvas, overlay).convert('RGB')
             st.image(final, use_container_width=True)
