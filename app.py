@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.35: Distinct Distance Icon Fix) ---
+# --- STANDARDWERTE (v2.7.36: Logo Selection Restored & Renamed) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -24,7 +24,7 @@ DEFAULTS = {
     "show_logo": False,
     "show_route": False,
     "show_minibox": True,
-    "logo_type": "Grafik",
+    "logo_type": "Smartes Logo", # Standard auf Smart
     "show_date": True,
     "auto_intervals": True,
     "grid_m_interval": 250,
@@ -90,7 +90,6 @@ def draw_marker(draw, pos, color, label=""):
         f = load_font(16)
         draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
 
-# --- ICON ZEICHNEN FIX ---
 def draw_data_icon(mode, size, color="white"):
     res = 4
     size = int(max(10, size))
@@ -98,16 +97,13 @@ def draw_data_icon(mode, size, color="white"):
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
     x0, y0, x1, y1 = lw, lw, size*res - lw, size*res - lw
-    
     if mode == "dist":
-        # NEU: Distanz Icon als Pfad/Wegstrecke
         d.line([(x0, y1-lw), (x1//2, y1-lw), (x1//2, y0+lw), (x1, y0+lw)], fill=color, width=lw, joint="round")
-        d.ellipse([x0-lw, y1-2*lw, x0+lw, y1], fill=color) # Startpunkt
-        d.ellipse([x1-lw, y0, x1+lw, y0+2*lw], fill=color) # Zielpunkt
+        d.ellipse([x0-lw, y1-2*lw, x0+lw, y1], fill=color)
+        d.ellipse([x1-lw, y0, x1+lw, y0+2*lw], fill=color)
     elif mode == "elev":
         d.polygon([(lw, y1), (size*res//2, y0), (x1, y1)], fill=color)
     elif mode == "speed": 
-        # Bleibt Tacho für Geschwindigkeit
         d.arc([x0, y0, x1, y1], 150, 390, fill=color, width=lw)
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
@@ -177,7 +173,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.35]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.36]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -206,21 +202,16 @@ with st.expander("⚙️ Einstellungen [v2.7.35]", expanded=False):
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
         st.checkbox("7. App Logo (Im Bild)", key="show_logo")
+        # NEU/WIEDERHERGESTELLT: Logoart Auswahl mit neuen Namen
+        st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
         st.checkbox("8. Route in Bild anzeigen", key="show_route")
         st.checkbox("9. Minibox (Karte)", key="show_minibox")
         st.checkbox("Datum anzeigen", key="show_date")
-        
-        st.write("**📏 Raster & Intervalle**")
-        st.checkbox("Auto-Intervalle nutzen", key="auto_intervals")
-        if not st.session_state.auto_intervals:
-            st.number_input("Meter-Intervalle (m)", 50, 5000, key="grid_m_interval", step=50)
-            st.number_input("KM-Intervalle (km)", 1, 500, key="grid_km_interval", step=5)
-            
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    if st.session_state.logo_type == "Grafik":
+    if st.session_state.logo_type == "Smartes Logo":
         menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
         draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
         st.image(menu_logo, use_container_width=False)
@@ -230,12 +221,10 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.35 (Aktuell):**\n- Distanz-Icon korrigiert (eigenes Pfad-Symbol).\n- Durchschnittsgeschwindigkeit behält Tacho-Icon.")
-    
+    st.info("**v2.7.36 (Aktuell):**\n- Logoart-Auswahl wiederhergestellt.\n- Umbenennung in 'Grafisches logo' (logo.png) und 'Smartes Logo' (Vektor).")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    
     app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
     raw_msg = f"Hey! Schau dir mal diese geniale App zum teilen deiner Motorrad-Touren an: {app_url}"
     share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
@@ -284,32 +273,26 @@ if up_gpx:
             e_r = (e_max - e_min) or 1
             px_m, p_w = 10, w - 20 
             grid_y_start = h - bh_b
-            
             if st.session_state.auto_intervals:
                 step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
                 step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
             else:
                 step_km = st.session_state.grid_km_interval
                 step_m = st.session_state.grid_m_interval
-            
             f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
-            c_grid_transp = hex_to_rgba(st.session_state.c_grid, 160)
-            c_grid_lines = hex_to_rgba(st.session_state.c_grid, 50)
-            
-            for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
-                gy = int((h-bh_b)+(bh_b*0.85)-((m_val-e_min)/e_r)*(bh_b*0.7))
-                draw.line([(px_m, gy), (w - px_m, gy)], fill=c_grid_lines, width=1)
-                
-            last_text_end = -100 
+            c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
+            for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
+                gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
+                draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
+            last_tx = -100 
             for k in range(step_km, int(d_total), step_km):
                 gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
-                draw.line([(gx, grid_y_start), (gx, h)], fill=c_grid_lines, width=1)
-                text_str = f"{k}km"
-                tw = draw.textlength(text_str, font=f_grid)
-                if gx - tw/2 > last_text_end + 20:
-                    draw.text((int(gx), int(grid_y_start+5)), text_str, fill=c_grid_transp, font=f_grid, anchor="mt")
-                    last_text_end = gx + tw/2
-
+                draw.line([(gx, grid_y_start), (gx, h)], fill=c_g_l, width=1)
+                txt = f"{k}km"
+                tw = draw.textlength(txt, font=f_grid)
+                if gx - tw/2 > last_tx + 20:
+                    draw.text((gx, grid_y_start+5), txt, fill=c_g_t, font=f_grid, anchor="mt")
+                    last_tx = gx + tw/2
             profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
             rgb = hex_to_rgba(st.session_state.c_line)
             draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
@@ -327,12 +310,12 @@ if up_gpx:
             cx += draw.textlength(t, f_d) + w*0.08
 
         if st.session_state.show_date and st.session_state.tour_date:
-            f_date = load_font(int(w * 0.028 * st.session_state.size_date))
-            tw = draw.textlength(st.session_state.tour_date, font=f_date)
+            f_dt = load_font(int(w * 0.028 * st.session_state.size_date))
+            tw = draw.textlength(st.session_state.tour_date, font=f_dt)
             bx1, by1 = 30, int(h - bh_b - 80)
             bx2, by2 = int(30 + tw + 40), int(h - bh_b - 20)
             safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
-            draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_date, anchor="mm")
+            draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
 
         all_pts = [p for s in pts for p in s]
         if all_pts:
@@ -341,8 +324,7 @@ if up_gpx:
             la_e, lo_e = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             if st.session_state.show_route:
                 ssf = 3
-                ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0))
-                rd = ImageDraw.Draw(ro)
+                ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0)); rd = ImageDraw.Draw(ro)
                 rgb = hex_to_rgba(st.session_state.c_line)
                 for s in pts:
                     s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
@@ -354,10 +336,8 @@ if up_gpx:
                     draw_marker(draw, tr(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
 
         if st.session_state.show_minibox and all_pts:
-            base_size = 280
-            mb_w = int(base_size * st.session_state.size_minibox)
-            mb_h = mb_w
-            mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
+            mb_w = int(280 * st.session_state.size_minibox)
+            mb_h = mb_w; mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
             safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
             m_m, m_la_e, m_lo_e = int(20 * st.session_state.size_minibox), (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             aspect = m_la_e / m_lo_e
@@ -376,7 +356,7 @@ if up_gpx:
 
         if st.session_state.show_logo:
             lp = (30, bh_t + 30)
-            if st.session_state.logo_type == "Grafik": draw_graphical_logo(draw, lp, st.session_state.size_logo, st.session_state.c_line)
+            if st.session_state.logo_type == "Smartes Logo": draw_graphical_logo(draw, lp, st.session_state.size_logo, st.session_state.c_line)
             else:
                 p = get_logo_path()
                 if p:
