@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.7: Anti-Aliased Lines & Margin Fix) ---
+# --- STANDARDWERTE (v2.7.8: Raster-Padding & Data Size 1.0) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -22,7 +22,7 @@ DEFAULTS = {
     "bg_opacity": 100,
     "size_title": 1.5,
     "size_date": 1.0,
-    "size_data": 1.2,
+    "size_data": 1.0, # NEU: Standard auf 1.0
     "size_grid": 1.0
 }
 
@@ -180,7 +180,7 @@ with st.expander("⚙️ Einstellungen (Aufgeräumt)", expanded=True):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.7")
+    st.markdown("### GPX Share Pro XXL | v2.7.8")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -259,26 +259,39 @@ if up_gpx is not None:
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
-            # HÖHENPROFIL & RASTER
+            # HÖHENPROFIL & RASTER MIT MARGINS (NEU)
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
                 grid_y_start = h - bh_bot
-                profile_pts = [((i/len(elevs))*w, (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) for i, ev in enumerate(elevs)]
+                
+                # 20 Pixel Sicherheitsabstand links und rechts
+                px_margin = 20
+                p_width = w - 2 * px_margin
+                
+                profile_pts = [(px_margin + (i/max(1, len(elevs)-1))*p_width, 
+                               (h-bh_bot)+(bh_bot*0.85)-((ev-e_min)/e_range)*(bh_bot*0.7)) 
+                               for i, ev in enumerate(elevs)]
                 
                 f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
                 if step_m > 0 and step_km > 0:
                     for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
-                        draw.line([(0, gy), (w, gy)], fill=(255,255,255,50), width=1)
-                        draw.text((int(w*0.01), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                        draw.line([(px_margin, gy), (w - px_margin, gy)], fill=(255,255,255,50), width=1)
+                        draw.text((int(px_margin), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
                     for k in range(step_km, int(d_total), step_km):
-                        gx = int((k / d_total) * w)
+                        gx = int(px_margin + (k / d_total) * p_width)
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
-                        draw.text((int(gx+5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
+                        
+                        # Intelligenter Text-Schutz: Wenn zu weit rechts, Text nach links klappen
+                        if gx > w - 80:
+                            draw.text((int(gx-5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="rt")
+                        else:
+                            draw.text((int(gx+5), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="lt")
                 
                 rgb_fill = tuple(int("#8B0000"[i*2+1:i*2+3], 16) for i in range(3))
-                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb_fill + (120,))
+                # Polygon mit den Rändern sauber schließen
+                draw.polygon(profile_pts + [(px_margin + p_width, h), (px_margin, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
             # TITEL & DATEN
@@ -314,9 +327,9 @@ if up_gpx is not None:
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline="white", width=2)
                 draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
 
-            # ROUTE & MARKER ZEICHNEN (Anti-Aliasing & Margin Fix)
+            # ROUTE & MARKER ZEICHNEN
             margin_x = 0.15
-            margin_y = 0.25 # Viel mehr Abstand nach oben und unten!
+            margin_y = 0.25 
             la_eps, lo_eps = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             
             def transform(lat, lon):
@@ -325,7 +338,7 @@ if up_gpx is not None:
 
             rgb_route = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
 
-            # Supersampling für butterweiche Linien (3x größere Zeichenfläche)
+            # Supersampling
             ssf = 3 
             route_overlay = Image.new('RGBA', (w * ssf, h * ssf), (0,0,0,0))
             route_draw = ImageDraw.Draw(route_overlay)
@@ -339,7 +352,6 @@ if up_gpx is not None:
                 if len(s_pts) > 1: 
                     route_draw.line(s_pts, fill=rgb_route + (255,), width=int(st.session_state.w_line * ssf), joint="round")
             
-            # Die Riesen-Linie wird wieder verkleinert -> LANCZOS glättet die Ränder perfekt
             route_overlay = route_overlay.resize((w, h), Image.Resampling.LANCZOS)
             overlay.paste(route_overlay, (0, 0), route_overlay)
                 
