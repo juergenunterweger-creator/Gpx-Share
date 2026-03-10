@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.31: Raster Fix & Datum Position Left) ---
+# --- STANDARDWERTE (v2.7.32: Variable p_width Fix) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -171,7 +171,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.31]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.32]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -254,10 +254,9 @@ if up_gpx:
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs)
             e_r = (e_max - e_min) or 1
-            px_m, p_w = 10, w - 20
+            px_m, p_w = 10, w - 20 # Profil-Flächen-Breite
             grid_y_start = h - bh_b
             
-            # Intervalle berechnen
             if st.session_state.auto_intervals:
                 step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
                 step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
@@ -269,15 +268,14 @@ if up_gpx:
             c_grid_transp = hex_to_rgba(st.session_state.c_grid, 160)
             c_grid_lines = hex_to_rgba(st.session_state.c_grid, 50)
             
-            # Horizontale Linien (Meter)
             for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                 gy = int((h-bh_b)+(bh_b*0.85)-((m_val-e_min)/e_r)*(bh_b*0.7))
                 draw.line([(px_m, gy), (w - px_m, gy)], fill=c_grid_lines, width=1)
                 
-            # Vertikale Linien (KM)
             last_text_end = -100 
             for k in range(step_km, int(d_total), step_km):
-                gx = int(px_m + (k / d_total) * p_width if d_total > 0 else 0)
+                # FIX: Variable p_w wird hier korrekt verwendet
+                gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
                 draw.line([(gx, grid_y_start), (gx, h)], fill=c_grid_lines, width=1)
                 text_str = f"{k}km"
                 tw = draw.textlength(text_str, font=f_grid)
@@ -285,7 +283,6 @@ if up_gpx:
                     draw.text((int(gx), int(grid_y_start+5)), text_str, fill=c_grid_transp, font=f_grid, anchor="mt")
                     last_text_end = gx + tw/2
 
-            # Profil-Fläche
             profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
             if st.session_state.show_route:
                 rgb = hex_to_rgba(st.session_state.c_line)
@@ -304,11 +301,10 @@ if up_gpx:
             draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, dy), t, f_d, fill=st.session_state.c_data)
             cx += draw.textlength(t, f_d) + w*0.08
 
-        # --- DATUM (NEU: LINKS OBEN ÜBER PROFIL) ---
+        # --- DATUM (LINKS OBEN ÜBER PROFIL) ---
         if st.session_state.show_date and st.session_state.tour_date:
             f_date = load_font(int(w * 0.028 * st.session_state.size_date))
             tw = draw.textlength(st.session_state.tour_date, font=f_date)
-            # Position: Links oben, über dem bh_b Bereich
             bx1, by1 = 30, int(h - bh_b - 80)
             bx2, by2 = int(30 + tw + 40), int(h - bh_b - 20)
             safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
