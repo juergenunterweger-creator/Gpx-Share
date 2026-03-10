@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.10: Anti-Overlap & Forced Collapse) ---
+# --- STANDARDWERTE (v2.7.11: Pixel-Perfect Anti-Overlap) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -146,7 +146,6 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-# NEUER NAME: Zwingt den Browser dazu, den Cache zu vergessen und es einzuklappen!
 with st.expander("⚙️ Einstellungen", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
@@ -181,7 +180,7 @@ with st.expander("⚙️ Einstellungen", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.10")
+    st.markdown("### GPX Share Pro XXL | v2.7.11")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -260,7 +259,7 @@ if up_gpx is not None:
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
-            # HÖHENPROFIL & RASTER MIT MARGINS & ANTI-OVERLAP
+            # HÖHENPROFIL & RASTER MIT MARGINS & ANTI-OVERLAP (Perfektioniert)
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -280,18 +279,30 @@ if up_gpx is not None:
                         draw.line([(px_margin, gy), (w - px_margin, gy)], fill=(255,255,255,50), width=1)
                         draw.text((int(px_margin), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
                     
-                    last_gx = -100 # Reset der Position für die Überlappungs-Kontrolle
+                    last_text_end = -100 # Reset der End-Position
                     for k in range(step_km, int(d_total), step_km):
                         gx = int(px_margin + (k / d_total) * p_width)
+                        
+                        # Die Rasterlinie wird IMMER gezeichnet
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         
-                        # Text zentriert an die Linie setzen und vor Überhang schützen
-                        text_x = max(px_margin + 15, min(w - px_margin - 15, gx))
+                        text_str = f"{k}km"
+                        tw = draw.textlength(text_str, font=f_grid)
                         
-                        # ANTI-OVERLAP: Zeichne nur, wenn mindestens 60 Pixel Platz zum letzten Text sind!
-                        if text_x - last_gx > 60:
-                            draw.text((int(text_x), int(grid_y_start+5)), f"{k}km", fill=(255,255,255,160), font=f_grid, anchor="mt")
-                            last_gx = text_x
+                        # Wenn der Text rechts aus dem Bild ragen würde -> rechtsbündig
+                        if gx + tw/2 > w - px_margin:
+                            anchor = "rt"
+                            t_start = gx - tw
+                            t_end = gx
+                        else:
+                            anchor = "mt"
+                            t_start = gx - tw/2
+                            t_end = gx + tw/2
+                            
+                        # ANTI-OVERLAP: Echte Pixelbreite vergleichen (mindestens 10 Pixel Abstand)
+                        if t_start > last_text_end + 10:
+                            draw.text((int(gx), int(grid_y_start+5)), text_str, fill=(255,255,255,160), font=f_grid, anchor=anchor)
+                            last_text_end = t_end
                 
                 rgb_fill = tuple(int("#8B0000"[i*2+1:i*2+3], 16) for i in range(3))
                 draw.polygon(profile_pts + [(px_margin + p_width, h), (px_margin, h)], fill=rgb_fill + (120,))
