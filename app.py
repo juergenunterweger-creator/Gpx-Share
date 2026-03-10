@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.18: Logo.png Integration) ---
+# --- STANDARDWERTE (v2.7.19: Hard Cache Breaker) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -188,7 +188,8 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("🛠️ Einstellungen & Design", expanded=False): 
+# CACHE-BREAKER: Neue Überschrift mit Version zwingt Streamlit zur Neu-Darstellung!
+with st.expander("⚙️ Einstellungen [v2.7.19]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -236,13 +237,12 @@ with st.expander("🛠️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER (MIT EIGENEM LOGO.PNG) ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    # Versuche das eigene Logo zu laden
     if os.path.exists("Logo.png"):
         st.image("Logo.png", width=250)
     else:
         st.warning("⚠️ 'Logo.png' wurde nicht gefunden. Lege das Bild in denselben Ordner wie diese App, damit es angezeigt wird.")
         
-    st.markdown("### GPX Share Pro XXL | v2.7.18")
+    st.markdown("### GPX Share Pro XXL | v2.7.19")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -404,24 +404,18 @@ if up_gpx is not None:
             if st.session_state.show_logo:
                 try:
                     my_logo = Image.open("Logo.png").convert("RGBA")
-                    # Basisgröße (z.B. 15% der 1080px Bildbreite)
                     base_logo_width = int(w * 0.15)
-                    # Mit dem Schieberegler skalieren
                     target_w = int(base_logo_width * st.session_state.size_logo)
-                    # Seitenverhältnis beibehalten
                     aspect_ratio = my_logo.height / my_logo.width
                     target_h = int(target_w * aspect_ratio)
                     
                     my_logo = my_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
                     
-                    # Positionierung: Oben links, direkt unter der schwarzen Infobox
                     logo_x = int(w * 0.03)
                     logo_y = bh_top + int(h * 0.02)
                     
                     overlay.paste(my_logo, (logo_x, logo_y), my_logo)
                 except Exception as e:
-                    # Falls das Bild beim Rendern fehlt, wird das im Hintergrund ignoriert, 
-                    # um den Bild-Export nicht zu zerstören. Die Warnung steht ja bereits im Info-Menü.
                     pass
 
             # ROUTE & MARKER ZEICHNEN
