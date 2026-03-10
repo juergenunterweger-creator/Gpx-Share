@@ -6,6 +6,7 @@ import math
 import os
 
 # --- APP KONFIGURATION ---
+# Sucht nach deinem Logo für den Browser-Tab
 def get_fav_icon():
     if os.path.exists("logo_icon.png"):
         return "logo_icon.png"
@@ -33,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (Original v2.8.1) ---
+# --- STANDARDWERTE (v2.8.1 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -151,12 +152,29 @@ def hex_to_rgba(hex_color, alpha=255):
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
 
 def get_logo_path():
-    for name in ["logo.png", "Logo.png", "logo_icon.png"]:
+    for name in ["logo.png", "Logo.png", "LOGO.png"]:
         if os.path.exists(name): return name
     return None
 
 # --- APP-HEADER UI ---
-st.markdown('<div style="background: linear-gradient(135deg, #111, #2a2a2a); padding: 20px; border-radius: 15px; text-align: center; border-bottom: 4px solid #da2323; margin-bottom: 30px;"><h1 style="color: #ff4b4b; margin:0; font-size: 38px;">GPX SHARE PRO XXL</h1></div>', unsafe_allow_html=True)
+st.markdown("""
+<style>
+.stApp { background-color: #ffffff; color: #000000; } 
+.header-box {
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
+    padding: 20px; border-radius: 15px; box-shadow: 0px 10px 20px rgba(218, 35, 35, 0.4);
+    margin-bottom: 30px; border: 1px solid #333;
+}
+.header-title {
+    font-size: 38px; font-weight: 900;
+    background: linear-gradient(90deg, #ff4b4b 0%, #da2323 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0; text-transform: uppercase; text-align: center;
+}
+</style>
+<div class="header-box"><p class="header-title">GPX Share Pro XXL</p></div>
+""", unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -182,7 +200,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.8.1]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.8.1 Beta]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -226,11 +244,16 @@ with st.expander("⚙️ Einstellungen [v2.8.1]", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    logo_file = get_logo_path()
-    if logo_file: st.image(logo_file, width=250)
+    if st.session_state.logo_type == "Smartes Logo":
+        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
+        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
+        st.image(menu_logo, use_container_width=False)
+    else:
+        logo_file = get_logo_path()
+        if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.8.1:**\n- Kompletter Rollback auf stabile Version.\n- Counter entfernt für maximale Zuverlässigkeit.\n- Browser-Favicon aktiv.")
+    st.info("**v2.8.1 Beta:**\n- Alle externen Datenbank-Verbindungen (Counter) entfernt.\n- Volle Stabilität wiederhergestellt.\n- Browser-Favicon aktiv.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -238,6 +261,15 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     raw_msg = f"Hey! Schau dir mal diese geniale App an: {app_url}"
     share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
     st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
+
+# --- APP INSTALLIEREN REITER ---
+with st.expander("📲 App installieren", expanded=False):
+    st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
+    col_ios, col_android = st.columns(2)
+    with col_ios:
+        st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
+    with col_android:
+        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
 
 st.divider()
 
@@ -277,9 +309,24 @@ if up_gpx:
 
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
-            profile_pts = [(10 + (i/max(1, len(elevs)-1))*(w-20), (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
+            px_m, p_w, grid_y_s = 10, w - 20, h - bh_b
+            step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
+            step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
+            f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
+            c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
+            for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
+                gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
+                draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
+            last_tx = -100 
+            for k in range(step_km, int(d_total), step_km):
+                gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
+                draw.line([(gx, grid_y_s), (gx, h)], fill=c_g_l, width=1)
+                txt = f"{k}km"; tw = draw.textlength(txt, font=f_grid)
+                if gx - tw/2 > last_tx + 20:
+                    draw.text((gx, grid_y_s+5), txt, fill=c_g_t, font=f_grid, anchor="mt"); last_tx = gx + tw/2
+            profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
             rgb = hex_to_rgba(st.session_state.c_line)
-            draw.polygon(profile_pts + [(w-10, h), (10, h)], fill=rgb[:3] + (120,))
+            draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
             draw.line(profile_pts, fill=(255,255,255,255), width=4)
 
         draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
@@ -347,6 +394,6 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v281.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v281_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
