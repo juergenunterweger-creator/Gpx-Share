@@ -4,9 +4,5 @@ Pillow
 folium
 streamlit-folium
 staticmap
-streamlit
-gpxpy
-Pillow
-st-gsheets-connection
 
 
