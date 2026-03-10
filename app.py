@@ -18,12 +18,11 @@ MAP_STYLES = {
     "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 }
 
-# --- STANDARDWERTE (v2.7.3: The Ultimate Safari Fix) ---
+# --- STANDARDWERTE (v2.7.4: Back to Basics - No Memory Hacks) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "show_date": True,
-    "bg_mode": "Automatisch",
     "map_style": "OSM Standard",
     "bg_opacity": 100,
     "font_scale": 1.5,
@@ -61,10 +60,6 @@ DEFAULTS = {
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
-
-# SICHERER DATENSPEICHER
-if "my_gpx_data" not in st.session_state: st.session_state.my_gpx_data = None
-if "my_img_data" not in st.session_state: st.session_state.my_img_data = None
 
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
@@ -166,74 +161,62 @@ def draw_data_icon(mode, size, color="white"):
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOADS (BLENDE UPLOADER AUS SOBALD GELADEN) ---
+# --- UPLOADS (KLASSISCH & STABIL) ---
 c_up1, c_up2 = st.columns(2)
 
 with c_up1:
-    if st.session_state.my_gpx_data is None:
-        up_gpx = st.file_uploader("📍 1. GPX Datei wählen")
-        if up_gpx is not None:
-            gpx_bytes = up_gpx.getvalue()
-            if len(gpx_bytes) > 0:
-                if not up_gpx.name.lower().endswith('.gpx'):
-                    st.error("❌ Bitte wähle eine gültige .gpx Datei aus.")
-                else:
-                    st.session_state.my_gpx_data = gpx_bytes
-                    st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-                    
-                    try:
-                        gpx_obj = gpxpy.parse(io.BytesIO(gpx_bytes))
-                        parsed_date = ""
-                        if gpx_obj.time:
-                            parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
-                        else:
-                            for track in gpx_obj.tracks:
-                                for seg in track.segments:
-                                    for pt in seg.points:
-                                        if pt.time:
-                                            parsed_date = pt.time.strftime("%d.%m.%Y")
-                                            break
-                                    if parsed_date: break
-                                if parsed_date: break
-                        if parsed_date:
-                            st.session_state.tour_date = parsed_date
-                    except: pass
-                    st.rerun()
-    else:
-        st.success("📍 GPX sicher geladen!")
-        if st.button("🗑️ GPX ändern / löschen"):
-            st.session_state.my_gpx_data = None
-            st.rerun()
+    # WICHTIG: Eigener Key, damit Streamlit das Feld beim Neuladen nie vergisst
+    up_gpx = st.file_uploader("📍 1. GPX Datei wählen", key="gpx_uploader")
 
 with c_up2:
-    if st.session_state.my_img_data is None:
-        up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"])
-        if up_img is not None:
-            img_bytes = up_img.getvalue()
-            if len(img_bytes) > 0:
-                st.session_state.my_img_data = img_bytes
-                st.rerun()
-    else:
-        st.success("📸 Foto sicher geladen!")
-        if st.button("🗑️ Foto ändern / löschen"):
-            st.session_state.my_img_data = None
-            st.rerun()
+    up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
-# --- DYNAMISCHE KARTEN LOGIK ---
-use_map_ui = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and st.session_state.my_img_data is None)
+# GPX Daten extrahieren, wenn hochgeladen
+gpx_data = None
+if up_gpx is not None:
+    gpx_data = up_gpx.getvalue()
+    # Nur Titel auslesen, wenn das Textfeld noch "Meine Tour" heißt (verhindert Überschreiben)
+    if st.session_state.tour_title == "Meine Tour":
+        st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+        
+    if st.session_state.tour_date == "":
+        try:
+            gpx_obj = gpxpy.parse(io.BytesIO(gpx_data))
+            parsed_date = ""
+            if gpx_obj.time:
+                parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
+            else:
+                for track in gpx_obj.tracks:
+                    for seg in track.segments:
+                        for pt in seg.points:
+                            if pt.time:
+                                parsed_date = pt.time.strftime("%d.%m.%Y")
+                                break
+                        if parsed_date: break
+                    if parsed_date: break
+            if parsed_date:
+                st.session_state.tour_date = parsed_date
+        except: pass
+
+# Foto Daten extrahieren, wenn hochgeladen
+img_data = None
+has_image = False
+if up_img is not None:
+    img_data = up_img.getvalue()
+    has_image = True
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Einstellungen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**🖼️ Hintergrund & Foto**")
-        st.selectbox("Hintergrund-Modus", ["Automatisch", "Nur Foto", "Nur Karte"], key="bg_mode")
-        
-        if use_map_ui:
+        # Das fehleranfällige bg_mode Dropdown wurde komplett entfernt!
+        if not has_image:
             st.selectbox("Karten-Design", list(MAP_STYLES.keys()), key="map_style")
             
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        if st.session_state.my_img_data and not (st.session_state.bg_mode == "Nur Karte"):
+        
+        if has_image:
             st.slider("Foto Zoom", 0.5, 5.0, key="img_zoom", step=0.1)
             st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
             st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
@@ -271,7 +254,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.3")
+    st.markdown("### GPX Share Pro XXL | v2.7.4")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -280,9 +263,9 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 st.divider()
 
 # --- VERARBEITUNG ---
-if st.session_state.my_gpx_data:
+if gpx_data:
     try:
-        gpx = gpxpy.parse(io.BytesIO(st.session_state.my_gpx_data))
+        gpx = gpxpy.parse(io.BytesIO(gpx_data))
         segments_pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last, last_elev, last_time = None, None, None
@@ -336,15 +319,15 @@ if st.session_state.my_gpx_data:
 
             # HINTERGRUND
             canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
-            use_map = (st.session_state.bg_mode == "Nur Karte") or (st.session_state.bg_mode == "Automatisch" and st.session_state.my_img_data is None)
-            draw_route = not use_map 
             
-            if not use_map and st.session_state.my_img_data:
-                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(st.session_state.my_img_data))).convert("RGBA")
+            if has_image:
+                # Foto als Hintergrund
+                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(img_data))).convert("RGBA")
                 nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
             else:
+                # OSM Karte als Hintergrund
                 m = StaticMap(w, h, url_template=MAP_STYLES[st.session_state.map_style])
                 m.add_line(MapLine([(mi_lo-0.005, mi_la-0.005), (ma_lo+0.005, ma_la+0.005)], '#00000000', 1))
                 m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
@@ -439,7 +422,8 @@ if st.session_state.my_gpx_data:
                             next_km_goal += marker_step_km
                     last_p, last_raw = curr_p, p
                 
-                if draw_route and len(s_pts) > 1: 
+                # Wenn wir kein Foto haben, zeichnen wir die Route (auf die OSM-Karte)
+                if not has_image and len(s_pts) > 1: 
                     draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
             if st.session_state.show_km_steps:
