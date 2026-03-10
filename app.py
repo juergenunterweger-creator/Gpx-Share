@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.41: Story Margins & PNG Download) ---
+# --- STANDARDWERTE (v2.7.42: Split Story Margins Top/Bottom) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -36,8 +36,9 @@ DEFAULTS = {
     "size_grid": 1.0,
     "size_logo": 1.0,
     "size_minibox": 1.0,
-    "story_margins_active": True, # NEU: Ränder standardmäßig AN
-    "margin_height": 100 # NEU: Standardhöhe 100px
+    "story_margins_active": True,
+    "margin_top": 150, # NEU: Separater Wert oben
+    "margin_bottom": 100 # NEU: Separater Wert unten
 }
 
 for key, val in DEFAULTS.items():
@@ -175,7 +176,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.41]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.42]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -185,15 +186,13 @@ with st.expander("⚙️ Einstellungen [v2.7.41]", expanded=False):
         with c_c1: st.color_picker("1a. Routenfarbe", key="c_line")
         with c_c2: st.number_input("1b. Routenstärke", 1, 20, key="w_line")
         st.number_input("8. Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        st.write("**🔠 Texte, Größen & Ränder**")
+        st.write("**🔠 Texte & Größen**")
         cs, cc = st.columns(2)
         with cs:
             st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
             st.number_input("Größe Daten", 0.5, 4.0, key="size_data", step=0.1)
             st.number_input("Größe Logo", 0.5, 3.0, key="size_logo", step=0.1)
             st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1)
-            # NEU: Schieberegler für Randhöhe
-            st.number_input("Ränder oben/unten (px)", 0, 500, key="margin_height", step=10)
         with cc:
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Daten", key="c_data")
@@ -209,9 +208,14 @@ with st.expander("⚙️ Einstellungen [v2.7.41]", expanded=False):
         st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
         st.checkbox("8. Route in Bild anzeigen", key="show_route")
         st.checkbox("9. Minibox (Karte)", key="show_minibox")
-        # NEU: Ein/Aus-Schalter für Ränder
-        st.checkbox("Ränder für Storys", key="story_margins_active", value=True)
         st.checkbox("Datum anzeigen", key="show_date")
+        
+        st.write("**📏 Story Ränder**")
+        st.checkbox("Ränder für Storys", key="story_margins_active")
+        if st.session_state.story_margins_active:
+            st.number_input("Rand oben (px)", 0, 500, key="margin_top", step=10)
+            st.number_input("Rand unten (px)", 0, 500, key="margin_bottom", step=10)
+            
         st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
@@ -223,10 +227,10 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     else:
         logo_file = get_logo_path()
         if logo_file: st.image(logo_file, width=250)
-        else: st.warning("⚠️ 'logo.png' nicht gefunden. Schalte auf 'Smartes Logo' um oder lade die Datei hoch.")
+        else: st.warning("⚠️ 'logo.png' nicht gefunden.")
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.7.41 (Aktuell):**\n- Transparente Ränder für Storys hinzugefügt (Standard 100px).\n- Download-Format auf PNG geändert, um Transparenz zu ermöglichen.")
+    st.info("**v2.7.42 (Aktuell):**\n- Ränder oben und unten separat steuerbar.\n- Höherer Standardwert für den oberen Rand (150px) für besseres Story-Layout.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -242,7 +246,7 @@ with st.expander("📲 App installieren", expanded=False):
     with col_ios:
         st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
     with col_android:
-        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **three Dots**.\n2. Wähle **'App installieren'**.")
+        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
 
 st.divider()
 
@@ -361,28 +365,24 @@ if up_gpx:
 
         # --- ZUSAMMENSUMMEN & RÄNDER HINZUFÜGEN ---
         final = Image.alpha_composite(canvas, overlay)
-        # Für die Anzeige in Streamlit ist RGB besser
         st_image_display = final.convert('RGB')
         
-        # --- VERARBEITUNG FÜR DOWNLOAD (PNG) MIT RÄNDERN ---
-        m_h = st.session_state.margin_height
+        # --- VERARBEITUNG FÜR DOWNLOAD (PNG) MIT GETRENNTEN RÄNDERN ---
+        m_top = st.session_state.margin_top
+        m_bot = st.session_state.margin_bottom
         story_margins_active = st.session_state.story_margins_active
 
-        if story_margins_active and m_h > 0:
-            new_w, new_h = final.width, final.height + 2 * m_h
-            # Erstelle ein neues, RGBA-Canvas, um Transparenz zu ermöglichen
+        if story_margins_active and (m_top > 0 or m_bot > 0):
+            new_w, new_h = final.width, final.height + m_top + m_bot
             canvas_with_margins = Image.new('RGBA', (new_w, new_h), (0, 0, 0, 0))
-            # Päste das Original-RGBA-Bild ein. Die Ränder bleiben transparent.
-            canvas_with_margins.paste(final, (0, m_h))
+            canvas_with_margins.paste(final, (0, m_top))
             final_download = canvas_with_margins
         else:
-            final_download = final # Behalte RGBA
+            final_download = final
 
-        st.image(st_image_display, use_container_width=True) # Zeige RGB-Version
-        
-        # Speichern als PNG für Transparenz
+        st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO()
-        final_download.save(buf, format="PNG") # PNG nutzen
+        final_download.save(buf, format="PNG")
         st.download_button("🚀 BILD ALS PNG SPEICHERN (für Storys)", buf.getvalue(), f"tour_final.png", "image/png")
         
     except Exception as e: st.error(f"Fehler: {e}")
