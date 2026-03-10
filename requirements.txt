@@ -1,8 +1,7 @@
 streamlit
 gpxpy
 Pillow
-folium
-streamlit-folium
-staticmap
+st-gsheets-connection
+
 
 
