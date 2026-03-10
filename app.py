@@ -7,11 +7,12 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.12: Ohne Höhen-Angaben im Raster) ---
+# --- STANDARDWERTE (v2.7.13: Wisch-Schutz & Textfarbe) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "c_line": "#8B0000",
+    "c_text": "#FFFFFF", # NEU: Standard-Textfarbe ist Weiß
     "w_line": 9,
     "show_markers": True,
     "show_speed": True,
@@ -46,7 +47,6 @@ def load_font(size):
         except: continue
     return ImageFont.load_default()
 
-# SICHERHEIT: Absoluter Schutz vor "x1 must be greater than x0" Fehlern
 def validate_coords(coords):
     x0, y0, x1, y1 = coords
     nx0, nx1 = min(x0, x1), max(x0, x1)
@@ -80,6 +80,7 @@ def draw_marker(draw, pos, color, label=""):
     safe_ellipse(draw, [x-r, y-r, x+r, y+r], fill=color, outline="black", width=2)
     if label:
         f = load_font(16)
+        # S und Z in den Markern bleiben immer weiß für den Kontrast
         draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
 
 def draw_data_icon(mode, size, color="white"):
@@ -89,7 +90,6 @@ def draw_data_icon(mode, size, color="white"):
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
     
-    # Schutz vor 0-Pixel Berechnungen
     x0, y0 = lw, lw
     x1 = max(x0 + 2, size*res - lw) 
     y1 = max(y0 + 2, size*res - lw)
@@ -108,6 +108,11 @@ def draw_data_icon(mode, size, color="white"):
         d.ellipse([cx-rad, cy-rad, cx+rad+1, cy+rad+1], fill=color)
         
     return img.resize((size, size), Image.Resampling.LANCZOS)
+
+# Umwandlung von HEX-Farbe in RGBA (für transparente Rasterlinien)
+def hex_to_rgba(hex_color, alpha=255):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
 
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
@@ -145,7 +150,7 @@ with c_up1:
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
-# --- OPTIONEN ---
+# --- OPTIONEN (Wisch-sichere Zahlenfelder statt Regler) ---
 with st.expander("⚙️ Einstellungen", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     
@@ -154,15 +159,20 @@ with st.expander("⚙️ Einstellungen", expanded=False):
         st.text_input("2. Tour Name", key="tour_title")
         st.text_input("3. Datum", key="tour_date")
         
-        st.color_picker("1a. Routenfarbe", key="c_line")
-        st.slider("1b. Routenstärke", 1, 20, key="w_line")
-        st.slider("8. Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
+        c_color1, c_color2 = st.columns(2)
+        with c_color1:
+            st.color_picker("1a. Routenfarbe", key="c_line")
+        with c_color2:
+            st.color_picker("1c. Textfarbe", key="c_text") # NEU
+            
+        st.number_input("1b. Routenstärke", min_value=1, max_value=20, key="w_line", step=1)
+        st.number_input("8. Hintergrund Dimmer (%)", min_value=0, max_value=100, key="bg_opacity", step=5)
         
         st.write("**🔠 9. Textgrößen separat**")
-        st.slider("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
-        st.slider("Größe Datum", 0.5, 4.0, key="size_date", step=0.1)
-        st.slider("Größe Daten (KM/H/Höhe)", 0.5, 4.0, key="size_data", step=0.1)
-        st.slider("Größe Raster", 0.5, 3.0, key="size_grid", step=0.1)
+        st.number_input("Größe Titel", min_value=0.5, max_value=4.0, key="size_title", step=0.1)
+        st.number_input("Größe Datum", min_value=0.5, max_value=4.0, key="size_date", step=0.1)
+        st.number_input("Größe Daten (KM/H/Höhe)", min_value=0.5, max_value=4.0, key="size_data", step=0.1)
+        st.number_input("Größe Raster", min_value=0.5, max_value=3.0, key="size_grid", step=0.1)
 
     with col_opt2:
         st.write("**✅ Ein- / Ausblenden**")
@@ -180,7 +190,7 @@ with st.expander("⚙️ Einstellungen", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.12")
+    st.markdown("### GPX Share Pro XXL | v2.7.13")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -241,7 +251,6 @@ if up_gpx is not None:
                 step_km = st.session_state.grid_km_interval
                 step_m = st.session_state.grid_m_interval
 
-            # BILD-HINTERGRUND ERSTELLEN
             canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255)) 
             
             if up_img is not None:
@@ -259,7 +268,9 @@ if up_gpx is not None:
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
-            # HÖHENPROFIL & RASTER MIT MARGINS & ANTI-OVERLAP
+            # Transparente Version der gewählten Textfarbe (160 von 255 Alpha)
+            c_text_transp = hex_to_rgba(st.session_state.c_text, 160)
+
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -276,14 +287,13 @@ if up_gpx is not None:
                 if step_m > 0 and step_km > 0:
                     for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
-                        draw.line([(px_margin, gy), (w - px_margin, gy)], fill=(255,255,255,50), width=1)
-                        # Text für Höhenmeter wurde hier wunschgemäß entfernt!
+                        draw.line([(px_margin, gy), (w - px_margin, gy)], fill=c_text_transp[:3] + (50,), width=1)
                     
                     last_text_end = -100 
                     for k in range(step_km, int(d_total), step_km):
                         gx = int(px_margin + (k / d_total) * p_width)
                         
-                        draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
+                        draw.line([(gx, grid_y_start), (gx, h)], fill=c_text_transp[:3] + (50,), width=1)
                         
                         text_str = f"{k}km"
                         tw = draw.textlength(text_str, font=f_grid)
@@ -298,17 +308,17 @@ if up_gpx is not None:
                             t_end = gx + tw/2
                             
                         if t_start > last_text_end + 10:
-                            draw.text((int(gx), int(grid_y_start+5)), text_str, fill=(255,255,255,160), font=f_grid, anchor=anchor)
+                            draw.text((int(gx), int(grid_y_start+5)), text_str, fill=c_text_transp, font=f_grid, anchor=anchor)
                             last_text_end = t_end
                 
-                rgb_fill = tuple(int("#8B0000"[i*2+1:i*2+3], 16) for i in range(3))
+                rgb_fill = tuple(int(st.session_state.c_line[i*2+1:i*2+3], 16) for i in range(3))
                 draw.polygon(profile_pts + [(px_margin + p_width, h), (px_margin, h)], fill=rgb_fill + (120,))
                 draw.line(profile_pts, fill=(255,255,255, 255), width=max(3, int(w*0.003)), joint="round")
 
             # TITEL & DATEN
             t_y = int(bh_top * 0.35)
             f_title = load_font(int(w * 0.08 * st.session_state.size_title))
-            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, offset=2)
+            draw_text_with_shadow(draw, (w//2, t_y), st.session_state.tour_title, f_title, fill=st.session_state.c_text, offset=2)
             
             data_items = [("dist", f"{d_total:.1f} km")]
             if st.session_state.show_speed and avg_speed > 0:
@@ -323,10 +333,10 @@ if up_gpx is not None:
             curr_x, d_y = (w - total_w) // 2, t_y + 150
             
             for mode, txt in data_items:
-                overlay.paste(draw_data_icon(mode, icon_size), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size))
+                overlay.paste(draw_data_icon(mode, icon_size, color=st.session_state.c_text), (int(curr_x), int(d_y-icon_size//2)), draw_data_icon(mode, icon_size, color=st.session_state.c_text))
                 curr_x += icon_size + i_gap
                 tw = draw.textlength(txt, font=f_data)
-                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data, offset=2)
+                draw_text_with_shadow(draw, (curr_x+tw//2, d_y), txt, f_data, fill=st.session_state.c_text, offset=2)
                 curr_x += tw + spacing
 
             # DATUMS-BOX
@@ -336,7 +346,7 @@ if up_gpx is not None:
                 bx2, by2 = int(w - 30), int(h - bh_bot - 20)
                 bx1, by1 = int(bx2 - tw - 40), int(by2 - 60)
                 safe_rect(draw, [bx1, by1, bx2, by2], fill=(0, 0, 0, 160), outline="white", width=2)
-                draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill="white", font=f_date, anchor="mm")
+                draw.text(((bx1 + bx2)//2, (by1 + by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_text, font=f_date, anchor="mm")
 
             # ROUTE & MARKER ZEICHNEN
             margin_x = 0.15
