@@ -8,7 +8,7 @@ import os
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.32: Variable p_width Fix) ---
+# --- STANDARDWERTE (v2.7.33: Minibox Size & Route Default Off) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -22,7 +22,7 @@ DEFAULTS = {
     "show_speed": True,
     "show_profile": True,
     "show_logo": False,
-    "show_route": True,
+    "show_route": False, # FIX: Standardmäßig jetzt AUS
     "show_minibox": True,
     "logo_type": "Grafik",
     "show_date": True,
@@ -34,7 +34,8 @@ DEFAULTS = {
     "size_date": 1.0,
     "size_data": 1.0,
     "size_grid": 1.0,
-    "size_logo": 1.0
+    "size_logo": 1.0,
+    "size_minibox": 1.0 # NEU: Minibox Skalierung
 }
 
 for key, val in DEFAULTS.items():
@@ -171,7 +172,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.7.32]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.7.33]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -181,13 +182,13 @@ with st.expander("⚙️ Einstellungen [v2.7.32]", expanded=False):
         with c_c1: st.color_picker("1a. Routenfarbe", key="c_line")
         with c_c2: st.number_input("1b. Routenstärke", 1, 20, key="w_line")
         st.number_input("8. Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
-        st.write("**🔠 Texte**")
+        st.write("**🔠 Texte & Größen**")
         cs, cc = st.columns(2)
         with cs:
             st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
             st.number_input("Größe Daten", 0.5, 4.0, key="size_data", step=0.1)
-            st.number_input("Größe Datum", 0.5, 3.0, key="size_date", step=0.1)
-            st.number_input("Größe Raster", 0.5, 3.0, key="size_grid", step=0.1)
+            st.number_input("Größe Logo", 0.5, 3.0, key="size_logo", step=0.1)
+            st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1) # NEU
         with cc:
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Daten", key="c_data")
@@ -200,7 +201,7 @@ with st.expander("⚙️ Einstellungen [v2.7.32]", expanded=False):
         st.checkbox("5. Ø Geschwindigkeit", key="show_speed")
         st.checkbox("6. Höhenprofil", key="show_profile")
         st.checkbox("7. App Logo (Im Bild)", key="show_logo")
-        st.checkbox("8. Route anzeigen", key="show_route")
+        st.checkbox("8. Route in Bild anzeigen", key="show_route") # Umbenannt
         st.checkbox("9. Minibox (Karte)", key="show_minibox")
         st.checkbox("Datum anzeigen", key="show_date")
         
@@ -254,7 +255,7 @@ if up_gpx:
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs)
             e_r = (e_max - e_min) or 1
-            px_m, p_w = 10, w - 20 # Profil-Flächen-Breite
+            px_m, p_w = 10, w - 20 
             grid_y_start = h - bh_b
             
             if st.session_state.auto_intervals:
@@ -274,7 +275,6 @@ if up_gpx:
                 
             last_text_end = -100 
             for k in range(step_km, int(d_total), step_km):
-                # FIX: Variable p_w wird hier korrekt verwendet
                 gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
                 draw.line([(gx, grid_y_start), (gx, h)], fill=c_grid_lines, width=1)
                 text_str = f"{k}km"
@@ -284,10 +284,10 @@ if up_gpx:
                     last_text_end = gx + tw/2
 
             profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
-            if st.session_state.show_route:
-                rgb = hex_to_rgba(st.session_state.c_line)
-                draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
-                draw.line(profile_pts, fill=(255,255,255,255), width=4)
+            # Profil nur zeichnen wenn Hauptroute an? Oder immer? Hier: immer sichtbar wenn Profil an.
+            rgb = hex_to_rgba(st.session_state.c_line)
+            draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
+            draw.line(profile_pts, fill=(255,255,255,255), width=4)
 
         # --- TITEL & DATEN ---
         draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
@@ -332,10 +332,13 @@ if up_gpx:
 
         # --- MINIBOX KARTE ---
         if st.session_state.show_minibox and all_pts:
-            mb_w, mb_h = 280, 280
+            # FIX: Minibox Größe jetzt skalierbar
+            base_size = 280
+            mb_w = int(base_size * st.session_state.size_minibox)
+            mb_h = mb_w
             mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
             safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
-            m_m, m_la_e, m_lo_e = 20, (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
+            m_m, m_la_e, m_lo_e = int(20 * st.session_state.size_minibox), (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             aspect = m_la_e / m_lo_e
             if aspect > 1: drw_h = mb_h - 2*m_m; drw_w = drw_h / aspect
             else: drw_w = mb_w - 2*m_m; drw_h = drw_w * aspect
@@ -343,11 +346,12 @@ if up_gpx:
             rgb = hex_to_rgba(st.session_state.c_line)
             for s in pts:
                 m_pts = [(int(off_x + (p[1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/m_la_e*drw_h)) for p in s]
-                if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=4, joint="round")
-            ms_p = (int(off_x + (all_pts[0][1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (all_pts[0][0]-mi_la)/m_la_e*drw_h))
-            me_p = (int(off_x + (all_pts[-1][1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (all_pts[-1][0]-mi_la)/m_la_e*drw_h))
-            safe_ellipse(draw, [ms_p[0]-6, ms_p[1]-6, ms_p[0]+6, ms_p[1]+6], fill="green")
-            safe_ellipse(draw, [me_p[0]-6, me_p[1]-6, me_p[0]+6, me_p[1]+6], fill="red")
+                if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4*st.session_state.size_minibox)), joint="round")
+            ms_p = (int(off_x + (all_pts[0][1]-mi_lo)/m_lo_e*drw_w), int(off_y + draw_h - (all_pts[0][0]-mi_la)/m_la_e*drw_h))
+            me_p = (int(off_x + (all_pts[-1][1]-mi_lo)/m_lo_e*drw_w), int(off_y + draw_h - (all_pts[-1][0]-mi_la)/m_la_e*drw_h))
+            m_r = max(3, int(6 * st.session_state.size_minibox))
+            safe_ellipse(draw, [ms_p[0]-m_r, ms_p[1]-m_r, ms_p[0]+m_r, ms_p[1]+m_r], fill="green")
+            safe_ellipse(draw, [me_p[0]-m_r, me_p[1]-m_r, me_p[0]+m_r, me_p[1]+m_r], fill="red")
 
         if st.session_state.show_logo:
             lp = (30, bh_t + 30)
@@ -364,3 +368,27 @@ if up_gpx:
         buf = io.BytesIO(); final.save(buf, format="JPEG", quality=95)
         st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_final.jpg", "image/jpeg")
     except Exception as e: st.error(f"Fehler: {e}")
+
+# --- INFO REITER (DYNAMISCHES LOGO & APP TEILEN) ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    if st.session_state.logo_type == "Grafik":
+        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
+        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
+        st.image(menu_logo, use_container_width=False)
+    else:
+        logo_file = get_logo_path()
+        if logo_file: st.image(logo_file, width=250)
+        else: st.warning("⚠️ 'logo.png' nicht gefunden.")
+    
+    # NEU: CHANGELOG SEKTION
+    st.markdown("### 📜 Changelog")
+    st.info("**v2.7.33 (Aktuell):**\n- Route im Bild jetzt standardmäßig aus.\n- Minibox-Größe skalierbar (0.5 - 2.0).\n- Checkbox 'Route anzeigen' präzisiert.\n- Changelog-Übersicht hinzugefügt.")
+    
+    st.markdown("---")
+    st.markdown("**Copyright: Jürgen Unterweger**")
+    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    
+    app_url = "https://gpx-share-oh4dfakuqvfxadxmg3qhhq.streamlit.app/"
+    raw_msg = f"Hey! Schau dir mal diese geniale App zum teilen deiner Motorrad-Touren an: {app_url}"
+    share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
+    st.markdown(f'<a href="{share_link}" class="social-btn wa-btn" style="display: block; width: 100%; margin-top: 15px;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
