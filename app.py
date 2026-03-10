@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.8: Raster-Padding & Data Size 1.0) ---
+# --- STANDARDWERTE (v2.7.9: Auto-Collapse & 10px Margin) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -22,7 +22,7 @@ DEFAULTS = {
     "bg_opacity": 100,
     "size_title": 1.5,
     "size_date": 1.0,
-    "size_data": 1.0, # NEU: Standard auf 1.0
+    "size_data": 1.0,
     "size_grid": 1.0
 }
 
@@ -146,7 +146,7 @@ with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
 
 # --- OPTIONEN (DEINE 9 PUNKTE) ---
-with st.expander("⚙️ Einstellungen (Aufgeräumt)", expanded=True):
+with st.expander("⚙️ Einstellungen (Aufgeräumt)", expanded=False): # NEU: Zugeklappt
     col_opt1, col_opt2 = st.columns(2)
     
     with col_opt1:
@@ -180,7 +180,7 @@ with st.expander("⚙️ Einstellungen (Aufgeräumt)", expanded=True):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.8")
+    st.markdown("### GPX Share Pro XXL | v2.7.9")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -259,14 +259,14 @@ if up_gpx is not None:
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
-            # HÖHENPROFIL & RASTER MIT MARGINS (NEU)
+            # HÖHENPROFIL & RASTER MIT MARGINS
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
                 grid_y_start = h - bh_bot
                 
-                # 20 Pixel Sicherheitsabstand links und rechts
-                px_margin = 20
+                # NEU: 10 Pixel Sicherheitsabstand links und rechts
+                px_margin = 10
                 p_width = w - 2 * px_margin
                 
                 profile_pts = [(px_margin + (i/max(1, len(elevs)-1))*p_width, 
