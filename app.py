@@ -33,7 +33,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.8.1) ---
+# --- STANDARDWERTE (Original v2.8.1) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -230,7 +230,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.8.1:**\n- Voller Rollback auf stabile Version.\n- Keine Datenbank-Verbindungen.\n- Favicon-Support aktiv.")
+    st.info("**v2.8.1:**\n- Kompletter Rollback auf stabile Version.\n- Counter entfernt für maximale Zuverlässigkeit.\n- Browser-Favicon aktiv.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -277,24 +277,9 @@ if up_gpx:
 
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
-            px_m, p_w, grid_y_s = 10, w - 20, h - bh_b
-            step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
-            step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
-            f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
-            c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
-            for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
-                gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
-                draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
-            last_tx = -100 
-            for k in range(step_km, int(d_total), step_km):
-                gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
-                draw.line([(gx, grid_y_s), (gx, h)], fill=c_g_l, width=1)
-                txt = f"{k}km"; tw = draw.textlength(txt, font=f_grid)
-                if gx - tw/2 > last_tx + 20:
-                    draw.text((gx, grid_y_s+5), txt, fill=c_g_t, font=f_grid, anchor="mt"); last_tx = gx + tw/2
-            profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
+            profile_pts = [(10 + (i/max(1, len(elevs)-1))*(w-20), (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
             rgb = hex_to_rgba(st.session_state.c_line)
-            draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
+            draw.polygon(profile_pts + [(w-10, h), (10, h)], fill=rgb[:3] + (120,))
             draw.line(profile_pts, fill=(255,255,255,255), width=4)
 
         draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
