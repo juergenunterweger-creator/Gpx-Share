@@ -7,7 +7,7 @@ import math
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- STANDARDWERTE (v2.7.11: Pixel-Perfect Anti-Overlap) ---
+# --- STANDARDWERTE (v2.7.12: Ohne Höhen-Angaben im Raster) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -180,7 +180,7 @@ with st.expander("⚙️ Einstellungen", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.11")
+    st.markdown("### GPX Share Pro XXL | v2.7.12")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -259,7 +259,7 @@ if up_gpx is not None:
             safe_rect(draw, [0, 0, w, bh_top], fill=(0, 0, 0, 160))
             safe_rect(draw, [0, h - bh_bot, w, h], fill=(0, 0, 0, 160))
 
-            # HÖHENPROFIL & RASTER MIT MARGINS & ANTI-OVERLAP (Perfektioniert)
+            # HÖHENPROFIL & RASTER MIT MARGINS & ANTI-OVERLAP
             if st.session_state.show_profile and len(elevs) > 1:
                 e_min, e_max = min(elevs), max(elevs)
                 e_range = (e_max - e_min) if e_max > e_min else 1
@@ -277,19 +277,17 @@ if up_gpx is not None:
                     for m_val in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                         gy = int((h-bh_bot)+(bh_bot*0.85)-((m_val-e_min)/e_range)*(bh_bot*0.7))
                         draw.line([(px_margin, gy), (w - px_margin, gy)], fill=(255,255,255,50), width=1)
-                        draw.text((int(px_margin), int(gy-2)), f"{m_val}m", fill=(255,255,255,160), font=f_grid, anchor="ld")
+                        # Text für Höhenmeter wurde hier wunschgemäß entfernt!
                     
-                    last_text_end = -100 # Reset der End-Position
+                    last_text_end = -100 
                     for k in range(step_km, int(d_total), step_km):
                         gx = int(px_margin + (k / d_total) * p_width)
                         
-                        # Die Rasterlinie wird IMMER gezeichnet
                         draw.line([(gx, grid_y_start), (gx, h)], fill=(255,255,255,50), width=1)
                         
                         text_str = f"{k}km"
                         tw = draw.textlength(text_str, font=f_grid)
                         
-                        # Wenn der Text rechts aus dem Bild ragen würde -> rechtsbündig
                         if gx + tw/2 > w - px_margin:
                             anchor = "rt"
                             t_start = gx - tw
@@ -299,7 +297,6 @@ if up_gpx is not None:
                             t_start = gx - tw/2
                             t_end = gx + tw/2
                             
-                        # ANTI-OVERLAP: Echte Pixelbreite vergleichen (mindestens 10 Pixel Abstand)
                         if t_start > last_text_end + 10:
                             draw.text((int(gx), int(grid_y_start+5)), text_str, fill=(255,255,255,160), font=f_grid, anchor=anchor)
                             last_text_end = t_end
