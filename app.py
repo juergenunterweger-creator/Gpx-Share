@@ -5,25 +5,15 @@ import io
 import math
 import os
 from datetime import datetime
-from staticmap import StaticMap, Line as MapLine
 
 # --- APP KONFIGURATION ---
 st.set_page_config(page_title="GPX Share Pro XXL", page_icon="🏍️", layout="centered")
 
-# --- KARTEN STYLES ---
-MAP_STYLES = {
-    "OSM Standard": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    "Topografie (Gelände)": "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
-    "Carto Light (Hell)": "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
-    "Carto Dark (Dunkel)": "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
-}
-
-# --- STANDARDWERTE (v2.7.4: Back to Basics - No Memory Hacks) ---
+# --- STANDARDWERTE (v2.7.5: No Maps, Pure Photo Overlay) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
     "show_date": True,
-    "map_style": "OSM Standard",
     "bg_opacity": 100,
     "font_scale": 1.5,
     "title_y_offset": 0,
@@ -44,6 +34,7 @@ DEFAULTS = {
     "c_fill": "#8B0000",
     "c_box": "#000000",
     "b_height_adj": 0.20,
+    "show_route_line": True, # NEU: Routenlinie auf Foto zeichnen
     "show_markers": True,
     "show_km_steps": True,
     "show_speed": True, 
@@ -61,6 +52,9 @@ for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
+if "last_gpx_file" not in st.session_state:
+    st.session_state.last_gpx_file = ""
+
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
     for key, val in DEFAULTS.items():
@@ -75,12 +69,11 @@ def load_font(size):
     return ImageFont.load_default()
 
 def validate_coords(coords):
+    # Absoluter Schutz vor "x1 must be greater than x0" Fehlern
     x0, y0, x1, y1 = coords
     nx0, nx1 = min(x0, x1), max(x0, x1)
     ny0, ny1 = min(y0, y1), max(y0, y1)
-    if nx0 == nx1: nx1 += 1
-    if ny0 == ny1: ny1 += 1
-    return [int(nx0), int(ny0), int(nx1), int(ny1)]
+    return [nx0, ny0, nx1 + 1, ny1 + 1]
 
 def safe_rect(draw, coords, fill=None, outline=None, width=1):
     try:
@@ -140,9 +133,8 @@ def draw_data_icon(mode, size, color="white"):
     lw = int(max(2, size*res*0.08))
     
     x0, y0 = lw, lw
-    x1, y1 = size*res - lw, size*res - lw
-    if x1 <= x0: x1 = x0 + 2
-    if y1 <= y0: y1 = y0 + 2
+    x1 = max(x0 + 1, size*res - lw) # Garantierter Schutz vor Minus-Werten
+    y1 = max(y0 + 1, size*res - lw)
     
     if mode == "dist":
         d.arc([x0, y0, x1, y1], 140, 400, fill=color, width=lw)
@@ -161,62 +153,49 @@ def draw_data_icon(mode, size, color="white"):
 st.markdown("""<style>.stApp { background-color: #ffffff; color: #000000; } .title-modern { font-size: 36px; font-weight: 900; background: linear-gradient(90deg, #ff0000 0%, #8b0000 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 20px; } .social-btn { display: inline-block; padding: 10px 20px; border-radius: 5px; color: white !important; text-decoration: none; font-weight: bold; margin-right: 10px; text-align: center; } .fb-btn { background-color: #1877F2; } .wa-btn { background-color: #25D366; }</style>""", unsafe_allow_html=True)
 st.markdown("<p class='title-modern'>GPX Share Pro</p>", unsafe_allow_html=True)
 
-# --- UPLOADS (KLASSISCH & STABIL) ---
+# --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 
 with c_up1:
-    # WICHTIG: Eigener Key, damit Streamlit das Feld beim Neuladen nie vergisst
     up_gpx = st.file_uploader("📍 1. GPX Datei wählen", key="gpx_uploader")
+    if up_gpx is not None:
+        # 100% zuverlässige Erkennung, ob eine NEUE Datei hochgeladen wurde
+        if st.session_state.last_gpx_file != up_gpx.name:
+            st.session_state.last_gpx_file = up_gpx.name
+            st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+            
+            try:
+                gpx_obj = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
+                parsed_date = ""
+                if gpx_obj.time:
+                    parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
+                else:
+                    for track in gpx_obj.tracks:
+                        for seg in track.segments:
+                            for pt in seg.points:
+                                if pt.time:
+                                    parsed_date = pt.time.strftime("%d.%m.%Y")
+                                    break
+                            if parsed_date: break
+                        if parsed_date: break
+                if parsed_date:
+                    st.session_state.tour_date = parsed_date
+            except: pass
+            
+            # Die Oberfläche SOFORT neu laden, damit der Name im Textfeld steht!
+            st.rerun()
 
 with c_up2:
     up_img = st.file_uploader("📸 2. Foto wählen (Optional)", type=["jpg", "jpeg", "png"], key="img_uploader")
-
-# GPX Daten extrahieren, wenn hochgeladen
-gpx_data = None
-if up_gpx is not None:
-    gpx_data = up_gpx.getvalue()
-    # Nur Titel auslesen, wenn das Textfeld noch "Meine Tour" heißt (verhindert Überschreiben)
-    if st.session_state.tour_title == "Meine Tour":
-        st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
-        
-    if st.session_state.tour_date == "":
-        try:
-            gpx_obj = gpxpy.parse(io.BytesIO(gpx_data))
-            parsed_date = ""
-            if gpx_obj.time:
-                parsed_date = gpx_obj.time.strftime("%d.%m.%Y")
-            else:
-                for track in gpx_obj.tracks:
-                    for seg in track.segments:
-                        for pt in seg.points:
-                            if pt.time:
-                                parsed_date = pt.time.strftime("%d.%m.%Y")
-                                break
-                        if parsed_date: break
-                    if parsed_date: break
-            if parsed_date:
-                st.session_state.tour_date = parsed_date
-        except: pass
-
-# Foto Daten extrahieren, wenn hochgeladen
-img_data = None
-has_image = False
-if up_img is not None:
-    img_data = up_img.getvalue()
-    has_image = True
 
 # --- OPTIONEN ---
 with st.expander("⚙️ Einstellungen & Design", expanded=False):
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**🖼️ Hintergrund & Foto**")
-        # Das fehleranfällige bg_mode Dropdown wurde komplett entfernt!
-        if not has_image:
-            st.selectbox("Karten-Design", list(MAP_STYLES.keys()), key="map_style")
-            
         st.slider("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity")
         
-        if has_image:
+        if up_img is not None:
             st.slider("Foto Zoom", 0.5, 5.0, key="img_zoom", step=0.1)
             st.slider("Foto X-Versatz", -1500, 1500, key="img_x_offset")
             st.slider("Foto Y-Versatz", -1500, 1500, key="img_y_offset")
@@ -245,6 +224,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
         st.color_picker("Routenfarbe", key="c_line")
         st.color_picker("Balkenfarbe", key="c_box")
         
+        st.checkbox("Routen-Linie zeichnen", key="show_route_line")
         st.checkbox("Start/Ziel (S/Z) anzeigen", key="show_markers")
         st.checkbox("KM-Meilensteine anzeigen", key="show_km_steps")
         st.checkbox("Ø Geschwindigkeit anzeigen", key="show_speed") 
@@ -254,7 +234,7 @@ with st.expander("⚙️ Einstellungen & Design", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.markdown("### GPX Share Pro XXL | v2.7.4")
+    st.markdown("### GPX Share Pro XXL | v2.7.5")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -263,9 +243,9 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 st.divider()
 
 # --- VERARBEITUNG ---
-if gpx_data:
+if up_gpx is not None:
     try:
-        gpx = gpxpy.parse(io.BytesIO(gpx_data))
+        gpx = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
         segments_pts, elevs = [], []
         d_total, a_gain = 0.0, 0.0
         last, last_elev, last_time = None, None, None
@@ -317,21 +297,14 @@ if gpx_data:
             
             marker_step_km = step_km if st.session_state.auto_intervals else st.session_state.km_interval
 
-            # HINTERGRUND
-            canvas = Image.new('RGBA', (w, h), (255, 255, 255, 255))
+            # REINER BILD-HINTERGRUND (KEINE KARTE MEHR)
+            canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255)) # Dunkelgrau als Basis
             
-            if has_image:
-                # Foto als Hintergrund
-                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(img_data))).convert("RGBA")
+            if up_img is not None:
+                bg_img = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
                 nz_w, nz_h = int(w * st.session_state.img_zoom), int(h * st.session_state.img_zoom)
                 bg_img = bg_img.resize((nz_w, nz_h), Image.Resampling.LANCZOS)
                 canvas.paste(bg_img, (int(st.session_state.img_x_offset - (nz_w-w)//2), int(st.session_state.img_y_offset - (nz_h-h)//2)))
-            else:
-                # OSM Karte als Hintergrund
-                m = StaticMap(w, h, url_template=MAP_STYLES[st.session_state.map_style])
-                m.add_line(MapLine([(mi_lo-0.005, mi_la-0.005), (ma_lo+0.005, ma_la+0.005)], '#00000000', 1))
-                m.add_line(MapLine(list(zip(lons, lats)), 'blue', 0))
-                canvas.paste(m.render().convert("RGBA"), (0, 0))
 
             if st.session_state.bg_opacity < 100:
                 canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
@@ -422,8 +395,8 @@ if gpx_data:
                             next_km_goal += marker_step_km
                     last_p, last_raw = curr_p, p
                 
-                # Wenn wir kein Foto haben, zeichnen wir die Route (auf die OSM-Karte)
-                if not has_image and len(s_pts) > 1: 
+                # Routen-Linie nur zeichnen, wenn die Option aktiv ist
+                if st.session_state.show_route_line and len(s_pts) > 1: 
                     draw.line(s_pts, fill=rgb_route + (st.session_state.r_alpha,), width=int(st.session_state.w_line), joint="round")
 
             if st.session_state.show_km_steps:
