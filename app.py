@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.8.1 Beta) ---
+# --- STANDARDWERTE (v2.9.0 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -64,7 +64,10 @@ DEFAULTS = {
     "size_minibox": 1.0,
     "story_margins_active": True,
     "margin_top": 150,
-    "margin_bottom": 100
+    "margin_bottom": 100,
+    "img_zoom": 1.0,          # NEU: Bild Zoom
+    "img_offset_x": 0,        # NEU: Bild Verschiebung X
+    "img_offset_y": 0         # NEU: Bild Verschiebung Y
 }
 
 for key, val in DEFAULTS.items():
@@ -200,7 +203,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.8.1 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.0 Beta]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -239,8 +242,16 @@ with st.expander("⚙️ Einstellungen [v2.8.1 Beta]", expanded=False):
         if st.session_state.story_margins_active:
             st.number_input("Rand oben (px)", 0, 500, key="margin_top", step=10)
             st.number_input("Rand unten (px)", 0, 500, key="margin_bottom", step=10)
+
+    # --- NEU: BILD ANPASSEN ---
+    st.write("---")
+    st.write("**🖼️ Foto anpassen (Zoom & Position)**")
+    c_img1, c_img2, c_img3 = st.columns(3)
+    with c_img1: st.slider("🔍 Zoom", 1.0, 5.0, key="img_zoom", step=0.1)
+    with c_img2: st.slider("↔️ Links / Rechts", -1500, 1500, key="img_offset_x", step=10)
+    with c_img3: st.slider("↕️ Oben / Unten", -1500, 1500, key="img_offset_y", step=10)
             
-        st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
+    st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
@@ -253,7 +264,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.8.1 Beta:**\n- Alle externen Datenbank-Verbindungen (Counter) entfernt.\n- Volle Stabilität wiederhergestellt.\n- Browser-Favicon aktiv.")
+    st.info("**v2.9.0 Beta:**\n- NEU: Hintergrundbild skalieren und verschieben.\n- Alle externen Datenbank-Verbindungen entfernt.\n- Volle Stabilität wiederhergestellt.")
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -265,13 +276,11 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 # --- APP INSTALLIEREN REITER ---
 with st.expander("📲 App installieren", expanded=False):
     st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
-    col_ios, col_android, col_firefox = st.columns(3)
+    col_ios, col_android = st.columns(2)
     with col_ios:
-        st.markdown("**🍎 iPhone (Nur Safari)**\n1. Tippe auf **Teilen** 📤\n2. Wähle **'Zum Home-Bildschirm'**")
+        st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
     with col_android:
-        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf **Menü** ⋮\n2. Wähle **'App installieren'**")
-    with col_firefox:
-        st.markdown("**🦊 Firefox (Android)**\n1. Tippe auf **Menü** ⋮\n2. Wähle **'Installieren'**")
+        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
 
 st.divider()
 
@@ -298,9 +307,20 @@ if up_gpx:
         avg_s = d_total / (total_time / 3600.0) if total_time > 0 else 0.0
         w, h = 1080, 1920
         canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255))
+        
+        # --- BILD LOGIK (Zoom & Verschieben) ---
         if up_img:
             bg = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
-            canvas.paste(ImageOps.fit(bg, (w, h), Image.Resampling.LANCZOS), (0, 0))
+            bg_w, bg_h = bg.size
+            scale = max(w / bg_w, h / bg_h) * st.session_state.img_zoom
+            new_w, new_h = int(bg_w * scale), int(bg_h * scale)
+            bg_resized = bg.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            
+            paste_x = (w - new_w) // 2 + st.session_state.img_offset_x
+            paste_y = (h - new_h) // 2 + st.session_state.img_offset_y
+            
+            canvas.paste(bg_resized, (paste_x, paste_y))
+            
         if st.session_state.bg_opacity < 100:
             canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
@@ -396,6 +416,6 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v281_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v290_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
