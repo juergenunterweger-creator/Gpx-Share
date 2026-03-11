@@ -265,11 +265,13 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
 # --- APP INSTALLIEREN REITER ---
 with st.expander("📲 App installieren", expanded=False):
     st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
-    col_ios, col_android = st.columns(2)
+    col_ios, col_android, col_firefox = st.columns(3)
     with col_ios:
-        st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
+        st.markdown("**🍎 iPhone (Nur Safari)**\n1. Tippe auf **Teilen** 📤\n2. Wähle **'Zum Home-Bildschirm'**")
     with col_android:
-        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
+        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf **Menü** ⋮\n2. Wähle **'App installieren'**")
+    with col_firefox:
+        st.markdown("**🦊 Firefox (Android)**\n1. Tippe auf **Menü** ⋮\n2. Wähle **'Installieren'**")
 
 st.divider()
 
