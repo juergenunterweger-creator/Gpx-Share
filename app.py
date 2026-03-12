@@ -33,7 +33,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.3 Beta) ---
+# --- STANDARDWERTE (v2.9.4 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -64,7 +64,7 @@ DEFAULTS = {
     "story_margins_active": True,
     "margin_top": 150,
     "margin_bottom": 100,
-    "img_zoom": 100,          # Zoom in Prozent (Standard 100%)
+    "img_zoom": 100,          
     "img_offset_x": 0,        
     "img_offset_y": 0         
 }
@@ -206,7 +206,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.9.3 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.4 Beta]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -267,7 +267,23 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.3 Beta:**\n- Hotfix für Absturz beim Zurücksetzen alter Session-Werte eingebaut.\n- Bildanpassung in Prozent.")
+    st.info("**v2.9.4 Beta:**\n- Impressum und Datenschutz-Hinweis (DSGVO/ECG) integriert.\n- Stabile Basis.")
+    st.markdown("---")
+    
+    # --- NEU: IMPRESSUM & DATENSCHUTZ ---
+    st.markdown("### ⚖️ Impressum & Datenschutz")
+    st.markdown("""
+    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
+    Wangham 13  
+    4661 Roitham am Traunfall  
+    Österreich  
+    
+    **Kontakt:** juergen.unterweger@outlook.at  
+    
+    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
+    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
+    """)
+    
     st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
@@ -422,6 +438,6 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v293_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v294_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
