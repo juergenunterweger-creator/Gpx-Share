@@ -35,7 +35,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0 Beta) ---
+# --- STANDARDWERTE (v3.0.1 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -230,8 +230,8 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
-# --- NEUE EINSTELLUNGEN (VERSION 3.0 Beta) ---
-with st.expander("⚙️ Einstellungen [v3.0 Beta]", expanded=False): 
+# --- NEUE EINSTELLUNGEN (VERSION 3.0.1 Beta) ---
+with st.expander("⚙️ Einstellungen [v3.0.1 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -241,11 +241,8 @@ with st.expander("⚙️ Einstellungen [v3.0 Beta]", expanded=False):
             st.text_input("Tour Name", key="tour_title")
             st.text_input("Datum", key="tour_date")
             st.checkbox("Datum im Bild anzeigen", key="show_date")
-            st.write("---")
-            st.write("**💬 Eigener Kommentar**")
-            st.text_input("Spruch (z.B. Top Tour!)", key="custom_text")
+            st.text_input("Eigener Kommentar (z.B. Top Tour!)", key="custom_text")
         with c2:
-            st.write("**✅ Ein- / Ausblenden**")
             st.checkbox("Start/Ziel (S/Z)", key="show_markers")
             st.checkbox("Ø Geschwindigkeit", key="show_speed")
             st.checkbox("Höhenprofil", key="show_profile")
@@ -313,7 +310,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0 Beta:**\n- MAJOR UPDATE: Eigene Kommentare/Sprüche können jetzt mit ins Bild eingefügt, gefärbt und verschoben werden.")
+    st.info("**v3.0.1 Beta:**\n- Überschrift 'Ein- / Ausblenden' wieder entfernt.\n- Eigener Kommentar logisch in die 'Tour Details' integriert.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -481,7 +478,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v30_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v301_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
