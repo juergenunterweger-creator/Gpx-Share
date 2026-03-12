@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.5 Beta) ---
+# --- STANDARDWERTE (v3.0.6 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -209,7 +209,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.0.5 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.0.6 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -293,7 +293,11 @@ with st.expander("⚙️ Einstellungen [v3.0.5 Beta]", expanded=False):
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.5 Beta:**\n- Minibox ist jetzt über die Bildeinstellungen frei verschiebbar.")
+    st.info("**v3.0.6 Beta:**\n- Impressum wieder eingefügt.\n- Minibox & Kommentar-Mehrzeiler stabilisiert.")
+    st.markdown("---")
+    st.markdown("**Copyright: Jürgen Unterweger**")
+    app_url = "https://www.gpx-share.at"
+    st.markdown(f'<a href="whatsapp://send?text=Check out this app: {app_url}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen</a>', unsafe_allow_html=True)
 
 st.divider()
 
@@ -401,6 +405,21 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v305_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v306_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
+
+# --- IMPRESSUM FOOTER GANZ UNTEN ---
+st.markdown("---")
+with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
+    st.markdown("""
+    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
+    Wangham 13  
+    4661 Roitham am Traunfall  
+    Österreich  
+    
+    **Kontakt:** juergen.unterweger@outlook.at  
+    
+    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
+    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
+    """)
