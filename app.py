@@ -35,7 +35,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.1 Beta) ---
+# --- STANDARDWERTE (v3.0.2 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -74,7 +74,11 @@ DEFAULTS = {
     "c_custom_text": "#FFFFFF",
     "size_custom_text": 1.5,
     "pos_x_custom_text": 540,
-    "pos_y_custom_text": 960
+    "pos_y_custom_text": 960,
+    "show_bg_top": True,
+    "show_bg_bottom": True,
+    "show_bg_date": True,
+    "show_bg_minibox": True
 }
 
 # Initialisierung der Session State Werte
@@ -230,8 +234,8 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
-# --- NEUE EINSTELLUNGEN (VERSION 3.0.1 Beta) ---
-with st.expander("⚙️ Einstellungen [v3.0.1 Beta]", expanded=False): 
+# --- NEUE EINSTELLUNGEN (VERSION 3.0.2 Beta) ---
+with st.expander("⚙️ Einstellungen [v3.0.2 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -243,6 +247,7 @@ with st.expander("⚙️ Einstellungen [v3.0.1 Beta]", expanded=False):
             st.checkbox("Datum im Bild anzeigen", key="show_date")
             st.text_input("Eigener Kommentar (z.B. Top Tour!)", key="custom_text")
         with c2:
+            st.write("**✅ Ein- / Ausblenden**")
             st.checkbox("Start/Ziel (S/Z)", key="show_markers")
             st.checkbox("Ø Geschwindigkeit", key="show_speed")
             st.checkbox("Höhenprofil", key="show_profile")
@@ -270,6 +275,14 @@ with st.expander("⚙️ Einstellungen [v3.0.1 Beta]", expanded=False):
             st.number_input("Größe Logo", 0.5, 3.0, key="size_logo", step=0.1)
             st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1)
             st.number_input("Größe Kommentar", 0.5, 5.0, key="size_custom_text", step=0.1)
+        
+        st.write("---")
+        st.write("**🔲 Box-Hintergründe ein- / ausblenden**")
+        cb1, cb2, cb3, cb4 = st.columns(4)
+        with cb1: st.checkbox("Top-Bereich", key="show_bg_top")
+        with cb2: st.checkbox("Unten (Profil)", key="show_bg_bottom")
+        with cb3: st.checkbox("Datum-Box", key="show_bg_date")
+        with cb4: st.checkbox("Minibox", key="show_bg_minibox")
 
     with tab_bild:
         c1, c2 = st.columns(2)
@@ -310,7 +323,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.1 Beta:**\n- Überschrift 'Ein- / Ausblenden' wieder entfernt.\n- Eigener Kommentar logisch in die 'Tour Details' integriert.")
+    st.info("**v3.0.2 Beta:**\n- Neue Checkboxen im Design-Reiter, um alle Infobox-Hintergründe einzeln auszublenden.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -381,8 +394,11 @@ if up_gpx:
 
         overlay = Image.new('RGBA', (w, h), (0,0,0,0)); draw = ImageDraw.Draw(overlay)
         bh_t, bh_b = int(h * 0.20), int(h * 0.12)
-        safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
-        safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
+        
+        if st.session_state.show_bg_top:
+            safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
+        if st.session_state.show_bg_bottom:
+            safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
 
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
@@ -418,7 +434,8 @@ if up_gpx:
         if st.session_state.show_date and st.session_state.tour_date:
             f_dt = load_font(int(w * 0.028 * st.session_state.size_date)); tw = draw.textlength(st.session_state.tour_date, font=f_dt)
             bx1, by1 = 30, int(h - bh_b - 80); bx2, by2 = int(30 + tw + 40), int(h - bh_b - 20)
-            safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
+            if st.session_state.show_bg_date:
+                safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
             draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
 
         # --- EIGENER KOMMENTAR EINBAUEN ---
@@ -444,7 +461,8 @@ if up_gpx:
 
         if st.session_state.show_minibox and all_pts:
             mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w; mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
-            safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
+            if st.session_state.show_bg_minibox:
+                safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
             m_m, m_la_e, m_lo_e = int(20 * st.session_state.size_minibox), (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             aspect = m_la_e / m_lo_e
             if aspect > 1: drw_h = mb_h - 2*m_m; drw_w = drw_h / aspect
@@ -478,7 +496,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v301_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v302_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
