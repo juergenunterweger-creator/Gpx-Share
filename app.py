@@ -29,11 +29,24 @@ hide_st_style = """
             [data-testid="stToolbar"] {display: none !important;}
             div.stActionButton {display:none !important;}
             .main .block-container {padding-top: 1rem !important;}
+            /* Streamlit Cloud Badge verstecken */
+            .viewerBadge_container {display: none !important;}
+            [data-testid="viewerBadge"] {display: none !important;}
+            /* Style für zentrierte Werte zwischen Buttons */
+            .v-center {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                font-weight: bold;
+                font-size: 1.1rem;
+                padding-top: 0.5rem;
+            }
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.10 Beta) ---
+# --- STANDARDWERTE (v2.9.11 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -208,7 +221,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- NEUE EINSTELLUNGEN (AUFGERÄUMT) ---
-with st.expander("⚙️ Einstellungen [v2.9.10 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -279,7 +292,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.10 Beta:**\n- Zoom & Positionierung wieder auf einheitliche number_input Felder korrigiert.")
+    st.info("**v2.9.11 Beta:**\n- Aggressiver CSS-Block eingebaut, um das 'Hosted with Streamlit'-Badge zu verstecken.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -440,7 +453,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2910_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2911_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
