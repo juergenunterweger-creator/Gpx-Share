@@ -17,7 +17,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- AGGRESSIVER BRANDING KILLER (VORSCHLAGHAMMER) ---
+# --- AGGRESSIVER BRANDING KILLER (ULTIMATIV) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden !important;}
@@ -30,17 +30,28 @@ hide_st_style = """
             div.stActionButton {display:none !important;}
             .main .block-container {padding-top: 1rem !important;}
             
-            /* Streamlit Cloud Badge verstecken - Alle Varianten */
+            /* Der ultimative Badge-Killer für Streamlit Cloud */
+            a[href^="https://streamlit.io/cloud"] {display: none !important; opacity: 0 !important; visibility: hidden !important;}
+            [data-testid="manage-app-button"] {display: none !important;}
+            [class^="viewerBadge"] {display: none !important;}
+            #viewerBadge_container {display: none !important;}
             .viewerBadge_container {display: none !important;}
-            .viewerBadge_link {display: none !important;}
-            [data-testid="viewerBadge"] {display: none !important;}
-            div[class^="viewerBadge"] {display: none !important;}
-            a[href*="streamlit.io/cloud"] {display: none !important;}
+            
+            /* Style für zentrierte Werte zwischen Buttons */
+            .v-center {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                font-weight: bold;
+                font-size: 1.1rem;
+                padding-top: 0.5rem;
+            }
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.12 Beta) ---
+# --- STANDARDWERTE (v2.9.13 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -215,7 +226,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- NEUE EINSTELLUNGEN (AUFGERÄUMT) ---
-with st.expander("⚙️ Einstellungen [v2.9.12 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.13 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -286,7 +297,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.12 Beta:**\n- Aggressives CSS eingebaut, um das 'Hosted with Streamlit'-Badge final auszublenden.")
+    st.info("**v2.9.13 Beta:**\n- Ultimativer CSS-Vorschlaghammer gegen das 'Hosted with Streamlit' Badge.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -447,7 +458,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2912_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2913_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
