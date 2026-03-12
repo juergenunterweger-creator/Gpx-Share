@@ -35,7 +35,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.2 Beta) ---
+# --- STANDARDWERTE (v3.0.3 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -78,7 +78,8 @@ DEFAULTS = {
     "show_bg_top": True,
     "show_bg_bottom": True,
     "show_bg_date": True,
-    "show_bg_minibox": True
+    "show_bg_minibox": True,
+    "show_bg_custom_text": False
 }
 
 # Initialisierung der Session State Werte
@@ -234,8 +235,8 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
-# --- NEUE EINSTELLUNGEN (VERSION 3.0.2 Beta) ---
-with st.expander("⚙️ Einstellungen [v3.0.2 Beta]", expanded=False): 
+# --- NEUE EINSTELLUNGEN (VERSION 3.0.3 Beta) ---
+with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -278,11 +279,15 @@ with st.expander("⚙️ Einstellungen [v3.0.2 Beta]", expanded=False):
         
         st.write("---")
         st.write("**🔲 Box-Hintergründe ein- / ausblenden**")
-        cb1, cb2, cb3, cb4 = st.columns(4)
-        with cb1: st.checkbox("Top-Bereich", key="show_bg_top")
-        with cb2: st.checkbox("Unten (Profil)", key="show_bg_bottom")
-        with cb3: st.checkbox("Datum-Box", key="show_bg_date")
-        with cb4: st.checkbox("Minibox", key="show_bg_minibox")
+        cb1, cb2, cb3 = st.columns(3)
+        with cb1: 
+            st.checkbox("Top-Bereich", key="show_bg_top")
+            st.checkbox("Datum-Box", key="show_bg_date")
+        with cb2: 
+            st.checkbox("Unten (Profil)", key="show_bg_bottom")
+            st.checkbox("Minibox", key="show_bg_minibox")
+        with cb3:
+            st.checkbox("Kommentar-Box", key="show_bg_custom_text")
 
     with tab_bild:
         c1, c2 = st.columns(2)
@@ -323,7 +328,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.2 Beta:**\n- Neue Checkboxen im Design-Reiter, um alle Infobox-Hintergründe einzeln auszublenden.")
+    st.info("**v3.0.3 Beta:**\n- Eine dynamisch anpassende Hintergrund-Box für den eigenen Kommentar hinzugefügt (ein/ausblendbar unter Design).")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -443,6 +448,20 @@ if up_gpx:
             f_custom = load_font(int(w * 0.05 * st.session_state.size_custom_text))
             pos_x = st.session_state.pos_x_custom_text
             pos_y = st.session_state.pos_y_custom_text
+            
+            if st.session_state.show_bg_custom_text:
+                try:
+                    bbox = draw.textbbox((pos_x, pos_y), st.session_state.custom_text, font=f_custom, anchor="mm")
+                    pad_x, pad_y = 25, 15
+                    safe_rect(draw, [bbox[0]-pad_x, bbox[1]-pad_y, bbox[2]+pad_x, bbox[3]+pad_y], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
+                except:
+                    # Fallback falls textbbox in älteren Pillow-Versionen zickt
+                    tw_c = draw.textlength(st.session_state.custom_text, font=f_custom)
+                    th_c = int(w * 0.05 * st.session_state.size_custom_text)
+                    bx1_c, by1_c = int(pos_x - tw_c/2 - 25), int(pos_y - th_c/2 - 15)
+                    bx2_c, by2_c = int(pos_x + tw_c/2 + 25), int(pos_y + th_c/2 + 15)
+                    safe_rect(draw, [bx1_c, by1_c, bx2_c, by2_c], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
+            
             draw_text_with_shadow(draw, (pos_x, pos_y), st.session_state.custom_text, f_custom, fill=st.session_state.c_custom_text, anchor="mm")
 
         all_pts = [p for s in pts for p in s]
@@ -496,7 +515,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v302_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v303_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
