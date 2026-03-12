@@ -29,11 +29,21 @@ hide_st_style = """
             [data-testid="stToolbar"] {display: none !important;}
             div.stActionButton {display:none !important;}
             .main .block-container {padding-top: 1rem !important;}
+            /* Style für zentrierte Werte zwischen Buttons */
+            .v-center {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                font-weight: bold;
+                font-size: 1.1rem;
+                padding-top: 0.5rem;
+            }
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.8 Beta) ---
+# --- STANDARDWERTE (v2.9.9 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -208,7 +218,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- NEUE EINSTELLUNGEN (AUFGERÄUMT) ---
-with st.expander("⚙️ Einstellungen [v2.9.8 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.9 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -219,7 +229,6 @@ with st.expander("⚙️ Einstellungen [v2.9.8 Beta]", expanded=False):
             st.text_input("Datum", key="tour_date")
             st.checkbox("Datum im Bild anzeigen", key="show_date")
         with c2:
-            st.write("**✅ Ein- / Ausblenden**")
             st.checkbox("Start/Ziel (S/Z)", key="show_markers")
             st.checkbox("Ø Geschwindigkeit", key="show_speed")
             st.checkbox("Höhenprofil", key="show_profile")
@@ -252,10 +261,36 @@ with st.expander("⚙️ Einstellungen [v2.9.8 Beta]", expanded=False):
             st.write("**🖼️ Hintergrund & Filter**")
             st.number_input("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity", step=5)
             st.checkbox("🖤 Schwarz-Weiß Filter aktivieren", key="img_bw")
+            
+            st.write("---")
             st.write("**🔍 Zoom & Position**")
-            st.number_input("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
-            st.number_input("↔️ Links / Rechts (px)", -1500, 1500, key="img_offset_x", step=10)
-            st.number_input("↕️ Oben / Unten (px)", -1500, 1500, key="img_offset_y", step=10)
+            
+            # Helfer zum Ändern der Werte
+            def update_img_setting(key, delta, min_val=None, max_val=None):
+                new_val = st.session_state[key] + delta
+                if min_val is not None: new_val = max(min_val, new_val)
+                if max_val is not None: new_val = min(max_val, new_val)
+                st.session_state[key] = new_val
+
+            # Layout für Buttons (Vertikal untereinander für mobile Freundlichkeit)
+            st.write("🔍 Zoom")
+            cb1, cb2, cb3 = st.columns([2, 3, 2])
+            cb1.button("[-]", on_click=update_img_setting, args=("img_zoom", -10, 10, 500), key="z_minus")
+            cb2.markdown(f'<div class="v-center">{st.session_state.img_zoom}%</div>', unsafe_allow_html=True)
+            cb3.button("[+]", on_click=update_img_setting, args=("img_zoom", 10, 10, 500), key="z_plus")
+
+            st.write("↔️ Links/Rechts")
+            cb1, cb2, cb3 = st.columns([2, 3, 2])
+            cb1.button("[←]", on_click=update_img_setting, args=("img_offset_x", -50, -1500, 1500), key="x_minus")
+            cb2.markdown(f'<div class="v-center">{st.session_state.img_offset_x}px</div>', unsafe_allow_html=True)
+            cb3.button("[→]", on_click=update_img_setting, args=("img_offset_x", 50, -1500, 1500), key="x_plus")
+
+            st.write("↕️ Oben/Unten")
+            cb1, cb2, cb3 = st.columns([2, 3, 2])
+            cb1.button("[↑]", on_click=update_img_setting, args=("img_offset_y", -50, -1500, 1500), key="y_minus")
+            cb2.markdown(f'<div class="v-center">{st.session_state.img_offset_y}px</div>', unsafe_allow_html=True)
+            cb3.button("[↓]", on_click=update_img_setting, args=("img_offset_y", 50, -1500, 1500), key="y_plus")
+
         with c2:
             st.write("**📏 Story Ränder**")
             st.checkbox("Ränder für Storys aktivieren", key="story_margins_active")
@@ -277,7 +312,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.8 Beta:**\n- Einstellungen durch Tabs massiv aufgeräumt.\n- Fotoanpassungen auf einheitliche Eingabefelder umgestellt.")
+    st.info("**v2.9.9 Beta:**\n- Überschrift 'Ein- / Ausblenden' für eine cleanere Optik entfernt.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -438,7 +473,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v298_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v299_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
