@@ -29,13 +29,12 @@ hide_st_style = """
             .stDeployButton {display:none !important;}
             [data-testid="stToolbar"] {display: none !important;}
             div.stActionButton {display:none !important;}
-            /* Reduziert den riesigen Abstand ganz oben auf Null */
             .main .block-container {padding-top: 0rem !important; padding-bottom: 0rem !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.3 Beta) ---
+# --- STANDARDWERTE (v3.0.4 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -82,17 +81,12 @@ DEFAULTS = {
     "show_bg_custom_text": False
 }
 
-# Initialisierung der Session State Werte
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
 if "last_gpx_file" not in st.session_state:
     st.session_state.last_gpx_file = ""
-
-# --- HOTFIX: Alte gespeicherte Session-Werte reparieren ---
-if st.session_state.get("img_zoom", 100) < 10:
-    st.session_state["img_zoom"] = 100
 
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
@@ -176,7 +170,7 @@ def get_logo_path():
         if os.path.exists(name): return name
     return None
 
-# --- APP-HEADER UI ---
+# --- APP-HEADER ---
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
@@ -184,33 +178,18 @@ st.markdown("""
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
     padding: 15px; border-radius: 15px; box-shadow: 0px 8px 16px rgba(218, 35, 35, 0.4);
-    margin-bottom: 25px; border: 1px solid #333;
-    margin-top: 10px;
+    margin-bottom: 25px; border: 1px solid #333; margin-top: 10px;
 }
 .header-title {
     font-size: 34px; font-weight: 900;
     background: linear-gradient(90deg, #ff4b4b 0%, #da2323 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin: 0; text-transform: uppercase; text-align: center;
-    line-height: 1.2;
-}
-.header-logo {
-    height: 45px; margin-right: 15px;
+    margin: 0; text-transform: uppercase; text-align: center; line-height: 1.2;
 }
 </style>
 """, unsafe_allow_html=True)
 
-logo_html = ""
-app_logo_path = get_logo_path()
-if app_logo_path:
-    try:
-        with open(app_logo_path, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode()
-        logo_html = f'<img src="data:image/png;base64,{encoded_string}" class="header-logo">'
-    except Exception:
-        pass
-
-st.markdown(f'<div class="header-box">{logo_html}<p class="header-title">GPX Share Pro XXL</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="header-box"><p class="header-title">GPX Share Pro XXL</p></div>', unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -235,8 +214,8 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
-# --- NEUE EINSTELLUNGEN (VERSION 3.0.3 Beta) ---
-with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False): 
+# --- EINSTELLUNGEN ---
+with st.expander("⚙️ Einstellungen [v3.0.4 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -246,9 +225,8 @@ with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False):
             st.text_input("Tour Name", key="tour_title")
             st.text_input("Datum", key="tour_date")
             st.checkbox("Datum im Bild anzeigen", key="show_date")
-            st.text_input("Eigener Kommentar (z.B. Top Tour!)", key="custom_text")
+            st.text_area("Eigener Kommentar (Mehrzeilig möglich)", key="custom_text")
         with c2:
-            st.write("**✅ Ein- / Ausblenden**")
             st.checkbox("Start/Ziel (S/Z)", key="show_markers")
             st.checkbox("Ø Geschwindigkeit", key="show_speed")
             st.checkbox("Höhenprofil", key="show_profile")
@@ -260,7 +238,7 @@ with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False):
     with tab_design:
         c1, c2 = st.columns(2)
         with c1:
-            st.write("**🎨 Farben & Routen-Style**")
+            st.write("**🎨 Farben & Style**")
             col_c1, col_c2 = st.columns(2)
             with col_c1: st.color_picker("Routenfarbe", key="c_line")
             with col_c2: st.number_input("Routenstärke", 1, 20, key="w_line")
@@ -278,7 +256,7 @@ with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False):
             st.number_input("Größe Kommentar", 0.5, 5.0, key="size_custom_text", step=0.1)
         
         st.write("---")
-        st.write("**🔲 Box-Hintergründe ein- / ausblenden**")
+        st.write("**🔲 Box-Hintergründe**")
         cb1, cb2, cb3 = st.columns(3)
         with cb1: 
             st.checkbox("Top-Bereich", key="show_bg_top")
@@ -292,66 +270,40 @@ with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False):
     with tab_bild:
         c1, c2 = st.columns(2)
         with c1:
-            st.write("**🖼️ Hintergrund & Filter**")
+            st.write("**🖼️ Hintergrund**")
             st.number_input("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity", step=5)
-            st.checkbox("🖤 Schwarz-Weiß Filter aktivieren", key="img_bw")
-            
+            st.checkbox("🖤 Schwarz-Weiß Filter", key="img_bw")
             st.write("---")
-            st.write("**🔍 Zoom & Position Foto**")
+            st.write("**🔍 Zoom & Position**")
             st.number_input("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
-            st.number_input("↔️ Links / Rechts (px)", -1500, 1500, key="img_offset_x", step=10)
-            st.number_input("↕️ Oben / Unten (px)", -1500, 1500, key="img_offset_y", step=10)
-
+            st.number_input("↔️ Links/Rechts", -1500, 1500, key="img_offset_x", step=10)
+            st.number_input("↕️ Oben/Unten", -1500, 1500, key="img_offset_y", step=10)
         with c2:
             st.write("**📏 Story Ränder**")
-            st.checkbox("Ränder für Storys aktivieren", key="story_margins_active")
+            st.checkbox("Ränder aktivieren", key="story_margins_active")
             if st.session_state.story_margins_active:
-                st.number_input("Rand oben (px)", 0, 500, key="margin_top", step=10)
-                st.number_input("Rand unten (px)", 0, 500, key="margin_bottom", step=10)
-            
+                st.number_input("Oben (px)", 0, 500, key="margin_top", step=10)
+                st.number_input("Unten (px)", 0, 500, key="margin_bottom", step=10)
             st.write("---")
             st.write("**💬 Position Kommentar**")
-            st.number_input("↔️ X-Achse (Links/Rechts)", 0, 1080, key="pos_x_custom_text", step=10)
-            st.number_input("↕️ Y-Achse (Oben/Unten)", 0, 1920, key="pos_y_custom_text", step=10)
+            st.number_input("↔️ X-Achse", 0, 1080, key="pos_x_custom_text", step=10)
+            st.number_input("↕️ Y-Achse", 0, 1920, key="pos_y_custom_text", step=10)
 
     st.write("---")
-    st.button("🔄 Alle Einstellungen zurücksetzen", on_click=reset_parameters)
+    st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    if st.session_state.logo_type == "Smartes Logo":
-        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
-        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
-        st.image(menu_logo, use_container_width=False)
-    else:
-        logo_file = get_logo_path()
-        if logo_file: st.image(logo_file, width=250)
-    
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.3 Beta:**\n- Eine dynamisch anpassende Hintergrund-Box für den eigenen Kommentar hinzugefügt (ein/ausblendbar unter Design).")
+    st.info("**v3.0.4 Beta:**\n- Geister-Überschrift entfernt.\n- Eigener Kommentar ist jetzt ein mehrzeiliges Textfeld.")
     st.markdown("---")
-    
     st.markdown("**Copyright: Jürgen Unterweger**")
-    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     app_url = "https://www.gpx-share.at"
-    raw_msg = f"Hey! Schau dir mal diese geniale App an: {app_url}"
-    share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
-    st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
-
-# --- APP INSTALLIEREN REITER ---
-with st.expander("📲 App installieren", expanded=False):
-    st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
-    col_ios, col_android, col_firefox = st.columns(3)
-    with col_ios:
-        st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
-    with col_android:
-        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
-    with col_firefox:
-        st.markdown("**🦊 Firefox (Android)**\n1. Tippe auf die **drei Punkte** ⋮\n2. Wähle **'Installieren'** oder 'Zum Startbildschirm'")
+    st.markdown(f'<a href="whatsapp://send?text=Check out this app: {app_url}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen</a>', unsafe_allow_html=True)
 
 st.divider()
 
-# --- VERARBEITUNG & BILDERZEUGUNG ---
+# --- BILDERZEUGUNG ---
 if up_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
@@ -375,24 +327,14 @@ if up_gpx:
         w, h = 1080, 1920
         canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255))
         
-        # --- BILD LOGIK (Zoom & Verschieben & Filter) ---
         if up_img:
             bg = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
-            
-            # SCHWARZ-WEISS FILTER
-            if st.session_state.img_bw:
-                bg = bg.convert("L").convert("RGBA")
-                
+            if st.session_state.img_bw: bg = bg.convert("L").convert("RGBA")
             bg_w, bg_h = bg.size
             scale = max(w / bg_w, h / bg_h) * (st.session_state.img_zoom / 100.0)
-            
             new_w, new_h = max(1, int(bg_w * scale)), max(1, int(bg_h * scale))
             bg_resized = bg.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            
-            paste_x = (w - new_w) // 2 + st.session_state.img_offset_x
-            paste_y = (h - new_h) // 2 + st.session_state.img_offset_y
-            
-            canvas.paste(bg_resized, (paste_x, paste_y))
+            canvas.paste(bg_resized, ((w - new_w)//2 + st.session_state.img_offset_x, (h - new_h)//2 + st.session_state.img_offset_y))
             
         if st.session_state.bg_opacity < 100:
             canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
@@ -400,28 +342,12 @@ if up_gpx:
         overlay = Image.new('RGBA', (w, h), (0,0,0,0)); draw = ImageDraw.Draw(overlay)
         bh_t, bh_b = int(h * 0.20), int(h * 0.12)
         
-        if st.session_state.show_bg_top:
-            safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
-        if st.session_state.show_bg_bottom:
-            safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
+        if st.session_state.show_bg_top: safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
+        if st.session_state.show_bg_bottom: safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
 
         if st.session_state.show_profile and len(elevs) > 1:
             e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
-            px_m, p_w, grid_y_s = 10, w - 20, h - bh_b
-            step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
-            step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
-            f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
-            c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
-            for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
-                gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
-                draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
-            last_tx = -100 
-            for k in range(step_km, int(d_total), step_km):
-                gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
-                draw.line([(gx, grid_y_s), (gx, h)], fill=c_g_l, width=1)
-                txt = f"{k}km"; tw = draw.textlength(txt, font=f_grid)
-                if gx - tw/2 > last_tx + 20:
-                    draw.text((gx, grid_y_s+5), txt, fill=c_g_t, font=f_grid, anchor="mt"); last_tx = gx + tw/2
+            px_m, p_w = 10, w - 20
             profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
             rgb = hex_to_rgba(st.session_state.c_line)
             draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
@@ -430,39 +356,26 @@ if up_gpx:
         draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
         items = [("dist", f"{d_total:.1f} km"), ("speed", f"{avg_s:.1f} km/h"), ("elev", f"{int(a_gain)} m")]
         f_d, i_s = load_font(int(w*0.05*st.session_state.size_data)), int(w*0.05*st.session_state.size_data)
-        tw_tot = sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.08)*2
-        cx, dy = (w - tw_tot) // 2, bh_t*0.35 + 150
+        cx = (w - (sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.08)*2)) // 2
         for m, t in items:
-            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(dy-i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
-            cx += i_s + 15; draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, dy), t, f_d, fill=st.session_state.c_data); cx += draw.textlength(t, f_d) + w*0.08
+            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(bh_t*0.35 + 150 - i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
+            cx += i_s + 15; draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, bh_t*0.35 + 150), t, f_d, fill=st.session_state.c_data); cx += draw.textlength(t, f_d) + w*0.08
 
         if st.session_state.show_date and st.session_state.tour_date:
             f_dt = load_font(int(w * 0.028 * st.session_state.size_date)); tw = draw.textlength(st.session_state.tour_date, font=f_dt)
-            bx1, by1 = 30, int(h - bh_b - 80); bx2, by2 = int(30 + tw + 40), int(h - bh_b - 20)
-            if st.session_state.show_bg_date:
-                safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
-            draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
+            if st.session_state.show_bg_date: safe_rect(draw, [30, int(h - bh_b - 80), int(30 + tw + 40), int(h - bh_b - 20)], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
+            draw.text((30 + (tw+40)//2, int(h-bh_b-50)), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
 
-        # --- EIGENER KOMMENTAR EINBAUEN ---
+        # --- MEHRZEILIGER KOMMENTAR ---
         if st.session_state.custom_text:
             f_custom = load_font(int(w * 0.05 * st.session_state.size_custom_text))
-            pos_x = st.session_state.pos_x_custom_text
-            pos_y = st.session_state.pos_y_custom_text
-            
+            pos_x, pos_y = st.session_state.pos_x_custom_text, st.session_state.pos_y_custom_text
             if st.session_state.show_bg_custom_text:
-                try:
-                    bbox = draw.textbbox((pos_x, pos_y), st.session_state.custom_text, font=f_custom, anchor="mm")
-                    pad_x, pad_y = 25, 15
-                    safe_rect(draw, [bbox[0]-pad_x, bbox[1]-pad_y, bbox[2]+pad_x, bbox[3]+pad_y], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
-                except:
-                    # Fallback falls textbbox in älteren Pillow-Versionen zickt
-                    tw_c = draw.textlength(st.session_state.custom_text, font=f_custom)
-                    th_c = int(w * 0.05 * st.session_state.size_custom_text)
-                    bx1_c, by1_c = int(pos_x - tw_c/2 - 25), int(pos_y - th_c/2 - 15)
-                    bx2_c, by2_c = int(pos_x + tw_c/2 + 25), int(pos_y + th_c/2 + 15)
-                    safe_rect(draw, [bx1_c, by1_c, bx2_c, by2_c], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
-            
-            draw_text_with_shadow(draw, (pos_x, pos_y), st.session_state.custom_text, f_custom, fill=st.session_state.c_custom_text, anchor="mm")
+                bbox = draw.multiline_textbbox((pos_x, pos_y), st.session_state.custom_text, font=f_custom, anchor="mm", align="center")
+                safe_rect(draw, [bbox[0]-25, bbox[1]-15, bbox[2]+25, bbox[3]+15], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
+            # Shadow
+            draw.multiline_text((pos_x+2, pos_y+2), st.session_state.custom_text, fill="black", font=f_custom, anchor="mm", align="center")
+            draw.multiline_text((pos_x, pos_y), st.session_state.custom_text, fill=st.session_state.c_custom_text, font=f_custom, anchor="mm", align="center")
 
         all_pts = [p for s in pts for p in s]
         if all_pts:
@@ -480,30 +393,16 @@ if up_gpx:
 
         if st.session_state.show_minibox and all_pts:
             mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w; mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
-            if st.session_state.show_bg_minibox:
-                safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
+            if st.session_state.show_bg_minibox: safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
             m_m, m_la_e, m_lo_e = int(20 * st.session_state.size_minibox), (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             aspect = m_la_e / m_lo_e
-            if aspect > 1: drw_h = mb_h - 2*m_m; drw_w = drw_h / aspect
-            else: drw_w = mb_w - 2*m_m; drw_h = drw_w * aspect
+            drw_h = mb_h - 2*m_m if aspect > 1 else (mb_w - 2*m_m) * aspect
+            drw_w = drw_h / aspect if aspect > 1 else (mb_w - 2*m_m)
             off_x, off_y = mb_x + (mb_w - drw_w)//2, mb_y + (mb_h - drw_h)//2; rgb = hex_to_rgba(st.session_state.c_line)
             for s in pts:
                 m_pts = [(int(off_x + (p[1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/m_la_e*drw_h)) for p in s]
                 if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4*st.session_state.size_minibox)), joint="round")
-            ms_p = (int(off_x + (all_pts[0][1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (all_pts[0][0]-mi_la)/m_la_e*drw_h))
-            me_p = (int(off_x + (all_pts[-1][1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (all_pts[-1][0]-mi_la)/m_la_e*drw_h))
-            m_r = max(3, int(6 * st.session_state.size_minibox)); safe_ellipse(draw, [ms_p[0]-m_r, ms_p[1]-m_r, ms_p[0]+m_r, ms_p[1]+m_r], fill="green"); safe_ellipse(draw, [me_p[0]-m_r, me_p[1]-m_r, me_p[0]+m_r, me_p[1]+m_r], fill="red")
 
-        if st.session_state.show_logo:
-            lp = (30, bh_t + 30)
-            if st.session_state.logo_type == "Smartes Logo": draw_graphical_logo(draw, lp, st.session_state.size_logo, st.session_state.c_line)
-            else:
-                p = get_logo_path()
-                if p:
-                    ml = Image.open(p).convert("RGBA"); tw = int(w*0.15*st.session_state.size_logo); th = int(tw * (ml.height/ml.width))
-                    overlay.paste(ml.resize((tw, th), Image.Resampling.LANCZOS), lp, ml.resize((tw, th), Image.Resampling.LANCZOS))
-
-        # --- ZUSAMMENSUMMEN & RÄNDER HINZUFÜGEN ---
         final = Image.alpha_composite(canvas, overlay); st_image_display = final.convert('RGB')
         m_top, m_bot = st.session_state.margin_top, st.session_state.margin_bottom
         if st.session_state.story_margins_active and (m_top > 0 or m_bot > 0):
@@ -514,22 +413,11 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v303_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v304_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
-# --- IMPRESSUM FOOTER GANZ UNTEN ---
+# --- FOOTER ---
 st.markdown("---")
 with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
-    st.markdown("""
-    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
-    Wangham 13  
-    4661 Roitham am Traunfall  
-    Österreich  
-    
-    **Kontakt:** juergen.unterweger@outlook.at  
-    
-    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
-    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
-    """)
+    st.markdown("**Impressum:** Jürgen Unterweger, Wangham 13, 4661 Roitham am Traunfall, Österreich.")
