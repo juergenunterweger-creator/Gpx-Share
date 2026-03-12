@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.4 Beta) ---
+# --- STANDARDWERTE (v3.0.5 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -74,6 +74,8 @@ DEFAULTS = {
     "size_custom_text": 1.5,
     "pos_x_custom_text": 540,
     "pos_y_custom_text": 960,
+    "pos_x_minibox": 770,
+    "pos_y_minibox": 1550,
     "show_bg_top": True,
     "show_bg_bottom": True,
     "show_bg_date": True,
@@ -153,14 +155,6 @@ def draw_data_icon(mode, size, color="white"):
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-def draw_graphical_logo(draw, pos, scale=1.0, color="#DA2323"):
-    x, y = int(pos[0]), int(pos[1])
-    icon_size = int(50 * scale)
-    rgb = hex_to_rgba(color)
-    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb, outline="white", width=max(1, int(2*scale)))
-    draw.polygon([(x+icon_size*0.2, y+icon_size*0.75), (x+icon_size*0.5, y+icon_size*0.25), (x+icon_size*0.8, y+icon_size*0.75)], fill="white")
-    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", load_font(int(32 * scale)), fill="white", anchor="lm")
-
 def hex_to_rgba(hex_color, alpha=255):
     h = hex_color.lstrip('#')
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
@@ -215,7 +209,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.0.4 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.0.5 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -274,10 +268,10 @@ with st.expander("⚙️ Einstellungen [v3.0.4 Beta]", expanded=False):
             st.number_input("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity", step=5)
             st.checkbox("🖤 Schwarz-Weiß Filter", key="img_bw")
             st.write("---")
-            st.write("**🔍 Zoom & Position**")
+            st.write("**🔍 Zoom & Position Foto**")
             st.number_input("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
-            st.number_input("↔️ Links/Rechts", -1500, 1500, key="img_offset_x", step=10)
-            st.number_input("↕️ Oben/Unten", -1500, 1500, key="img_offset_y", step=10)
+            st.number_input("↔️ Links/Rechts (Foto)", -1500, 1500, key="img_offset_x", step=10)
+            st.number_input("↕️ Oben/Unten (Foto)", -1500, 1500, key="img_offset_y", step=10)
         with c2:
             st.write("**📏 Story Ränder**")
             st.checkbox("Ränder aktivieren", key="story_margins_active")
@@ -285,9 +279,13 @@ with st.expander("⚙️ Einstellungen [v3.0.4 Beta]", expanded=False):
                 st.number_input("Oben (px)", 0, 500, key="margin_top", step=10)
                 st.number_input("Unten (px)", 0, 500, key="margin_bottom", step=10)
             st.write("---")
-            st.write("**💬 Position Kommentar**")
-            st.number_input("↔️ X-Achse", 0, 1080, key="pos_x_custom_text", step=10)
-            st.number_input("↕️ Y-Achse", 0, 1920, key="pos_y_custom_text", step=10)
+            st.write("**💬 Position Elemente**")
+            st.write("*Kommentar:*")
+            st.number_input("↔️ X-Achse (Text)", 0, 1080, key="pos_x_custom_text", step=10)
+            st.number_input("↕️ Y-Achse (Text)", 0, 1920, key="pos_y_custom_text", step=10)
+            st.write("*Minibox:*")
+            st.number_input("↔️ X-Achse (Box)", 0, 1080, key="pos_x_minibox", step=10)
+            st.number_input("↕️ Y-Achse (Box)", 0, 1920, key="pos_y_minibox", step=10)
 
     st.write("---")
     st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
@@ -295,11 +293,7 @@ with st.expander("⚙️ Einstellungen [v3.0.4 Beta]", expanded=False):
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.4 Beta:**\n- Geister-Überschrift entfernt.\n- Eigener Kommentar ist jetzt ein mehrzeiliges Textfeld.")
-    st.markdown("---")
-    st.markdown("**Copyright: Jürgen Unterweger**")
-    app_url = "https://www.gpx-share.at"
-    st.markdown(f'<a href="whatsapp://send?text=Check out this app: {app_url}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen</a>', unsafe_allow_html=True)
+    st.info("**v3.0.5 Beta:**\n- Minibox ist jetzt über die Bildeinstellungen frei verschiebbar.")
 
 st.divider()
 
@@ -366,42 +360,36 @@ if up_gpx:
             if st.session_state.show_bg_date: safe_rect(draw, [30, int(h - bh_b - 80), int(30 + tw + 40), int(h - bh_b - 20)], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
             draw.text((30 + (tw+40)//2, int(h-bh_b-50)), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
 
-        # --- MEHRZEILIGER KOMMENTAR ---
         if st.session_state.custom_text:
             f_custom = load_font(int(w * 0.05 * st.session_state.size_custom_text))
-            pos_x, pos_y = st.session_state.pos_x_custom_text, st.session_state.pos_y_custom_text
+            px, py = st.session_state.pos_x_custom_text, st.session_state.pos_y_custom_text
             if st.session_state.show_bg_custom_text:
-                bbox = draw.multiline_textbbox((pos_x, pos_y), st.session_state.custom_text, font=f_custom, anchor="mm", align="center")
+                bbox = draw.multiline_textbbox((px, py), st.session_state.custom_text, font=f_custom, anchor="mm", align="center")
                 safe_rect(draw, [bbox[0]-25, bbox[1]-15, bbox[2]+25, bbox[3]+15], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
-            # Shadow
-            draw.multiline_text((pos_x+2, pos_y+2), st.session_state.custom_text, fill="black", font=f_custom, anchor="mm", align="center")
-            draw.multiline_text((pos_x, pos_y), st.session_state.custom_text, fill=st.session_state.c_custom_text, font=f_custom, anchor="mm", align="center")
+            draw.multiline_text((px, py), st.session_state.custom_text, fill=st.session_state.c_custom_text, font=f_custom, anchor="mm", align="center")
 
         all_pts = [p for s in pts for p in s]
-        if all_pts:
+        if all_pts and st.session_state.show_minibox:
+            mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w
+            mb_x, mb_y = st.session_state.pos_x_minibox, st.session_state.pos_y_minibox
+            if st.session_state.show_bg_minibox: safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
             lats, lons = zip(*all_pts); mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             la_e, lo_e = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
-            if st.session_state.show_route:
-                ssf = 3; ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0)); rd = ImageDraw.Draw(ro); rgb = hex_to_rgba(st.session_state.c_line)
-                for s in pts:
-                    s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
-                    if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
-                overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
-                if st.session_state.show_markers:
-                    def tr(la, lo): return (int(0.15*w + (lo-mi_lo)/lo_e*w*0.7), int(h*0.75 - (la-mi_la)/la_e*h*0.5))
-                    draw_marker(draw, tr(all_pts[0][0], all_pts[0][1]), "green", "S"); draw_marker(draw, tr(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
-
-        if st.session_state.show_minibox and all_pts:
-            mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w; mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
-            if st.session_state.show_bg_minibox: safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
-            m_m, m_la_e, m_lo_e = int(20 * st.session_state.size_minibox), (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
-            aspect = m_la_e / m_lo_e
+            aspect = la_e / lo_e
+            m_m = int(20 * st.session_state.size_minibox)
             drw_h = mb_h - 2*m_m if aspect > 1 else (mb_w - 2*m_m) * aspect
             drw_w = drw_h / aspect if aspect > 1 else (mb_w - 2*m_m)
             off_x, off_y = mb_x + (mb_w - drw_w)//2, mb_y + (mb_h - drw_h)//2; rgb = hex_to_rgba(st.session_state.c_line)
             for s in pts:
-                m_pts = [(int(off_x + (p[1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/m_la_e*drw_h)) for p in s]
+                m_pts = [(int(off_x + (p[1]-mi_lo)/lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/la_e*drw_h)) for p in s]
                 if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4*st.session_state.size_minibox)), joint="round")
+
+            if st.session_state.show_route:
+                ssf = 3; ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0)); rd = ImageDraw.Draw(ro)
+                for s in pts:
+                    s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
+                    if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
+                overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
 
         final = Image.alpha_composite(canvas, overlay); st_image_display = final.convert('RGB')
         m_top, m_bot = st.session_state.margin_top, st.session_state.margin_bottom
@@ -413,11 +401,6 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v304_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v305_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
-
-# --- FOOTER ---
-st.markdown("---")
-with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
-    st.markdown("**Impressum:** Jürgen Unterweger, Wangham 13, 4661 Roitham am Traunfall, Österreich.")
