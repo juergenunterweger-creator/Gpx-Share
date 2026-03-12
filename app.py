@@ -35,7 +35,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.11 Beta) ---
+# --- STANDARDWERTE (v3.0 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -69,7 +69,12 @@ DEFAULTS = {
     "img_zoom": 100,          
     "img_offset_x": 0,        
     "img_offset_y": 0,
-    "img_bw": False           
+    "img_bw": False,
+    "custom_text": "",
+    "c_custom_text": "#FFFFFF",
+    "size_custom_text": 1.5,
+    "pos_x_custom_text": 540,
+    "pos_y_custom_text": 960
 }
 
 # Initialisierung der Session State Werte
@@ -166,7 +171,7 @@ def get_logo_path():
         if os.path.exists(name): return name
     return None
 
-# --- APP-HEADER UI (NEU MIT INTEGRIERTEM LOGO) ---
+# --- APP-HEADER UI ---
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
@@ -175,7 +180,7 @@ st.markdown("""
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
     padding: 15px; border-radius: 15px; box-shadow: 0px 8px 16px rgba(218, 35, 35, 0.4);
     margin-bottom: 25px; border: 1px solid #333;
-    margin-top: 10px; /* Leichter Puffer oben */
+    margin-top: 10px;
 }
 .header-title {
     font-size: 34px; font-weight: 900;
@@ -225,8 +230,8 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
-# --- NEUE EINSTELLUNGEN (AUFGERÄUMT) ---
-with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False): 
+# --- NEUE EINSTELLUNGEN (VERSION 3.0 Beta) ---
+with st.expander("⚙️ Einstellungen [v3.0 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -236,7 +241,11 @@ with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False):
             st.text_input("Tour Name", key="tour_title")
             st.text_input("Datum", key="tour_date")
             st.checkbox("Datum im Bild anzeigen", key="show_date")
+            st.write("---")
+            st.write("**💬 Eigener Kommentar**")
+            st.text_input("Spruch (z.B. Top Tour!)", key="custom_text")
         with c2:
+            st.write("**✅ Ein- / Ausblenden**")
             st.checkbox("Start/Ziel (S/Z)", key="show_markers")
             st.checkbox("Ø Geschwindigkeit", key="show_speed")
             st.checkbox("Höhenprofil", key="show_profile")
@@ -256,12 +265,14 @@ with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False):
             st.color_picker("Farbe Daten", key="c_data")
             st.color_picker("Farbe Datum", key="c_date")
             st.color_picker("Farbe Raster", key="c_grid")
+            st.color_picker("Farbe Kommentar", key="c_custom_text")
         with c2:
             st.write("**🔠 Größen (Skalierung)**")
             st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
             st.number_input("Größe Daten", 0.5, 4.0, key="size_data", step=0.1)
             st.number_input("Größe Logo", 0.5, 3.0, key="size_logo", step=0.1)
             st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1)
+            st.number_input("Größe Kommentar", 0.5, 5.0, key="size_custom_text", step=0.1)
 
     with tab_bild:
         c1, c2 = st.columns(2)
@@ -271,7 +282,7 @@ with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False):
             st.checkbox("🖤 Schwarz-Weiß Filter aktivieren", key="img_bw")
             
             st.write("---")
-            st.write("**🔍 Zoom & Position**")
+            st.write("**🔍 Zoom & Position Foto**")
             st.number_input("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
             st.number_input("↔️ Links / Rechts (px)", -1500, 1500, key="img_offset_x", step=10)
             st.number_input("↕️ Oben / Unten (px)", -1500, 1500, key="img_offset_y", step=10)
@@ -282,6 +293,11 @@ with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False):
             if st.session_state.story_margins_active:
                 st.number_input("Rand oben (px)", 0, 500, key="margin_top", step=10)
                 st.number_input("Rand unten (px)", 0, 500, key="margin_bottom", step=10)
+            
+            st.write("---")
+            st.write("**💬 Position Kommentar**")
+            st.number_input("↔️ X-Achse (Links/Rechts)", 0, 1080, key="pos_x_custom_text", step=10)
+            st.number_input("↕️ Y-Achse (Oben/Unten)", 0, 1920, key="pos_y_custom_text", step=10)
 
     st.write("---")
     st.button("🔄 Alle Einstellungen zurücksetzen", on_click=reset_parameters)
@@ -297,7 +313,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.11 Beta:**\n- Oberen Abstand massiv reduziert.\n- Neues, modernes Header-Design mit automatisch integriertem Logo.")
+    st.info("**v3.0 Beta:**\n- MAJOR UPDATE: Eigene Kommentare/Sprüche können jetzt mit ins Bild eingefügt, gefärbt und verschoben werden.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -408,6 +424,13 @@ if up_gpx:
             safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
             draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
 
+        # --- EIGENER KOMMENTAR EINBAUEN ---
+        if st.session_state.custom_text:
+            f_custom = load_font(int(w * 0.05 * st.session_state.size_custom_text))
+            pos_x = st.session_state.pos_x_custom_text
+            pos_y = st.session_state.pos_y_custom_text
+            draw_text_with_shadow(draw, (pos_x, pos_y), st.session_state.custom_text, f_custom, fill=st.session_state.c_custom_text, anchor="mm")
+
         all_pts = [p for s in pts for p in s]
         if all_pts:
             lats, lons = zip(*all_pts); mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
@@ -458,7 +481,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2911_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v30_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
