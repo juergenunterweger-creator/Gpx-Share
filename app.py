@@ -33,7 +33,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.4 Beta) ---
+# --- STANDARDWERTE (v2.9.6 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -66,7 +66,8 @@ DEFAULTS = {
     "margin_bottom": 100,
     "img_zoom": 100,          
     "img_offset_x": 0,        
-    "img_offset_y": 0         
+    "img_offset_y": 0,
+    "img_bw": False           # NEU: Schwarz-Weiß Filter
 }
 
 for key, val in DEFAULTS.items():
@@ -206,7 +207,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- OPTIONEN ---
-with st.expander("⚙️ Einstellungen [v2.9.4 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.6 Beta]", expanded=False): 
     col_opt1, col_opt2 = st.columns(2)
     with col_opt1:
         st.write("**📝 Tour & Design**")
@@ -249,6 +250,7 @@ with st.expander("⚙️ Einstellungen [v2.9.4 Beta]", expanded=False):
     # --- BILD ANPASSEN ---
     st.write("---")
     st.write("**🖼️ Foto anpassen (Zoom & Position)**")
+    st.checkbox("🖤 Schwarz-Weiß Filter aktivieren", key="img_bw")
     c_img1, c_img2, c_img3 = st.columns(3)
     with c_img1: st.slider("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
     with c_img2: st.slider("↔️ Links / Rechts", -1500, 1500, key="img_offset_x", step=10)
@@ -267,24 +269,9 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.4 Beta:**\n- Impressum und Datenschutz-Hinweis (DSGVO/ECG) integriert.\n- Stabile Basis.")
+    st.info("**v2.9.6 Beta:**\n- Schwarz-Weiß Filter für Hintergrundbilder hinzugefügt.\n- Impressum im Footer.")
     st.markdown("---")
     
-    # --- NEU: IMPRESSUM & DATENSCHUTZ ---
-    st.markdown("### ⚖️ Impressum & Datenschutz")
-    st.markdown("""
-    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
-    Wangham 13  
-    4661 Roitham am Traunfall  
-    Österreich  
-    
-    **Kontakt:** juergen.unterweger@outlook.at  
-    
-    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
-    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
-    """)
-    
-    st.markdown("---")
     st.markdown("**Copyright: Jürgen Unterweger**")
     st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     app_url = "https://www.gpx-share.at"
@@ -329,9 +316,14 @@ if up_gpx:
         w, h = 1080, 1920
         canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255))
         
-        # --- BILD LOGIK (Zoom & Verschieben mit Prozenten) ---
+        # --- BILD LOGIK (Zoom & Verschieben & Filter) ---
         if up_img:
             bg = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
+            
+            # NEU: SCHWARZ-WEISS FILTER
+            if st.session_state.img_bw:
+                bg = bg.convert("L").convert("RGBA")
+                
             bg_w, bg_h = bg.size
             scale = max(w / bg_w, h / bg_h) * (st.session_state.img_zoom / 100.0)
             
@@ -438,6 +430,21 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v294_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v296_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
+
+# --- IMPRESSUM FOOTER GANZ UNTEN ---
+st.markdown("---")
+with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
+    st.markdown("""
+    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
+    Wangham 13  
+    4661 Roitham am Traunfall  
+    Österreich  
+    
+    **Kontakt:** juergen.unterweger@outlook.at  
+    
+    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
+    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
+    """)
