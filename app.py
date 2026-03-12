@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import io
 import math
 import os
+import base64
 
 # --- APP KONFIGURATION ---
 def get_fav_icon():
@@ -17,7 +18,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- AGGRESSIVER BRANDING KILLER ---
+# --- AGGRESSIVER BRANDING KILLER & ABSTAND-REDUZIERUNG ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden !important;}
@@ -28,12 +29,13 @@ hide_st_style = """
             .stDeployButton {display:none !important;}
             [data-testid="stToolbar"] {display: none !important;}
             div.stActionButton {display:none !important;}
-            .main .block-container {padding-top: 1rem !important;}
+            /* Reduziert den riesigen Abstand ganz oben auf Null */
+            .main .block-container {padding-top: 0rem !important; padding-bottom: 0rem !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v2.9.10 Beta) ---
+# --- STANDARDWERTE (v2.9.11 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -164,25 +166,41 @@ def get_logo_path():
         if os.path.exists(name): return name
     return None
 
-# --- APP-HEADER UI ---
+# --- APP-HEADER UI (NEU MIT INTEGRIERTEM LOGO) ---
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color: #000000; } 
 .header-box {
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
-    padding: 20px; border-radius: 15px; box-shadow: 0px 10px 20px rgba(218, 35, 35, 0.4);
-    margin-bottom: 30px; border: 1px solid #333;
+    padding: 15px; border-radius: 15px; box-shadow: 0px 8px 16px rgba(218, 35, 35, 0.4);
+    margin-bottom: 25px; border: 1px solid #333;
+    margin-top: 10px; /* Leichter Puffer oben */
 }
 .header-title {
-    font-size: 38px; font-weight: 900;
+    font-size: 34px; font-weight: 900;
     background: linear-gradient(90deg, #ff4b4b 0%, #da2323 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin: 0; text-transform: uppercase; text-align: center;
+    line-height: 1.2;
+}
+.header-logo {
+    height: 45px; margin-right: 15px;
 }
 </style>
-<div class="header-box"><p class="header-title">GPX Share Pro XXL</p></div>
 """, unsafe_allow_html=True)
+
+logo_html = ""
+app_logo_path = get_logo_path()
+if app_logo_path:
+    try:
+        with open(app_logo_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        logo_html = f'<img src="data:image/png;base64,{encoded_string}" class="header-logo">'
+    except Exception:
+        pass
+
+st.markdown(f'<div class="header-box">{logo_html}<p class="header-title">GPX Share Pro XXL</p></div>', unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -208,7 +226,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- NEUE EINSTELLUNGEN (AUFGERÄUMT) ---
-with st.expander("⚙️ Einstellungen [v2.9.10 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v2.9.11 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -279,7 +297,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v2.9.10 Beta:**\n- Zoom & Positionierung wieder auf einheitliche number_input Felder korrigiert.")
+    st.info("**v2.9.11 Beta:**\n- Oberen Abstand massiv reduziert.\n- Neues, modernes Header-Design mit automatisch integriertem Logo.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -440,7 +458,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2910_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v2911_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
