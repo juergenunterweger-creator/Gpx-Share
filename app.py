@@ -1,6 +1,6 @@
 import streamlit as st
 import gpxpy
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageEnhance
 import io
 import math
 import os
@@ -35,8 +35,9 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.3 Beta) ---
+# --- STANDARDWERTE (v3.1.1 Beta) ---
 DEFAULTS = {
+    "layout_style": "Classic (Dark Overlay)",
     "tour_title": "Meine Tour",
     "tour_date": "",
     "c_line": "#DA2323",
@@ -49,7 +50,7 @@ DEFAULTS = {
     "show_speed": True,
     "show_profile": True,
     "show_logo": False,
-    "show_route": False,
+    "show_route": True,
     "show_minibox": True,
     "logo_type": "Grafisches logo",
     "show_date": True,
@@ -70,6 +71,7 @@ DEFAULTS = {
     "img_offset_x": 0,        
     "img_offset_y": 0,
     "img_bw": False,
+    "img_enhance": False,     # NEU: Smart Enhance
     "custom_text": "",
     "c_custom_text": "#FFFFFF",
     "size_custom_text": 1.5,
@@ -127,7 +129,8 @@ def calc_dist(lat1, lon1, lat2, lon2):
 
 def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="black", offset=2, anchor="mm"):
     x, y = int(pos[0]), int(pos[1])
-    draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor=anchor)
+    if offset > 0:
+        draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor=anchor)
     draw.text((x, y), text, fill=fill, font=font, anchor=anchor)
 
 def draw_marker(draw, pos, color, label=""):
@@ -165,7 +168,7 @@ def draw_graphical_logo(draw, pos, scale=1.0, color="#DA2323"):
     rgb = hex_to_rgba(color)
     safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb, outline="white", width=max(1, int(2*scale)))
     draw.polygon([(x+icon_size*0.2, y+icon_size*0.75), (x+icon_size*0.5, y+icon_size*0.25), (x+icon_size*0.8, y+icon_size*0.75)], fill="white")
-    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", load_font(int(32 * scale)), fill="white", anchor="lm")
+    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", load_font(int(32 * scale)), fill="white", shadow_color="black", offset=2, anchor="lm")
 
 def hex_to_rgba(hex_color, alpha=255):
     h = hex_color.lstrip('#')
@@ -235,8 +238,8 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
-# --- NEUE EINSTELLUNGEN (VERSION 3.0.3 Beta) ---
-with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False): 
+# --- NEUE EINSTELLUNGEN (VERSION 3.1.1 Beta) ---
+with st.expander("⚙️ Einstellungen [v3.1.1 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -258,6 +261,10 @@ with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False):
             st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
 
     with tab_design:
+        st.write("**📱 Layout Style**")
+        st.radio("Wähle dein bevorzugtes Design:", ["Classic (Dark Overlay)", "Modern (White Card)"], key="layout_style", horizontal=True)
+        st.write("---")
+        
         c1, c2 = st.columns(2)
         with c1:
             st.write("**🎨 Farben & Routen-Style**")
@@ -294,6 +301,9 @@ with st.expander("⚙️ Einstellungen [v3.0.3 Beta]", expanded=False):
         with c1:
             st.write("**🖼️ Hintergrund & Filter**")
             st.number_input("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity", step=5)
+            # NEUER BEREICH FÜR FILTER
+            st.write("🎨 **Effekte**")
+            st.checkbox("✨ Smart Enhance (Farben & Kontrast)", key="img_enhance", help="Macht das Bild automatisch knackiger für Social Media.")
             st.checkbox("🖤 Schwarz-Weiß Filter aktivieren", key="img_bw")
             
             st.write("---")
@@ -328,7 +338,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.3 Beta:**\n- Eine dynamisch anpassende Hintergrund-Box für den eigenen Kommentar hinzugefügt (ein/ausblendbar unter Design).")
+    st.info("**v3.1.1 Beta:**\n- **NEU:** 'Smart Enhance' Funktion hinzugefügt, um Fotos automatisch für Social Media zu optimieren (Kontrast, Sättigung, Schärfe).")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -379,19 +389,26 @@ if up_gpx:
         if up_img:
             bg = ImageOps.exif_transpose(Image.open(io.BytesIO(up_img.getvalue()))).convert("RGBA")
             
+            # SMART ENHANCE (Farben, Kontrast, Schärfe pushen)
+            if st.session_state.img_enhance:
+                enhancer_color = ImageEnhance.Color(bg)
+                bg = enhancer_color.enhance(1.3)     # 30% mehr Farbe
+                enhancer_contrast = ImageEnhance.Contrast(bg)
+                bg = enhancer_contrast.enhance(1.2)  # 20% mehr Kontrast
+                enhancer_sharpness = ImageEnhance.Sharpness(bg)
+                bg = enhancer_sharpness.enhance(1.5) # 50% schärfer
+
             # SCHWARZ-WEISS FILTER
             if st.session_state.img_bw:
                 bg = bg.convert("L").convert("RGBA")
                 
             bg_w, bg_h = bg.size
             scale = max(w / bg_w, h / bg_h) * (st.session_state.img_zoom / 100.0)
-            
             new_w, new_h = max(1, int(bg_w * scale)), max(1, int(bg_h * scale))
             bg_resized = bg.resize((new_w, new_h), Image.Resampling.LANCZOS)
             
             paste_x = (w - new_w) // 2 + st.session_state.img_offset_x
             paste_y = (h - new_h) // 2 + st.session_state.img_offset_y
-            
             canvas.paste(bg_resized, (paste_x, paste_y))
             
         if st.session_state.bg_opacity < 100:
@@ -399,100 +416,135 @@ if up_gpx:
 
         overlay = Image.new('RGBA', (w, h), (0,0,0,0)); draw = ImageDraw.Draw(overlay)
         bh_t, bh_b = int(h * 0.20), int(h * 0.12)
-        
-        if st.session_state.show_bg_top:
-            safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
-        if st.session_state.show_bg_bottom:
-            safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
 
-        if st.session_state.show_profile and len(elevs) > 1:
-            e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
-            px_m, p_w, grid_y_s = 10, w - 20, h - bh_b
-            step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
-            step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
-            f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
-            c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
-            for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
-                gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
-                draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
-            last_tx = -100 
-            for k in range(step_km, int(d_total), step_km):
-                gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
-                draw.line([(gx, grid_y_s), (gx, h)], fill=c_g_l, width=1)
-                txt = f"{k}km"; tw = draw.textlength(txt, font=f_grid)
-                if gx - tw/2 > last_tx + 20:
-                    draw.text((gx, grid_y_s+5), txt, fill=c_g_t, font=f_grid, anchor="mt"); last_tx = gx + tw/2
-            profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
-            rgb = hex_to_rgba(st.session_state.c_line)
-            draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
-            draw.line(profile_pts, fill=(255,255,255,255), width=4)
+        # --- LAYOUT ENGINE ---
+        is_modern = st.session_state.layout_style == "Modern (White Card)"
+        split_y = int(h * 0.72) if is_modern else h
 
-        draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
-        items = [("dist", f"{d_total:.1f} km"), ("speed", f"{avg_s:.1f} km/h"), ("elev", f"{int(a_gain)} m")]
-        f_d, i_s = load_font(int(w*0.05*st.session_state.size_data)), int(w*0.05*st.session_state.size_data)
-        tw_tot = sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.08)*2
-        cx, dy = (w - tw_tot) // 2, bh_t*0.35 + 150
-        for m, t in items:
-            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(dy-i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
-            cx += i_s + 15; draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, dy), t, f_d, fill=st.session_state.c_data); cx += draw.textlength(t, f_d) + w*0.08
+        if is_modern:
+            # Weißes Card-Design unten
+            safe_rect(draw, [0, split_y, w, h], fill=(250, 250, 250, 255))
+            safe_rect(draw, [0, split_y, w, split_y + 12], fill=hex_to_rgba(st.session_state.c_line, 255)) # Akzentlinie
 
-        if st.session_state.show_date and st.session_state.tour_date:
-            f_dt = load_font(int(w * 0.028 * st.session_state.size_date)); tw = draw.textlength(st.session_state.tour_date, font=f_dt)
-            bx1, by1 = 30, int(h - bh_b - 80); bx2, by2 = int(30 + tw + 40), int(h - bh_b - 20)
-            if st.session_state.show_bg_date:
-                safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
-            draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
+            if st.session_state.show_bg_top:
+                safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 120)) # Etwas sanfter für Modern
 
-        # --- EIGENER KOMMENTAR EINBAUEN ---
+            # Modern Profil
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
+                profile_pts = [((i/max(1, len(elevs)-1))*w, h - ((ev-e_min)/e_r)*(h - split_y - 12)*0.5) for i, ev in enumerate(elevs)]
+                rgb = hex_to_rgba(st.session_state.c_line)
+                draw.polygon(profile_pts + [(w, h), (0, h)], fill=rgb[:3] + (30,))
+                draw.line(profile_pts, fill=rgb[:3] + (160,), width=3)
+
+            # Modern Texte (Dunkel auf Weiß)
+            c_title_mod = st.session_state.c_title if st.session_state.c_title.upper() != "#FFFFFF" else "#111111"
+            f_title = load_font(int(w*0.08*st.session_state.size_title))
+            draw_text_with_shadow(draw, (w//2, split_y + 80), st.session_state.tour_title, f_title, fill=c_title_mod, shadow_color="white", offset=0, anchor="mm")
+
+            items = [("dist", f"{d_total:.1f} km"), ("speed", f"{avg_s:.1f} km/h"), ("elev", f"{int(a_gain)} m")]
+            f_d, i_s = load_font(int(w*0.045*st.session_state.size_data)), int(w*0.05*st.session_state.size_data)
+            tw_tot = sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.06)*2
+            cx, dy = (w - tw_tot) // 2, split_y + 160
+            for m, t in items:
+                dark_icon = draw_data_icon(m, i_s, "#333333")
+                overlay.paste(dark_icon, (int(cx), int(dy-i_s//2)), dark_icon)
+                cx += i_s + 15
+                draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, dy), t, f_d, fill="#333333", shadow_color="white", offset=0, anchor="lm")
+                cx += draw.textlength(t, f_d) + w*0.06
+
+            if st.session_state.show_date and st.session_state.tour_date:
+                f_dt = load_font(int(w * 0.03 * st.session_state.size_date))
+                draw_text_with_shadow(draw, (w//2, split_y + 230), st.session_state.tour_date, f_dt, fill="#777777", shadow_color="white", offset=0, anchor="mm")
+
+        else:
+            # Klassisches Layout
+            if st.session_state.show_bg_top: safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
+            if st.session_state.show_bg_bottom: safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
+
+            if st.session_state.show_profile and len(elevs) > 1:
+                e_min, e_max = min(elevs), max(elevs); e_r = (e_max - e_min) or 1
+                px_m, p_w, grid_y_s = 10, w - 20, h - bh_b
+                step_km = 1 if d_total < 10 else 5 if d_total < 50 else 10 if d_total < 100 else 20 if d_total < 250 else 50
+                step_m = 50 if e_r < 200 else 100 if e_r < 500 else 250 if e_r < 1500 else 500
+                f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
+                c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
+                for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
+                    gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
+                    draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
+                last_tx = -100 
+                for k in range(step_km, int(d_total), step_km):
+                    gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
+                    draw.line([(gx, grid_y_s), (gx, h)], fill=c_g_l, width=1)
+                    txt = f"{k}km"; tw = draw.textlength(txt, font=f_grid)
+                    if gx - tw/2 > last_tx + 20: draw.text((gx, grid_y_s+5), txt, fill=c_g_t, font=f_grid, anchor="mt"); last_tx = gx + tw/2
+                profile_pts = [(px_m + (i/max(1, len(elevs)-1))*p_w, (h-bh_b)+(bh_b*0.85)-((ev-e_min)/e_r)*(bh_b*0.7)) for i, ev in enumerate(elevs)]
+                rgb = hex_to_rgba(st.session_state.c_line)
+                draw.polygon(profile_pts + [(w-px_m, h), (px_m, h)], fill=rgb[:3] + (120,))
+                draw.line(profile_pts, fill=(255,255,255,255), width=4)
+
+            draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title, anchor="mm")
+            items = [("dist", f"{d_total:.1f} km"), ("speed", f"{avg_s:.1f} km/h"), ("elev", f"{int(a_gain)} m")]
+            f_d, i_s = load_font(int(w*0.05*st.session_state.size_data)), int(w*0.05*st.session_state.size_data)
+            tw_tot = sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.08)*2
+            cx, dy = (w - tw_tot) // 2, bh_t*0.35 + 150
+            for m, t in items:
+                overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(dy-i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
+                cx += i_s + 15
+                draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, dy), t, f_d, fill=st.session_state.c_data, anchor="lm")
+                cx += draw.textlength(t, f_d) + w*0.08
+
+            if st.session_state.show_date and st.session_state.tour_date:
+                f_dt = load_font(int(w * 0.028 * st.session_state.size_date)); tw = draw.textlength(st.session_state.tour_date, font=f_dt)
+                bx1, by1 = 30, int(h - bh_b - 80); bx2, by2 = int(30 + tw + 40), int(h - bh_b - 20)
+                if st.session_state.show_bg_date: safe_rect(draw, [bx1, by1, bx2, by2], fill=(0,0,0,160), outline=st.session_state.c_date, width=2)
+                draw.text(((bx1+bx2)//2, (by1+by2)//2 + 2), st.session_state.tour_date, fill=st.session_state.c_date, font=f_dt, anchor="mm")
+
+        # --- EIGENER KOMMENTAR ---
         if st.session_state.custom_text:
             f_custom = load_font(int(w * 0.05 * st.session_state.size_custom_text))
-            pos_x = st.session_state.pos_x_custom_text
-            pos_y = st.session_state.pos_y_custom_text
-            
+            pos_x, pos_y = st.session_state.pos_x_custom_text, st.session_state.pos_y_custom_text
             if st.session_state.show_bg_custom_text:
                 try:
                     bbox = draw.textbbox((pos_x, pos_y), st.session_state.custom_text, font=f_custom, anchor="mm")
-                    pad_x, pad_y = 25, 15
-                    safe_rect(draw, [bbox[0]-pad_x, bbox[1]-pad_y, bbox[2]+pad_x, bbox[3]+pad_y], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
-                except:
-                    # Fallback falls textbbox in älteren Pillow-Versionen zickt
-                    tw_c = draw.textlength(st.session_state.custom_text, font=f_custom)
-                    th_c = int(w * 0.05 * st.session_state.size_custom_text)
-                    bx1_c, by1_c = int(pos_x - tw_c/2 - 25), int(pos_y - th_c/2 - 15)
-                    bx2_c, by2_c = int(pos_x + tw_c/2 + 25), int(pos_y + th_c/2 + 15)
-                    safe_rect(draw, [bx1_c, by1_c, bx2_c, by2_c], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
-            
+                    safe_rect(draw, [bbox[0]-25, bbox[1]-15, bbox[2]+25, bbox[3]+15], fill=(0,0,0,160), outline=st.session_state.c_custom_text, width=2)
+                except: pass
             draw_text_with_shadow(draw, (pos_x, pos_y), st.session_state.custom_text, f_custom, fill=st.session_state.c_custom_text, anchor="mm")
 
+        # --- ROUTE RENDERING ---
         all_pts = [p for s in pts for p in s]
         if all_pts:
             lats, lons = zip(*all_pts); mi_la, ma_la, mi_lo, ma_lo = min(lats), max(lats), min(lons), max(lons)
             la_e, lo_e = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             if st.session_state.show_route:
                 ssf = 3; ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0)); rd = ImageDraw.Draw(ro); rgb = hex_to_rgba(st.session_state.c_line)
+                r_h_max = split_y if is_modern else h
                 for s in pts:
-                    s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
+                    s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((r_h_max*0.75 - (p[0]-mi_la)/la_e*r_h_max*0.5) * ssf)) for p in s]
                     if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
                 overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
                 if st.session_state.show_markers:
-                    def tr(la, lo): return (int(0.15*w + (lo-mi_lo)/lo_e*w*0.7), int(h*0.75 - (la-mi_la)/la_e*h*0.5))
+                    def tr(la, lo): return (int(0.15*w + (lo-mi_lo)/lo_e*w*0.7), int(r_h_max*0.75 - (la-mi_la)/la_e*r_h_max*0.5))
                     draw_marker(draw, tr(all_pts[0][0], all_pts[0][1]), "green", "S"); draw_marker(draw, tr(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
 
+        # --- MINIBOX ---
         if st.session_state.show_minibox and all_pts:
-            mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w; mb_x, mb_y = w - mb_w - 30, h - bh_b - mb_h - 30
-            if st.session_state.show_bg_minibox:
-                safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
+            mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w
+            mb_y = (split_y - mb_h - 20) if is_modern else (h - bh_b - mb_h - 30)
+            mb_x = w - mb_w - 30
+            if st.session_state.show_bg_minibox: safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
             m_m, m_la_e, m_lo_e = int(20 * st.session_state.size_minibox), (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             aspect = m_la_e / m_lo_e
-            if aspect > 1: drw_h = mb_h - 2*m_m; drw_w = drw_h / aspect
-            else: drw_w = mb_w - 2*m_m; drw_h = drw_w * aspect
+            drw_h = (mb_h - 2*m_m) if aspect > 1 else (mb_w - 2*m_m) * aspect
+            drw_w = drw_h / aspect if aspect > 1 else (mb_w - 2*m_m)
             off_x, off_y = mb_x + (mb_w - drw_w)//2, mb_y + (mb_h - drw_h)//2; rgb = hex_to_rgba(st.session_state.c_line)
             for s in pts:
                 m_pts = [(int(off_x + (p[1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/m_la_e*drw_h)) for p in s]
                 if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4*st.session_state.size_minibox)), joint="round")
             ms_p = (int(off_x + (all_pts[0][1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (all_pts[0][0]-mi_la)/m_la_e*drw_h))
             me_p = (int(off_x + (all_pts[-1][1]-mi_lo)/m_lo_e*drw_w), int(off_y + drw_h - (all_pts[-1][0]-mi_la)/m_la_e*drw_h))
-            m_r = max(3, int(6 * st.session_state.size_minibox)); safe_ellipse(draw, [ms_p[0]-m_r, ms_p[1]-m_r, ms_p[0]+m_r, ms_p[1]+m_r], fill="green"); safe_ellipse(draw, [me_p[0]-m_r, me_p[1]-m_r, me_p[0]+m_r, me_p[1]+m_r], fill="red")
+            m_r = max(3, int(6 * st.session_state.size_minibox))
+            safe_ellipse(draw, [ms_p[0]-m_r, ms_p[1]-m_r, ms_p[0]+m_r, ms_p[1]+m_r], fill="green"); safe_ellipse(draw, [me_p[0]-m_r, me_p[1]-m_r, me_p[0]+m_r, me_p[1]+m_r], fill="red")
 
         if st.session_state.show_logo:
             lp = (30, bh_t + 30)
@@ -515,7 +567,7 @@ if up_gpx:
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
         
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v303_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), f"tour_v311_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
