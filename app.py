@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.4 Beta) ---
+# --- STANDARDWERTE (v3.1.5 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -159,6 +159,7 @@ def draw_data_icon(mode, size, color="white"):
     d = ImageDraw.Draw(img)
     lw = int(max(2, size*res*0.08))
     x0, y0, x1, y1 = lw, lw, size*res - lw, size*res - lw
+    
     if mode == "dist":
         d.line([(x0, y1-lw), (x1//2, y1-lw), (x1//2, y0+lw), (x1, y0+lw)], fill=color, width=lw, joint="round")
         d.ellipse([x0-lw, y1-2*lw, x0+lw, y1], fill=color)
@@ -170,10 +171,43 @@ def draw_data_icon(mode, size, color="white"):
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
-    elif mode == "weather":
+    elif mode.startswith("weather_"):
+        # Vektor-Wettericons zeichnen
+        w_type = mode.split("_")[1]
         cx, cy = size*res//2, size*res//2
-        d.line([cx, cy - size*res*0.25, cx, cy + size*res*0.1], fill=color, width=lw, joint="round")
-        d.ellipse([cx - lw*1.5, cy + size*res*0.1, cx + lw*1.5, cy + size*res*0.35], fill=color)
+        r = size*res*0.3
+        
+        if "Sonnig" in w_type:
+            d.ellipse([cx-r, cy-r, cx+r, cy+r], outline=color, width=lw)
+            for i in range(8):
+                angle = i * math.pi / 4
+                x1, y1 = cx + math.cos(angle)*(r*1.4), cy + math.sin(angle)*(r*1.4)
+                x2, y2 = cx + math.cos(angle)*(r*2.0), cy + math.sin(angle)*(r*2.0)
+                d.line([x1, y1, x2, y2], fill=color, width=lw, joint="round")
+        elif "Bewölkt" in w_type:
+            d.ellipse([cx-r*1.5, cy-r*0.2, cx-r*0.1, cy+r*0.8], fill=color)
+            d.ellipse([cx-r*0.8, cy-r*1.2, cx+r*0.8, cy+r*0.8], fill=color)
+            d.ellipse([cx+r*0.1, cy-r*0.4, cx+r*1.5, cy+r*0.8], fill=color)
+        elif "Regen" in w_type:
+            d.ellipse([cx-r*1.5, cy-r*0.8, cx-r*0.1, cy+r*0.2], fill=color)
+            d.ellipse([cx-r*0.8, cy-r*1.8, cx+r*0.8, cy+r*0.2], fill=color)
+            d.ellipse([cx+r*0.1, cy-r*1.0, cx+r*1.5, cy+r*0.2], fill=color)
+            d.line([cx-r*0.8, cy+r*0.6, cx-r*1.2, cy+r*1.8], fill=color, width=lw, joint="round")
+            d.line([cx, cy+r*0.6, cx-r*0.4, cy+r*1.8], fill=color, width=lw, joint="round")
+            d.line([cx+r*0.8, cy+r*0.6, cx+r*0.4, cy+r*1.8], fill=color, width=lw, joint="round")
+        elif "Schnee" in w_type:
+            for i in range(4):
+                angle = i * math.pi / 4
+                x1, y1 = cx + math.cos(angle)*(r*1.8), cy + math.sin(angle)*(r*1.8)
+                x2, y2 = cx - math.cos(angle)*(r*1.8), cy - math.sin(angle)*(r*1.8)
+                d.line([x1, y1, x2, y2], fill=color, width=lw, joint="round")
+        elif "Gewitter" in w_type:
+            pts = [(cx+r*0.2, cy-r*1.8), (cx-r*1.2, cy+r*0.2), (cx-r*0.2, cy+r*0.2), (cx-r*0.5, cy+r*1.8), (cx+r*1.2, cy-r*0.2), (cx+r*0.2, cy-r*0.2)]
+            d.polygon(pts, fill=color)
+        elif "Nebel" in w_type:
+            for y_off in [-r*0.8, 0, r*0.8]:
+                d.line([cx-r*1.5, cy+y_off, cx+r*1.5, cy+y_off], fill=color, width=lw, joint="round")
+                
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 def draw_graphical_logo(draw, pos, scale=1.0, color="#DA2323"):
@@ -247,7 +281,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.4 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.5 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -359,7 +393,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.4 Beta:**\n- **FIX:** Saubere Text-Symbole (Dingbats) für das Wetter eingefügt, um das 'Noglyph'-Kästchen endgültig zu eliminieren.")
+    st.info("**v3.1.5 Beta:**\n- **NEU:** Custom Vektor-Icons für das Wetter! Keine Tofu-Blöcke (Kästchen) mehr, sondern sauber gezeichnete Symbole (Sonne, Wolke, Regen, Schnee, Blitz, Nebel).")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -460,17 +494,8 @@ if up_gpx:
         
         # Wetter immer als Letztes
         if st.session_state.show_weather:
-            # Übersetzung: Buntes UI-Emoji -> Sauberes Text-Dingbat für PIL
-            safe_symbols = {
-                "☀️ Sonnig": "☀", 
-                "⛅ Bewölkt": "☁", 
-                "🌧️ Regen": "☂", 
-                "❄️ Schnee": "❄", 
-                "🌩️ Gewitter": "⚡", 
-                "🌫️ Nebel": "〰"
-            }
-            clean_symbol = safe_symbols.get(st.session_state.weather_icon, "")
-            items.append(("weather", f"{st.session_state.weather_temp}°C {clean_symbol}"))
+            w_icon_key = f"weather_{st.session_state.weather_icon}"
+            items.append((w_icon_key, f"{st.session_state.weather_temp}°C"))
             
         # --- DYNAMISCHE SKALIERUNG DER DATENZEILE ---
         base_scale = 0.85 if len(items) > 3 else 1.0
@@ -590,7 +615,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v314_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v315_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
