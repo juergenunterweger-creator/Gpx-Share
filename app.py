@@ -34,10 +34,17 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.10 Beta) ---
+# --- STANDARDWERTE (v3.1.0 Beta) ---
 DEFAULTS = {
+    "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
     "tour_date": "",
+    "show_weather": False,
+    "weather_icon": "☀️ Sonnig",
+    "weather_temp": "25",
+    "show_bike_badge": False,
+    "bike_name": "KTM 1290 Super Adventure",
+    "bike_stats": "Max. Schräglage: 45°",
     "c_line": "#DA2323",
     "c_title": "#DA2323",
     "c_date": "#FFFFFF",
@@ -58,6 +65,7 @@ DEFAULTS = {
     "size_grid": 1.0,
     "size_logo": 1.0,
     "size_minibox": 1.0,
+    "size_badge": 1.0,
     "story_margins_active": True,
     "margin_top": 150,
     "margin_bottom": 100,
@@ -83,12 +91,17 @@ for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# HOTFIX FÜR ALTE MINIBOX WERTE IM BROWSER-CACHE
-if st.session_state.get("pos_y_minibox") == 1550:
-    st.session_state["pos_y_minibox"] = 1380
-
 if "last_gpx_file" not in st.session_state:
     st.session_state.last_gpx_file = ""
+
+# --- DYNAMISCHE CANVAS GRÖSSE ---
+format_choice = st.session_state.get("canvas_format", "Story (9:16)")
+if format_choice == "Story (9:16)":
+    W_CANVAS, H_CANVAS = 1080, 1920
+elif format_choice == "Post (1:1)":
+    W_CANVAS, H_CANVAS = 1080, 1080
+else: # Landscape (16:9)
+    W_CANVAS, H_CANVAS = 1920, 1080
 
 # --- HELFER FUNKTIONEN ---
 def reset_parameters():
@@ -157,6 +170,10 @@ def draw_data_icon(mode, size, color="white"):
         cx, cy = size*res//2, size*res//2 + lw
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
+    elif mode == "weather":
+        cx, cy = size*res//2, size*res//2
+        d.line([cx, cy - size*res*0.25, cx, cy + size*res*0.1], fill=color, width=lw, joint="round")
+        d.ellipse([cx - lw*1.5, cy + size*res*0.1, cx + lw*1.5, cy + size*res*0.35], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 def draw_graphical_logo(draw, pos, scale=1.0, color="#DA2323"):
@@ -230,7 +247,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.0 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -239,8 +256,17 @@ with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False):
             st.write("**📝 Tour Details**")
             st.text_input("Tour Name", key="tour_title")
             st.text_input("Datum", key="tour_date")
-            st.checkbox("Datum im Bild anzeigen", key="show_date")
+            st.checkbox("Datum im Bild", key="show_date")
             st.text_area("Eigener Kommentar", key="custom_text")
+            
+            st.write("---")
+            st.write("**☀️ Wetter Widget**")
+            st.checkbox("Wetter anzeigen", key="show_weather")
+            if st.session_state.show_weather:
+                col_w1, col_w2 = st.columns(2)
+                with col_w1: st.selectbox("Icon", ["☀️ Sonnig", "⛅ Bewölkt", "🌧️ Regen", "❄️ Schnee", "🌩️ Gewitter", "🌫️ Nebel"], key="weather_icon")
+                with col_w2: st.text_input("Temperatur", key="weather_temp")
+
         with c2:
             st.write("**✅ Ein- / Ausblenden**")
             st.checkbox("Start/Ziel (S/Z)", key="show_markers")
@@ -250,10 +276,21 @@ with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False):
             st.checkbox("Minibox (Karte)", key="show_minibox")
             st.checkbox("App Logo (Im Bild)", key="show_logo")
             st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
+            
+            st.write("---")
+            st.write("**🏍️ Bike & Rider Badge**")
+            st.checkbox("Badge einblenden", key="show_bike_badge")
+            if st.session_state.show_bike_badge:
+                st.text_input("Bike / Fahrzeug", key="bike_name")
+                st.text_input("Nerd-Stats (z.B. Max Schräglage)", key="bike_stats")
 
     with tab_design:
         c1, c2 = st.columns(2)
         with c1:
+            st.write("**📐 Format & Canvas**")
+            st.radio("Seitenverhältnis wählen:", ["Story (9:16)", "Post (1:1)", "Landscape (16:9)"], key="canvas_format")
+            
+            st.write("---")
             st.write("**🎨 Farben & Style**")
             col_c1, col_c2 = st.columns(2)
             with col_c1: st.color_picker("Routenfarbe", key="c_line")
@@ -262,6 +299,7 @@ with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False):
             st.color_picker("Farbe Daten", key="c_data")
             st.color_picker("Farbe Raster", key="c_grid")
             st.color_picker("Farbe Kommentar", key="c_custom_text")
+            
         with c2:
             st.write("**🔠 Größen (Skalierung)**")
             st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
@@ -269,6 +307,7 @@ with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False):
             st.number_input("Größe Raster-Text", 0.5, 2.0, key="size_grid", step=0.1)
             st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1)
             st.number_input("Größe Kommentar", 0.5, 5.0, key="size_custom_text", step=0.1)
+            st.number_input("Größe Bike Badge", 0.5, 3.0, key="size_badge", step=0.1)
         
         st.write("---")
         st.write("**🔲 Box-Hintergründe**")
@@ -294,17 +333,17 @@ with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False):
             st.number_input("↔️ Links/Rechts (Foto)", -1500, 1500, key="img_offset_x", step=10)
             st.number_input("↕️ Oben/Unten (Foto)", -1500, 1500, key="img_offset_y", step=10)
         with c2:
-            st.write("**📏 Story Ränder**")
+            st.write("**📏 Story Ränder (Nur 9:16)**")
             st.checkbox("Ränder aktivieren", key="story_margins_active")
             if st.session_state.story_margins_active:
                 st.number_input("Oben (px)", 0, 500, key="margin_top", step=10)
                 st.number_input("Unten (px)", 0, 500, key="margin_bottom", step=10)
             st.write("---")
             st.write("**💬 Position Elemente**")
-            st.number_input("↔️ X Text", 0, 1080, key="pos_x_custom_text", step=10)
-            st.number_input("↕️ Y Text", 0, 1920, key="pos_y_custom_text", step=10)
-            st.number_input("↔️ X Minibox", 0, 1080, key="pos_x_minibox", step=10)
-            st.number_input("↕️ Y Minibox", 0, 1920, key="pos_y_minibox", step=10)
+            st.number_input("↔️ X Text", 0, 3000, key="pos_x_custom_text", step=10)
+            st.number_input("↕️ Y Text", 0, 3000, key="pos_y_custom_text", step=10)
+            st.number_input("↔️ X Minibox", 0, 3000, key="pos_x_minibox", step=10)
+            st.number_input("↕️ Y Minibox", 0, 3000, key="pos_y_minibox", step=10)
 
     st.write("---")
     st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
@@ -320,7 +359,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.0.10 Beta:** Reiterstruktur wiederhergestellt (Info, App, Impressum getrennt). Minibox-Position repariert.")
+    st.info("**v3.1.0 Beta:**\n- **NEU:** Wetter-Widget integriert.\n- **NEU:** Canvas Format Auswahl (9:16, 1:1, 16:9).\n- **NEU:** Bike & Rider Badge hinzugefügt.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -364,7 +403,9 @@ if up_gpx:
             if s_pts: pts.append(s_pts)
 
         avg_s = d_total / (total_time / 3600.0) if total_time > 0 else 0.0
-        w, h = 1080, 1920
+        
+        # Format Variablen nutzen
+        w, h = W_CANVAS, H_CANVAS
         canvas = Image.new('RGBA', (w, h), (30, 30, 30, 255))
         
         if up_img:
@@ -380,7 +421,10 @@ if up_gpx:
             canvas = Image.blend(Image.new('RGBA', (w, h), (255, 255, 255, 255)), canvas, st.session_state.bg_opacity / 100)
 
         overlay = Image.new('RGBA', (w, h), (0,0,0,0)); draw = ImageDraw.Draw(overlay)
-        bh_t, bh_b = int(h * 0.20), int(h * 0.12)
+        
+        # Dynamische Top/Bottom Ränder basierend auf Bildhöhe
+        bh_t = int(h * 0.20) if format_choice == "Story (9:16)" else int(h * 0.25)
+        bh_b = int(h * 0.12) if format_choice == "Story (9:16)" else int(h * 0.15)
         
         if st.session_state.show_bg_top: safe_rect(draw, [0, 0, w, bh_t], fill=(0, 0, 0, 160))
         if st.session_state.show_bg_bottom: safe_rect(draw, [0, h - bh_b, w, h], fill=(0, 0, 0, 160))
@@ -409,18 +453,39 @@ if up_gpx:
 
         # Titel & Daten
         draw_text_with_shadow(draw, (w//2, bh_t*0.35), st.session_state.tour_title, load_font(int(w*0.08*st.session_state.size_title)), fill=st.session_state.c_title)
-        items = [("dist", f"{d_total:.1f} km"), ("speed", f"{avg_s:.1f} km/h"), ("elev", f"{int(a_gain)} m")]
-        f_d, i_s = load_font(int(w*0.05*st.session_state.size_data)), int(w*0.05*st.session_state.size_data)
-        cx = (w - (sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.08)*2)) // 2
+        
+        items = [("dist", f"{d_total:.1f} km")]
+        if st.session_state.show_speed: items.append(("speed", f"{avg_s:.1f} km/h"))
+        if st.session_state.show_weather: items.append(("weather", f"{st.session_state.weather_temp}°C {st.session_state.weather_icon.split()[0]}"))
+        items.append(("elev", f"{int(a_gain)} m"))
+        
+        f_d, i_s = load_font(int(w*0.045*st.session_state.size_data)), int(w*0.045*st.session_state.size_data)
+        cx = (w - (sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.06)*(len(items)-1))) // 2
+        
         for m, t in items:
-            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(bh_t*0.35 + 150 - i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
-            cx += i_s + 15; draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, bh_t*0.35 + 150), t, f_d, fill=st.session_state.c_data); cx += draw.textlength(t, f_d) + w*0.08
+            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(bh_t*0.35 + (bh_t*0.4) - i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
+            cx += i_s + 15; draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, bh_t*0.35 + (bh_t*0.4)), t, f_d, fill=st.session_state.c_data); cx += draw.textlength(t, f_d) + w*0.06
 
         # Datum
         if st.session_state.show_date and st.session_state.tour_date:
             f_dt = load_font(int(w * 0.028 * st.session_state.size_date)); tw = draw.textlength(st.session_state.tour_date, font=f_dt)
             if st.session_state.show_bg_date: safe_rect(draw, [30, int(h - bh_b - 80), int(30 + tw + 40), int(h - bh_b - 20)], fill=(0,0,0,160), outline="#FFFFFF", width=2)
             draw.text((30 + (tw+40)//2, int(h-bh_b-50)), st.session_state.tour_date, fill="#FFFFFF", font=f_dt, anchor="mm")
+
+        # --- BIKE & RIDER BADGE ---
+        if st.session_state.show_bike_badge and (st.session_state.bike_name or st.session_state.bike_stats):
+            badge_f1 = load_font(int(w * 0.03 * st.session_state.size_badge))
+            badge_f2 = load_font(int(w * 0.02 * st.session_state.size_badge))
+            bw1 = draw.textlength(st.session_state.bike_name, font=badge_f1) if st.session_state.bike_name else 0
+            bw2 = draw.textlength(st.session_state.bike_stats, font=badge_f2) if st.session_state.bike_stats else 0
+            bw = max(bw1, bw2) + 40
+            bh_badge = (int(w * 0.03 * st.session_state.size_badge) if st.session_state.bike_name else 0) + (int(w * 0.02 * st.session_state.size_badge) if st.session_state.bike_stats else 0) + 30
+            bx, by = w - bw - 30, bh_t + 30
+            safe_rect(draw, [bx, by, bx+bw, by+bh_badge], fill=(0,0,0,160), outline=st.session_state.c_line, width=2)
+            if st.session_state.bike_name:
+                draw.text((bx + bw//2, by + 10), st.session_state.bike_name, fill=st.session_state.c_line, font=badge_f1, anchor="mt")
+            if st.session_state.bike_stats:
+                draw.text((bx + bw//2, by + bh_badge - 10), st.session_state.bike_stats, fill="white", font=badge_f2, anchor="mb")
 
         # Kommentar
         if st.session_state.custom_text:
@@ -438,7 +503,7 @@ if up_gpx:
             la_e, lo_e = (ma_la-mi_la) or 0.001, (ma_lo-mi_lo) or 0.001
             
             if st.session_state.show_minibox:
-                mb_w = int(280 * st.session_state.size_minibox); mb_h = mb_w
+                mb_w = int(min(w, h) * 0.25 * st.session_state.size_minibox); mb_h = mb_w
                 mb_x, mb_y = st.session_state.pos_x_minibox, st.session_state.pos_y_minibox
                 if st.session_state.show_bg_minibox: safe_rect(draw, [mb_x, mb_y, mb_x+mb_w, mb_y+mb_h], fill=(0,0,0,180), outline="white", width=2)
                 aspect = la_e / lo_e; m_m = int(20 * st.session_state.size_minibox)
@@ -483,8 +548,10 @@ if up_gpx:
                     overlay.paste(ml.resize((tw, th), Image.Resampling.LANCZOS), (30, bh_t + 30), ml.resize((tw, th), Image.Resampling.LANCZOS))
 
         final = Image.alpha_composite(canvas, overlay); st_image_display = final.convert('RGB')
+        
+        # Ränder nur anwenden, wenn wir im Story-Format sind
         m_top, m_bot = st.session_state.margin_top, st.session_state.margin_bottom
-        if st.session_state.story_margins_active and (m_top > 0 or m_bot > 0):
+        if format_choice == "Story (9:16)" and st.session_state.story_margins_active and (m_top > 0 or m_bot > 0):
             canvas_final = Image.new('RGBA', (w, h + m_top + m_bot), (0, 0, 0, 0))
             canvas_final.paste(final, (0, m_top)); final_download = canvas_final
         else: final_download = final
