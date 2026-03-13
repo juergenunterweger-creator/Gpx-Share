@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.8 Beta) ---
+# --- STANDARDWERTE (v3.0.9 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -71,7 +71,7 @@ DEFAULTS = {
     "pos_x_custom_text": 540,
     "pos_y_custom_text": 960,
     "pos_x_minibox": 770,
-    "pos_y_minibox": 1550,
+    "pos_y_minibox": 1380, # HIER KORRIGIERT: Sitzt wieder perfekt über dem Profil
     "show_bg_top": True,
     "show_bg_bottom": True,
     "show_bg_date": True,
@@ -82,6 +82,10 @@ DEFAULTS = {
 for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
+
+# HOTFIX: Falls noch der alte fehlerhafte Wert im Speicher hängt
+if st.session_state.get("pos_y_minibox") == 1550:
+    st.session_state["pos_y_minibox"] = 1380
 
 if "last_gpx_file" not in st.session_state:
     st.session_state.last_gpx_file = ""
@@ -191,7 +195,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.0.8 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.0.9 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -268,13 +272,12 @@ with st.expander("⚙️ Einstellungen [v3.0.8 Beta]", expanded=False):
     st.write("---")
     st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO & IMPRESSUM ---
-with st.expander("ℹ️ Über & Impressum", expanded=False):
-    st.info("**v3.0.8 Beta:** White Card Layout entfernt. Klassisches Layout mit anpassbarer Minibox-Position und Mehrzeiler.")
-    st.markdown("""
-    **Impressum:** Jürgen Unterweger, Wangham 13, 4661 Roitham am Traunfall, Österreich.  
-    **Kontakt:** juergen.unterweger@outlook.at
-    """)
+# --- INFO REITER ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    st.info("**v3.0.9 Beta:** Minibox-Standardposition repariert. Impressum & Über wieder getrennt.")
+    st.markdown("**Copyright: Jürgen Unterweger**")
+    app_url = "https://www.gpx-share.at"
+    st.markdown(f'<a href="whatsapp://send?text=Check out this app: {app_url}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen</a>', unsafe_allow_html=True)
 
 st.divider()
 
@@ -329,11 +332,9 @@ if up_gpx:
             f_grid = load_font(int(w * 0.025 * st.session_state.size_grid))
             c_g_t, c_g_l = hex_to_rgba(st.session_state.c_grid, 160), hex_to_rgba(st.session_state.c_grid, 50)
             
-            # Horizontale Linien (Höhe)
             for m_v in range(int(e_min // step_m + 1) * step_m, int(e_max), step_m):
                 gy = int((h-bh_b)+(bh_b*0.85)-((m_v-e_min)/e_r)*(bh_b*0.7))
                 draw.line([(px_m, gy), (w - px_m, gy)], fill=c_g_l, width=1)
-            # Vertikale Linien (Distanz)
             for k in range(step_km, int(d_total), step_km):
                 gx = int(px_m + (k / d_total) * p_w if d_total > 0 else 0)
                 draw.line([(gx, grid_y_s), (gx, h)], fill=c_g_l, width=1)
@@ -393,18 +394,6 @@ if up_gpx:
                     if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
                 overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
 
-        if st.session_state.show_logo:
-            if st.session_state.logo_type == "Smartes Logo":
-                icon_s = int(50 * st.session_state.size_logo); rgb_l = hex_to_rgba(st.session_state.c_line)
-                safe_ellipse(draw, [30, bh_t+30, 30+icon_s, bh_t+30+icon_s], fill=rgb_l, outline="white", width=2)
-                draw.polygon([(30+icon_s*0.2, bh_t+30+icon_s*0.75), (30+icon_s*0.5, bh_t+30+icon_s*0.25), (30+icon_s*0.8, bh_t+30+icon_s*0.75)], fill="white")
-                draw_text_with_shadow(draw, (30+icon_s+15, bh_t+30+icon_s//2), "GPX Share Pro", load_font(int(32*st.session_state.size_logo)), fill="white", anchor="lm")
-            else:
-                p = get_logo_path()
-                if p:
-                    ml = Image.open(p).convert("RGBA"); tw = int(w*0.15*st.session_state.size_logo); th = int(tw * (ml.height/ml.width))
-                    overlay.paste(ml.resize((tw, th), Image.Resampling.LANCZOS), (30, bh_t + 30), ml.resize((tw, th), Image.Resampling.LANCZOS))
-
         final = Image.alpha_composite(canvas, overlay); st_image_display = final.convert('RGB')
         m_top, m_bot = st.session_state.margin_top, st.session_state.margin_bottom
         if st.session_state.story_margins_active and (m_top > 0 or m_bot > 0):
@@ -414,6 +403,21 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v308_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v309_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
+
+# --- IMPRESSUM FOOTER GANZ UNTEN ---
+st.markdown("---")
+with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
+    st.markdown("""
+    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
+    Wangham 13  
+    4661 Roitham am Traunfall  
+    Österreich  
+    
+    **Kontakt:** juergen.unterweger@outlook.at  
+    
+    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
+    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
+    """)
