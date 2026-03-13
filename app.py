@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.5 Beta) ---
+# --- STANDARDWERTE (v3.1.6 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -281,7 +281,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.5 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.6 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -374,8 +374,8 @@ with st.expander("⚙️ Einstellungen [v3.1.5 Beta]", expanded=False):
                 st.number_input("Unten (px)", 0, 500, key="margin_bottom", step=10)
             st.write("---")
             st.write("**💬 Position Elemente**")
-            st.number_input("↔️ X Text", 0, 3000, key="pos_x_custom_text", step=10)
-            st.number_input("↕️ Y Text", 0, 3000, key="pos_y_custom_text", step=10)
+            st.number_input("↔️ X Kommentar", 0, 3000, key="pos_x_custom_text", step=10)
+            st.number_input("↕️ Y Kommentar", 0, 3000, key="pos_y_custom_text", step=10)
             st.number_input("↔️ X Minibox", 0, 3000, key="pos_x_minibox", step=10)
             st.number_input("↕️ Y Minibox", 0, 3000, key="pos_y_minibox", step=10)
 
@@ -393,7 +393,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.5 Beta:**\n- **NEU:** Custom Vektor-Icons für das Wetter! Keine Tofu-Blöcke (Kästchen) mehr, sondern sauber gezeichnete Symbole (Sonne, Wolke, Regen, Schnee, Blitz, Nebel).")
+    st.info("**v3.1.6 Beta:**\n- **UI:** In den Bildanpassungs-Einstellungen wurden 'X Text' und 'Y Text' logisch korrekt zu 'X Kommentar' und 'Y Kommentar' umbenannt.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -615,7 +615,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v315_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v316_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
