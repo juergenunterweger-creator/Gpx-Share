@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.6 Beta) ---
+# --- STANDARDWERTE (v3.1.7 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -43,9 +43,11 @@ DEFAULTS = {
     "weather_icon": "☀️ Sonnig",
     "weather_temp": "25",
     "show_bike_badge": False,
-    "bike_name": "KTM 1290 Super Adventure",
-    "bike_stats": "Max. Schräglage: 45°",
+    "bike_type": "Adventure",
+    "bike_name": "BMW R 1250 GS",
+    "bike_stats": "NERD-STAT:\nMAX. SCHRÄGLAGE:\n48°",
     "c_line": "#DA2323",
+    "c_badge": "#DA2323",
     "c_title": "#DA2323",
     "c_date": "#FFFFFF",
     "c_data": "#FFFFFF",
@@ -172,7 +174,6 @@ def draw_data_icon(mode, size, color="white"):
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
     elif mode.startswith("weather_"):
-        # Vektor-Wettericons zeichnen
         w_type = mode.split("_")[1]
         cx, cy = size*res//2, size*res//2
         r = size*res*0.3
@@ -281,7 +282,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.6 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.7 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -312,11 +313,13 @@ with st.expander("⚙️ Einstellungen [v3.1.6 Beta]", expanded=False):
             st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
             
             st.write("---")
-            st.write("**🏍️ Bike & Rider Badge**")
+            st.write("**🛡️ Wappen-Abzeichen (Bike)**")
             st.checkbox("Badge einblenden", key="show_bike_badge")
             if st.session_state.show_bike_badge:
-                st.text_input("Bike / Fahrzeug", key="bike_name")
-                st.text_input("Nerd-Stats (z.B. Max Schräglage)", key="bike_stats")
+                st.selectbox("Motorrad-Typ (Icon)", ["Adventure", "Naked Bike", "Sportler", "Cruiser", "Roller"], key="bike_type")
+                st.text_input("Fahrzeug Text", key="bike_name")
+                st.text_area("Stats Text (mehrzeilig)", key="bike_stats", height=80)
+                st.color_picker("Wappen Rahmenfarbe", key="c_badge")
 
     with tab_design:
         c1, c2 = st.columns(2)
@@ -393,7 +396,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.6 Beta:**\n- **UI:** In den Bildanpassungs-Einstellungen wurden 'X Text' und 'Y Text' logisch korrekt zu 'X Kommentar' und 'Y Kommentar' umbenannt.")
+    st.info("**v3.1.7 Beta:**\n- **NEU:** Shield-Wappen Design für das Bike-Badge!\n- Kombiniert ein Kategorie-Icon mit eigenem Text.\n- Wählbare Rahmenfarbe für den perfekten Look.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -492,12 +495,10 @@ if up_gpx:
         if st.session_state.show_speed: items.append(("speed", f"{avg_s:.1f} km/h"))
         items.append(("elev", f"{int(a_gain)} m"))
         
-        # Wetter immer als Letztes
         if st.session_state.show_weather:
             w_icon_key = f"weather_{st.session_state.weather_icon}"
             items.append((w_icon_key, f"{st.session_state.weather_temp}°C"))
             
-        # --- DYNAMISCHE SKALIERUNG DER DATENZEILE ---
         base_scale = 0.85 if len(items) > 3 else 1.0
         gap_factor = 0.04 if len(items) > 3 else 0.06
         
@@ -507,7 +508,6 @@ if up_gpx:
         
         tw_tot = sum([i_s + 10 + draw.textlength(txt, f_d) for _, txt in items]) + gap * (len(items) - 1)
         
-        # Auto-Shrink, falls der Text trotz Reduzierung das Bild verlässt
         if tw_tot > w * 0.95:
             shrink = (w * 0.95) / tw_tot
             f_d = load_font(int(w * 0.045 * st.session_state.size_data * base_scale * shrink))
@@ -529,20 +529,88 @@ if up_gpx:
             if st.session_state.show_bg_date: safe_rect(draw, [30, int(h - bh_b - 80), int(30 + tw + 40), int(h - bh_b - 20)], fill=(0,0,0,160), outline="#FFFFFF", width=2)
             draw.text((30 + (tw+40)//2, int(h-bh_b-50)), st.session_state.tour_date, fill="#FFFFFF", font=f_dt, anchor="mm")
 
-        # --- BIKE & RIDER BADGE ---
+        # --- NEUES SHIELD WAPPEN (BIKE & RIDER) ---
         if st.session_state.show_bike_badge and (st.session_state.bike_name or st.session_state.bike_stats):
-            badge_f1 = load_font(int(w * 0.03 * st.session_state.size_badge))
-            badge_f2 = load_font(int(w * 0.02 * st.session_state.size_badge))
+            badge_f1 = load_font(int(w * 0.028 * st.session_state.size_badge))
+            badge_f2 = load_font(int(w * 0.020 * st.session_state.size_badge))
+            
+            # Textgrößen berechnen
             bw1 = draw.textlength(st.session_state.bike_name, font=badge_f1) if st.session_state.bike_name else 0
-            bw2 = draw.textlength(st.session_state.bike_stats, font=badge_f2) if st.session_state.bike_stats else 0
-            bw = max(bw1, bw2) + 40
-            bh_badge = (int(w * 0.03 * st.session_state.size_badge) if st.session_state.bike_name else 0) + (int(w * 0.02 * st.session_state.size_badge) if st.session_state.bike_stats else 0) + 30
+            bw2_max = 0
+            stats_lines = st.session_state.bike_stats.split('\n') if st.session_state.bike_stats else []
+            for line in stats_lines:
+                bw2_max = max(bw2_max, draw.textlength(line, font=badge_f2))
+            
+            bw = max(bw1, bw2_max) + int(60 * st.session_state.size_badge)
+            
+            # Höhen berechnen
+            icon_area_h = int(60 * st.session_state.size_badge)
+            text_h1 = int(w * 0.028 * st.session_state.size_badge) if st.session_state.bike_name else 0
+            text_h2 = (int(w * 0.020 * st.session_state.size_badge) + 4) * len(stats_lines) if stats_lines else 0
+            
+            bh_badge = icon_area_h + text_h1 + text_h2 + int(60 * st.session_state.size_badge)
             bx, by = w - bw - 30, bh_t + 30
-            safe_rect(draw, [bx, by, bx+bw, by+bh_badge], fill=(0,0,0,160), outline=st.session_state.c_line, width=2)
+            
+            c_badge = st.session_state.c_badge
+            lw_outer = max(2, int(4 * st.session_state.size_badge))
+            
+            # Polygon Punkte für das Schild
+            shield_pts = [
+                (bx, by), 
+                (bx + bw, by), 
+                (bx + bw, by + bh_badge * 0.75), 
+                (bx + bw // 2, by + bh_badge), 
+                (bx, by + bh_badge * 0.75)
+            ]
+            draw.polygon(shield_pts, fill=(40, 40, 40, 240), outline=c_badge, width=lw_outer)
+            
+            # Innerer feiner Rand
+            inner_pts = [
+                (bx + 6, by + 6), 
+                (bx + bw - 6, by + 6), 
+                (bx + bw - 6, by + bh_badge * 0.75 - 2), 
+                (bx + bw // 2, by + bh_badge - 6), 
+                (bx + 6, by + bh_badge * 0.75 - 2)
+            ]
+            draw.polygon(inner_pts, outline=c_badge, width=1)
+            
+            # Vektor Bike Icon zeichnen
+            icon_cx = bx + bw // 2
+            icon_cy = by + int(35 * st.session_state.size_badge)
+            scale = st.session_state.size_badge
+            r = int(10 * scale)
+            lw_icon = max(2, int(3 * scale))
+            
+            # Grundgerüst (Räder und Chassis)
+            draw.ellipse([icon_cx - 25*scale, icon_cy - r, icon_cx - 25*scale + 2*r, icon_cy + r], outline=c_badge, width=lw_icon)
+            draw.ellipse([icon_cx + 10*scale, icon_cy - r, icon_cx + 10*scale + 2*r, icon_cy + r], outline=c_badge, width=lw_icon)
+            draw.line([(icon_cx - 15*scale, icon_cy), (icon_cx - 5*scale, icon_cy - 15*scale), (icon_cx + 10*scale, icon_cy - 15*scale), (icon_cx + 20*scale, icon_cy)], fill=c_badge, width=lw_icon, joint="round")
+            draw.line([(icon_cx - 5*scale, icon_cy - 15*scale), (icon_cx - 25*scale, icon_cy - 15*scale)], fill=c_badge, width=lw_icon, joint="round")
+            
+            # Varianten je nach Motorrad-Typ
+            if st.session_state.bike_type == "Adventure":
+                draw.line([(icon_cx + 15*scale, icon_cy - 10*scale), (icon_cx + 20*scale, icon_cy - 25*scale)], fill=c_badge, width=lw_icon)
+                draw.rectangle([icon_cx - 30*scale, icon_cy - 25*scale, icon_cx - 15*scale, icon_cy - 15*scale], fill=c_badge)
+            elif st.session_state.bike_type == "Sportler":
+                draw.polygon([(icon_cx + 5*scale, icon_cy - 10*scale), (icon_cx + 25*scale, icon_cy - 10*scale), (icon_cx + 15*scale, icon_cy + 5*scale)], fill=c_badge)
+            elif st.session_state.bike_type == "Cruiser":
+                draw.line([(icon_cx, icon_cy - 15*scale), (icon_cx - 5*scale, icon_cy - 25*scale), (icon_cx - 10*scale, icon_cy - 25*scale)], fill=c_badge, width=lw_icon)
+
+            # Text Bike Name
+            text_y = icon_cy + int(25 * scale)
             if st.session_state.bike_name:
-                draw.text((bx + bw//2, by + 10), st.session_state.bike_name, fill=st.session_state.c_line, font=badge_f1, anchor="mt")
+                draw.text((icon_cx, text_y), st.session_state.bike_name.upper(), fill="white", font=badge_f1, anchor="mt")
+                text_y += text_h1 + int(5 * scale)
+            
+            # Trennlinie
+            if st.session_state.bike_name and st.session_state.bike_stats:
+                line_y = text_y + int(5 * scale)
+                draw.line([(bx + 20, line_y), (bx + bw - 20, line_y)], fill=c_badge, width=2)
+                text_y += int(15 * scale)
+            
+            # Text Stats (Mehrzeilig)
             if st.session_state.bike_stats:
-                draw.text((bx + bw//2, by + bh_badge - 10), st.session_state.bike_stats, fill="white", font=badge_f2, anchor="mb")
+                draw.multiline_text((icon_cx, text_y), st.session_state.bike_stats.upper(), fill=c_badge, font=badge_f2, anchor="mt", align="center", spacing=4)
 
         # Kommentar
         if st.session_state.custom_text:
@@ -615,7 +683,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v316_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v317_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
