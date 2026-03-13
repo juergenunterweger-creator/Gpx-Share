@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.3 Beta) ---
+# --- STANDARDWERTE (v3.1.4 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -247,7 +247,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.3 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.4 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -359,7 +359,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.3 Beta:**\n- **FIX:** Wetter-Widget ist nun an der Position ganz rechts in der Datenleiste platziert.")
+    st.info("**v3.1.4 Beta:**\n- **FIX:** Saubere Text-Symbole (Dingbats) für das Wetter eingefügt, um das 'Noglyph'-Kästchen endgültig zu eliminieren.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -460,8 +460,17 @@ if up_gpx:
         
         # Wetter immer als Letztes
         if st.session_state.show_weather:
-            weather_text_only = st.session_state.weather_icon.split(" ", 1)[-1] if " " in st.session_state.weather_icon else st.session_state.weather_icon
-            items.append(("weather", f"{st.session_state.weather_temp}°C {weather_text_only}"))
+            # Übersetzung: Buntes UI-Emoji -> Sauberes Text-Dingbat für PIL
+            safe_symbols = {
+                "☀️ Sonnig": "☀", 
+                "⛅ Bewölkt": "☁", 
+                "🌧️ Regen": "☂", 
+                "❄️ Schnee": "❄", 
+                "🌩️ Gewitter": "⚡", 
+                "🌫️ Nebel": "〰"
+            }
+            clean_symbol = safe_symbols.get(st.session_state.weather_icon, "")
+            items.append(("weather", f"{st.session_state.weather_temp}°C {clean_symbol}"))
             
         # --- DYNAMISCHE SKALIERUNG DER DATENZEILE ---
         base_scale = 0.85 if len(items) > 3 else 1.0
@@ -581,7 +590,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v313_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v314_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
