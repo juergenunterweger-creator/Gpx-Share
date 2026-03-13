@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.0 Beta) ---
+# --- STANDARDWERTE (v3.1.1 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -247,7 +247,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.0 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.1 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -359,7 +359,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.0 Beta:**\n- **NEU:** Wetter-Widget integriert.\n- **NEU:** Canvas Format Auswahl (9:16, 1:1, 16:9).\n- **NEU:** Bike & Rider Badge hinzugefügt.")
+    st.info("**v3.1.1 Beta:**\n- **FIX:** Dynamische Autoskalierung der Datenzeile, wenn das Wetter-Widget aktiviert wird, um Überlappungen zu verhindern.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -459,12 +459,31 @@ if up_gpx:
         if st.session_state.show_weather: items.append(("weather", f"{st.session_state.weather_temp}°C {st.session_state.weather_icon.split()[0]}"))
         items.append(("elev", f"{int(a_gain)} m"))
         
-        f_d, i_s = load_font(int(w*0.045*st.session_state.size_data)), int(w*0.045*st.session_state.size_data)
-        cx = (w - (sum([i_s + 15 + draw.textlength(txt, f_d) for _, txt in items]) + (w*0.06)*(len(items)-1))) // 2
+        # --- DYNAMISCHE SKALIERUNG DER DATENZEILE ---
+        base_scale = 0.85 if len(items) > 3 else 1.0
+        gap_factor = 0.04 if len(items) > 3 else 0.06
         
+        f_d = load_font(int(w * 0.045 * st.session_state.size_data * base_scale))
+        i_s = int(w * 0.045 * st.session_state.size_data * base_scale)
+        gap = w * gap_factor
+        
+        tw_tot = sum([i_s + 10 + draw.textlength(txt, f_d) for _, txt in items]) + gap * (len(items) - 1)
+        
+        # Auto-Shrink, falls der Text trotz Reduzierung das Bild verlässt
+        if tw_tot > w * 0.95:
+            shrink = (w * 0.95) / tw_tot
+            f_d = load_font(int(w * 0.045 * st.session_state.size_data * base_scale * shrink))
+            i_s = int(i_s * shrink)
+            gap = gap * shrink
+            tw_tot = sum([i_s + 10 + draw.textlength(txt, f_d) for _, txt in items]) + gap * (len(items) - 1)
+
+        cx = (w - tw_tot) // 2
         for m, t in items:
-            overlay.paste(draw_data_icon(m, i_s, st.session_state.c_data), (int(cx), int(bh_t*0.35 + (bh_t*0.4) - i_s//2)), draw_data_icon(m, i_s, st.session_state.c_data))
-            cx += i_s + 15; draw_text_with_shadow(draw, (cx + draw.textlength(t, f_d)//2, bh_t*0.35 + (bh_t*0.4)), t, f_d, fill=st.session_state.c_data); cx += draw.textlength(t, f_d) + w*0.06
+            icon_img = draw_data_icon(m, i_s, st.session_state.c_data)
+            overlay.paste(icon_img, (int(cx), int(bh_t*0.35 + (bh_t*0.4) - i_s//2)), icon_img)
+            cx += i_s + 10
+            draw_text_with_shadow(draw, (int(cx + draw.textlength(t, f_d)//2), int(bh_t*0.35 + (bh_t*0.4))), t, f_d, fill=st.session_state.c_data)
+            cx += draw.textlength(t, f_d) + gap
 
         # Datum
         if st.session_state.show_date and st.session_state.tour_date:
@@ -558,7 +577,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v310_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v311_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
