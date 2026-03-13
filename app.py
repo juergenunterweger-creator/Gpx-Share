@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.2 Beta) ---
+# --- STANDARDWERTE (v3.1.3 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -247,7 +247,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.2 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.3 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -359,7 +359,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
         if logo_file: st.image(logo_file, width=250)
     
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.2 Beta:**\n- **FIX:** Emojis aus dem Wetter-Widget entfernt, um das fehlerhafte 'Noglyph'-Zeichen (Kästchen) zu vermeiden. Text wie 'Sonnig' oder 'Regen' wird nun sauber als Text dargestellt.")
+    st.info("**v3.1.3 Beta:**\n- **FIX:** Wetter-Widget ist nun an der Position ganz rechts in der Datenleiste platziert.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -456,14 +456,13 @@ if up_gpx:
         
         items = [("dist", f"{d_total:.1f} km")]
         if st.session_state.show_speed: items.append(("speed", f"{avg_s:.1f} km/h"))
+        items.append(("elev", f"{int(a_gain)} m"))
         
+        # Wetter immer als Letztes
         if st.session_state.show_weather:
-            # Emoji für das Bild entfernen, nur Text behalten (z.B. "Sonnig")
             weather_text_only = st.session_state.weather_icon.split(" ", 1)[-1] if " " in st.session_state.weather_icon else st.session_state.weather_icon
             items.append(("weather", f"{st.session_state.weather_temp}°C {weather_text_only}"))
             
-        items.append(("elev", f"{int(a_gain)} m"))
-        
         # --- DYNAMISCHE SKALIERUNG DER DATENZEILE ---
         base_scale = 0.85 if len(items) > 3 else 1.0
         gap_factor = 0.04 if len(items) > 3 else 0.06
@@ -582,7 +581,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v312_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v313_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
