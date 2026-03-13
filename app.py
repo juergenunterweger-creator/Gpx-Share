@@ -34,7 +34,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.0.9 Beta) ---
+# --- STANDARDWERTE (v3.0.10 Beta) ---
 DEFAULTS = {
     "tour_title": "Meine Tour",
     "tour_date": "",
@@ -71,7 +71,7 @@ DEFAULTS = {
     "pos_x_custom_text": 540,
     "pos_y_custom_text": 960,
     "pos_x_minibox": 770,
-    "pos_y_minibox": 1380, # HIER KORRIGIERT: Sitzt wieder perfekt über dem Profil
+    "pos_y_minibox": 1380,
     "show_bg_top": True,
     "show_bg_bottom": True,
     "show_bg_date": True,
@@ -83,7 +83,7 @@ for key, val in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# HOTFIX: Falls noch der alte fehlerhafte Wert im Speicher hängt
+# HOTFIX FÜR ALTE MINIBOX WERTE IM BROWSER-CACHE
 if st.session_state.get("pos_y_minibox") == 1550:
     st.session_state["pos_y_minibox"] = 1380
 
@@ -126,6 +126,15 @@ def draw_text_with_shadow(draw, pos, text, font, fill="white", shadow_color="bla
     draw.text((x+offset, y+offset), text, fill=shadow_color, font=font, anchor=anchor)
     draw.text((x, y), text, fill=fill, font=font, anchor=anchor)
 
+def draw_marker(draw, pos, color, label=""):
+    x, y = pos
+    r = 14
+    safe_ellipse(draw, [x-r-2, y-r-2, x+r+2, y+r+2], fill="white")
+    safe_ellipse(draw, [x-r, y-r, x+r+2, y+r+2], fill=color, outline="black", width=2)
+    if label:
+        f = load_font(16)
+        draw.text((int(x), int(y)), label, fill="white", font=f, anchor="mm")
+
 def hex_to_rgba(hex_color, alpha=255):
     h = hex_color.lstrip('#')
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
@@ -150,6 +159,19 @@ def draw_data_icon(mode, size, color="white"):
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
+def draw_graphical_logo(draw, pos, scale=1.0, color="#DA2323"):
+    x, y = int(pos[0]), int(pos[1])
+    icon_size = int(50 * scale)
+    rgb = hex_to_rgba(color)
+    safe_ellipse(draw, [x, y, x + icon_size, y + icon_size], fill=rgb, outline="white", width=max(1, int(2*scale)))
+    draw.polygon([(x+icon_size*0.2, y+icon_size*0.75), (x+icon_size*0.5, y+icon_size*0.25), (x+icon_size*0.8, y+icon_size*0.75)], fill="white")
+    draw_text_with_shadow(draw, (x + icon_size + int(15*scale), y + icon_size//2), "GPX Share Pro", load_font(int(32 * scale)), fill="white", anchor="lm")
+
+def get_logo_path():
+    for name in ["logo.png", "Logo.png", "LOGO.png"]:
+        if os.path.exists(name): return name
+    return None
+
 # --- APP-HEADER ---
 st.markdown("""
 <style>
@@ -166,10 +188,23 @@ st.markdown("""
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin: 0; text-transform: uppercase; text-align: center; line-height: 1.2;
 }
+.header-logo {
+    height: 45px; margin-right: 15px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown(f'<div class="header-box"><p class="header-title">GPX Share Pro XXL</p></div>', unsafe_allow_html=True)
+logo_html = ""
+app_logo_path = get_logo_path()
+if app_logo_path:
+    try:
+        with open(app_logo_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        logo_html = f'<img src="data:image/png;base64,{encoded_string}" class="header-logo">'
+    except Exception:
+        pass
+
+st.markdown(f'<div class="header-box">{logo_html}<p class="header-title">GPX Share Pro XXL</p></div>', unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -195,7 +230,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.0.9 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.0.10 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -207,6 +242,8 @@ with st.expander("⚙️ Einstellungen [v3.0.9 Beta]", expanded=False):
             st.checkbox("Datum im Bild anzeigen", key="show_date")
             st.text_area("Eigener Kommentar", key="custom_text")
         with c2:
+            st.write("**✅ Ein- / Ausblenden**")
+            st.checkbox("Start/Ziel (S/Z)", key="show_markers")
             st.checkbox("Ø Geschwindigkeit", key="show_speed")
             st.checkbox("Höhenprofil", key="show_profile")
             st.checkbox("Route in Bild anzeigen", key="show_route")
@@ -274,10 +311,35 @@ with st.expander("⚙️ Einstellungen [v3.0.9 Beta]", expanded=False):
 
 # --- INFO REITER ---
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    st.info("**v3.0.9 Beta:** Minibox-Standardposition repariert. Impressum & Über wieder getrennt.")
+    if st.session_state.logo_type == "Smartes Logo":
+        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
+        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
+        st.image(menu_logo, use_container_width=False)
+    else:
+        logo_file = get_logo_path()
+        if logo_file: st.image(logo_file, width=250)
+    
+    st.markdown("### 📜 Changelog")
+    st.info("**v3.0.10 Beta:** Reiterstruktur wiederhergestellt (Info, App, Impressum getrennt). Minibox-Position repariert.")
+    st.markdown("---")
+    
     st.markdown("**Copyright: Jürgen Unterweger**")
+    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
     app_url = "https://www.gpx-share.at"
-    st.markdown(f'<a href="whatsapp://send?text=Check out this app: {app_url}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen</a>', unsafe_allow_html=True)
+    raw_msg = f"Hey! Schau dir mal diese geniale App an: {app_url}"
+    share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
+    st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
+
+# --- APP INSTALLIEREN REITER ---
+with st.expander("📲 App installieren", expanded=False):
+    st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
+    col_ios, col_android, col_firefox = st.columns(3)
+    with col_ios:
+        st.markdown("**🍎 iPhone / iPad (Safari)**\n1. Tippe auf das **Teilen-Symbol**.\n2. Wähle **'Zum Home-Bildschirm'**.")
+    with col_android:
+        st.markdown("**🤖 Android (Chrome)**\n1. Tippe auf die **drei Punkte**.\n2. Wähle **'App installieren'**.")
+    with col_firefox:
+        st.markdown("**🦊 Firefox (Android)**\n1. Tippe auf die **drei Punkte** ⋮\n2. Wähle **'Installieren'** oder 'Zum Startbildschirm'")
 
 st.divider()
 
@@ -386,6 +448,14 @@ if up_gpx:
                 for s in pts:
                     m_pts = [(int(off_x + (p[1]-mi_lo)/lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/la_e*drw_h)) for p in s]
                     if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4*st.session_state.size_minibox)), joint="round")
+                
+                # S/Z für Minibox
+                if st.session_state.show_markers:
+                    ms_p = (int(off_x + (all_pts[0][1]-mi_lo)/lo_e*drw_w), int(off_y + drw_h - (all_pts[0][0]-mi_la)/la_e*drw_h))
+                    me_p = (int(off_x + (all_pts[-1][1]-mi_lo)/lo_e*drw_w), int(off_y + drw_h - (all_pts[-1][0]-mi_la)/la_e*drw_h))
+                    m_r = max(3, int(6 * st.session_state.size_minibox))
+                    safe_ellipse(draw, [ms_p[0]-m_r, ms_p[1]-m_r, ms_p[0]+m_r, ms_p[1]+m_r], fill="green")
+                    safe_ellipse(draw, [me_p[0]-m_r, me_p[1]-m_r, me_p[0]+m_r, me_p[1]+m_r], fill="red")
 
             if st.session_state.show_route:
                 ssf = 3; ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0)); rd = ImageDraw.Draw(ro); rgb = hex_to_rgba(st.session_state.c_line)
@@ -393,6 +463,24 @@ if up_gpx:
                     s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
                     if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
                 overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
+                
+                # S/Z für große Route
+                if st.session_state.show_markers:
+                    def tr(la, lo): return (int(0.15*w + (lo-mi_lo)/lo_e*w*0.7), int(h*0.75 - (la-mi_la)/la_e*h*0.5))
+                    draw_marker(draw, tr(all_pts[0][0], all_pts[0][1]), "green", "S")
+                    draw_marker(draw, tr(all_pts[-1][0], all_pts[-1][1]), "red", "Z")
+
+        if st.session_state.show_logo:
+            if st.session_state.logo_type == "Smartes Logo":
+                icon_s = int(50 * st.session_state.size_logo); rgb_l = hex_to_rgba(st.session_state.c_line)
+                safe_ellipse(draw, [30, bh_t+30, 30+icon_s, bh_t+30+icon_s], fill=rgb_l, outline="white", width=2)
+                draw.polygon([(30+icon_s*0.2, bh_t+30+icon_s*0.75), (30+icon_s*0.5, bh_t+30+icon_s*0.25), (30+icon_s*0.8, bh_t+30+icon_s*0.75)], fill="white")
+                draw_text_with_shadow(draw, (30+icon_s+15, bh_t+30+icon_s//2), "GPX Share Pro", load_font(int(32*st.session_state.size_logo)), fill="white", anchor="lm")
+            else:
+                p = get_logo_path()
+                if p:
+                    ml = Image.open(p).convert("RGBA"); tw = int(w*0.15*st.session_state.size_logo); th = int(tw * (ml.height/ml.width))
+                    overlay.paste(ml.resize((tw, th), Image.Resampling.LANCZOS), (30, bh_t + 30), ml.resize((tw, th), Image.Resampling.LANCZOS))
 
         final = Image.alpha_composite(canvas, overlay); st_image_display = final.convert('RGB')
         m_top, m_bot = st.session_state.margin_top, st.session_state.margin_bottom
@@ -403,7 +491,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v309_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v310_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
 
