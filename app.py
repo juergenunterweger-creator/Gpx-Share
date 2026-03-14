@@ -23,12 +23,12 @@ COUNTER_FILE = "tour_counter.txt"
 
 def get_tour_count():
     if not os.path.exists(COUNTER_FILE):
-        return 0
+        return 50  # Startwert auf 50 gesetzt
     try:
         with open(COUNTER_FILE, "r") as f:
             return int(f.read().strip())
     except:
-        return 0
+        return 50
 
 def increment_tour_count():
     count = get_tour_count() + 1
@@ -58,7 +58,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (Aufbauend auf v3.1.6 Beta) ---
+# --- STANDARDWERTE (v3.1.8 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -318,7 +318,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.7 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.8 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -419,24 +419,32 @@ with st.expander("⚙️ Einstellungen [v3.1.7 Beta]", expanded=False):
     st.write("---")
     st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- IMPRESSUM, DATENSCHUTZ & SUPPORT REITER ---
-with st.expander("⚖️ Impressum, Datenschutz & Support", expanded=False):
+# --- INFO REITER (MIT SUPPORT) ---
+with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
+    if st.session_state.logo_type == "Smartes Logo":
+        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
+        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
+        st.image(menu_logo, use_container_width=False)
+    else:
+        logo_file = get_logo_path()
+        if logo_file: st.image(logo_file, width=250)
+    
     st.markdown("### 💬 Fehler gefunden oder eine Idee?")
     st.markdown("Schreib mir gerne direkt eine E-Mail. Es öffnet sich automatisch dein E-Mail-Programm auf dem Handy oder PC.")
     support_link = "mailto:juergen.unterweger@outlook.at?subject=Support%20Anfrage%3A%20GPX%20Share%20Pro"
     st.markdown(f'<a href="{support_link}" style="display: block; width: 100%; padding: 10px; background-color: #DA2323; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">✉️ Support kontaktieren</a>', unsafe_allow_html=True)
-    
     st.markdown("---")
-    st.markdown("""
-    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
-    Wangham 13  
-    4661 Roitham am Traunfall  
-    Österreich  
+
+    st.markdown("### 📜 Changelog")
+    st.info("**v3.1.8 Beta:**\n- **NEU:** Live-Counter für geteilte Touren im Header eingebaut.\n- **NEU:** Support-Button in den App-Infos integriert.\n- **FIX:** Impressum für bessere Übersicht an das Ende der Seite verschoben.")
+    st.markdown("---")
     
-    **Kontakt:** juergen.unterweger@outlook.at  
-    
-    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. Es werden keine Bilder, Standortdaten oder IP-Adressen auf Servern gespeichert. Die angezeigte Statistik ('Bisher geteilte Touren') ist rein anonymisiert und lässt keine Rückschlüsse auf Personen oder Routen zu. Wenn du den Support per E-Mail kontaktierst, werden deine Absenderdaten (E-Mail-Adresse) lediglich zur Bearbeitung deiner Anfrage genutzt und nicht an Dritte weitergegeben.
-    """)
+    st.markdown("**Copyright: Jürgen Unterweger**")
+    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
+    app_url = "https://www.gpx-share.at"
+    raw_msg = f"Hey! Schau dir mal diese geniale App an: {app_url}"
+    share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
+    st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
 
 # --- APP INSTALLIEREN REITER ---
 with st.expander("📲 App installieren", expanded=False):
@@ -650,6 +658,20 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v317_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v318_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
+
+# --- IMPRESSUM FOOTER GANZ UNTEN ---
+st.markdown("---")
+with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
+    st.markdown("""
+    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
+    Wangham 13  
+    4661 Roitham am Traunfall  
+    Österreich  
+    
+    **Kontakt:** juergen.unterweger@outlook.at  
+    
+    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. Es werden keine Bilder, Standortdaten oder IP-Adressen auf Servern gespeichert. Die angezeigte Statistik ('Bisher geteilte Touren') ist rein anonymisiert und lässt keine Rückschlüsse auf Personen oder Routen zu. Wenn du den Support per E-Mail kontaktierst, werden deine Absenderdaten (E-Mail-Adresse) lediglich zur Bearbeitung deiner Anfrage genutzt und nicht an Dritte weitergegeben.
+    """)
