@@ -18,6 +18,30 @@ st.set_page_config(
     layout="centered"
 )
 
+# --- STRICHLISTE (COUNTER) FUNKTIONEN ---
+COUNTER_FILE = "tour_counter.txt"
+
+def get_tour_count():
+    if not os.path.exists(COUNTER_FILE):
+        return 0
+    try:
+        with open(COUNTER_FILE, "r") as f:
+            return int(f.read().strip())
+    except:
+        return 0
+
+def increment_tour_count():
+    count = get_tour_count() + 1
+    try:
+        with open(COUNTER_FILE, "w") as f:
+            f.write(str(count))
+    except:
+        pass
+    return count
+
+# Globale Variable für den aktuellen Stand
+current_tour_count = get_tour_count()
+
 # --- AGGRESSIVER BRANDING KILLER & ABSTAND-REDUZIERUNG ---
 hide_st_style = """
             <style>
@@ -34,7 +58,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.6 Beta) ---
+# --- STANDARDWERTE (Aufbauend auf v3.1.6 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -93,6 +117,9 @@ for key, val in DEFAULTS.items():
 
 if "last_gpx_file" not in st.session_state:
     st.session_state.last_gpx_file = ""
+
+if "counted_files" not in st.session_state:
+    st.session_state.counted_files = []
 
 # --- DYNAMISCHE CANVAS GRÖSSE ---
 format_choice = st.session_state.get("canvas_format", "Story (9:16)")
@@ -172,7 +199,6 @@ def draw_data_icon(mode, size, color="white"):
         d.line([cx, cy, cx + size*res*0.25, cy - size*res*0.25], fill=color, width=lw)
         d.ellipse([cx-lw, cy-lw, cx+lw, cy+lw], fill=color)
     elif mode.startswith("weather_"):
-        # Vektor-Wettericons zeichnen
         w_type = mode.split("_")[1]
         cx, cy = size*res//2, size*res//2
         r = size*res*0.3
@@ -223,25 +249,25 @@ def get_logo_path():
         if os.path.exists(name): return name
     return None
 
-# --- APP-HEADER ---
-st.markdown("""
+# --- APP-HEADER MIT STRICHLISTE ---
+st.markdown(f"""
 <style>
-.stApp { background-color: #ffffff; color: #000000; } 
-.header-box {
-    display: flex; align-items: center; justify-content: center;
+.stApp {{ background-color: #ffffff; color: #000000; }} 
+.header-box {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: linear-gradient(135deg, #111111 0%, #2a2a2a 100%);
     padding: 15px; border-radius: 15px; box-shadow: 0px 8px 16px rgba(218, 35, 35, 0.4);
     margin-bottom: 25px; border: 1px solid #333; margin-top: 10px;
-}
-.header-title {
+}}
+.header-row {{ display: flex; align-items: center; justify-content: center; width: 100%; }}
+.header-title {{
     font-size: 34px; font-weight: 900;
     background: linear-gradient(90deg, #ff4b4b 0%, #da2323 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin: 0; text-transform: uppercase; text-align: center; line-height: 1.2;
-}
-.header-logo {
-    height: 45px; margin-right: 15px;
-}
+}}
+.header-logo {{ height: 45px; margin-right: 15px; }}
+.counter-text {{ color: #aaaaaa; font-size: 14px; margin-top: 10px; font-weight: bold; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -255,7 +281,12 @@ if app_logo_path:
     except Exception:
         pass
 
-st.markdown(f'<div class="header-box">{logo_html}<p class="header-title">GPX Share Pro XXL</p></div>', unsafe_allow_html=True)
+st.markdown(f'''
+<div class="header-box">
+    <div class="header-row">{logo_html}<p class="header-title">GPX Share Pro XXL</p></div>
+    <div class="counter-text">🚀 Bisher geteilte Touren: {current_tour_count}</div>
+</div>
+''', unsafe_allow_html=True)
 
 # --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
@@ -266,6 +297,12 @@ with c_up1:
         if st.session_state.last_gpx_file != up_gpx.name:
             st.session_state.last_gpx_file = up_gpx.name
             st.session_state.tour_title = up_gpx.name.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ')
+            
+            # Strichliste erhöhen (nur 1x pro neuer Datei)
+            if up_gpx.name not in st.session_state.counted_files:
+                current_tour_count = increment_tour_count()
+                st.session_state.counted_files.append(up_gpx.name)
+            
             try:
                 g = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
                 d = g.time.strftime("%d.%m.%Y") if g.time else ""
@@ -281,7 +318,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.6 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.7 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -382,26 +419,24 @@ with st.expander("⚙️ Einstellungen [v3.1.6 Beta]", expanded=False):
     st.write("---")
     st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
 
-# --- INFO REITER ---
-with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
-    if st.session_state.logo_type == "Smartes Logo":
-        menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
-        draw_graphical_logo(ImageDraw.Draw(menu_logo), (20, 25), scale=1.0, color=st.session_state.c_line)
-        st.image(menu_logo, use_container_width=False)
-    else:
-        logo_file = get_logo_path()
-        if logo_file: st.image(logo_file, width=250)
+# --- IMPRESSUM, DATENSCHUTZ & SUPPORT REITER ---
+with st.expander("⚖️ Impressum, Datenschutz & Support", expanded=False):
+    st.markdown("### 💬 Fehler gefunden oder eine Idee?")
+    st.markdown("Schreib mir gerne direkt eine E-Mail. Es öffnet sich automatisch dein E-Mail-Programm auf dem Handy oder PC.")
+    support_link = "mailto:juergen.unterweger@outlook.at?subject=Support%20Anfrage%3A%20GPX%20Share%20Pro"
+    st.markdown(f'<a href="{support_link}" style="display: block; width: 100%; padding: 10px; background-color: #DA2323; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">✉️ Support kontaktieren</a>', unsafe_allow_html=True)
     
-    st.markdown("### 📜 Changelog")
-    st.info("**v3.1.6 Beta:**\n- **UI:** In den Bildanpassungs-Einstellungen wurden 'X Text' und 'Y Text' logisch korrekt zu 'X Kommentar' und 'Y Kommentar' umbenannt.")
     st.markdown("---")
+    st.markdown("""
+    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
+    Wangham 13  
+    4661 Roitham am Traunfall  
+    Österreich  
     
-    st.markdown("**Copyright: Jürgen Unterweger**")
-    st.markdown(f'<a href="https://www.paypal.com/donate?hosted_button_id=FF6FBUE84V7MG" target="_blank"><img src="https://www.paypalobjects.com/de_DE/i/btn/btn_donateCC_LG.gif" width="120"></a>', unsafe_allow_html=True)
-    app_url = "https://www.gpx-share.at"
-    raw_msg = f"Hey! Schau dir mal diese geniale App an: {app_url}"
-    share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
-    st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
+    **Kontakt:** juergen.unterweger@outlook.at  
+    
+    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. Es werden keine Bilder, Standortdaten oder IP-Adressen auf Servern gespeichert. Die angezeigte Statistik ('Bisher geteilte Touren') ist rein anonymisiert und lässt keine Rückschlüsse auf Personen oder Routen zu. Wenn du den Support per E-Mail kontaktierst, werden deine Absenderdaten (E-Mail-Adresse) lediglich zur Bearbeitung deiner Anfrage genutzt und nicht an Dritte weitergegeben.
+    """)
 
 # --- APP INSTALLIEREN REITER ---
 with st.expander("📲 App installieren", expanded=False):
@@ -615,21 +650,6 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v316_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v317_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler: {e}")
-
-# --- IMPRESSUM FOOTER GANZ UNTEN ---
-st.markdown("---")
-with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
-    st.markdown("""
-    **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
-    Wangham 13  
-    4661 Roitham am Traunfall  
-    Österreich  
-    
-    **Kontakt:** juergen.unterweger@outlook.at  
-    
-    **Datenschutz:** Diese App ist zu 100 % privat und sicher. Deine hochgeladenen Fotos und GPX-Routendaten werden **ausschließlich temporär** im Arbeitsspeicher für die Dauer der Bildgenerierung verarbeitet. 
-    Es werden **keine** Bilder, Standortdaten, IP-Adressen oder sonstigen persönlichen Informationen auf Servern oder in externen Datenbanken dauerhaft gespeichert. Nach dem Neuladen oder Schließen der Seite sind alle deine Daten restlos gelöscht.
-    """)
