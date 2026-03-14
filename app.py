@@ -70,7 +70,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.7 Beta) ---
+# --- STANDARDWERTE (v3.1.8 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -82,6 +82,7 @@ DEFAULTS = {
     "bike_name": "BMW R 1250 GS",
     "bike_stats": "Max. Schräglage: 48°",
     "c_line": "#DA2323",
+    "neon_glow": False,
     "c_title": "#DA2323",
     "c_date": "#FFFFFF",
     "c_data": "#FFFFFF",
@@ -330,7 +331,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.7 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.8 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -378,6 +379,8 @@ with st.expander("⚙️ Einstellungen [v3.1.7 Beta]", expanded=False):
             col_c1, col_c2 = st.columns(2)
             with col_c1: st.color_picker("Routenfarbe", key="c_line")
             with col_c2: st.number_input("Routenstärke", 1, 20, key="w_line")
+            st.checkbox("✨ Neon-Glow Effekt (Route)", key="neon_glow")
+            
             st.color_picker("Farbe Titel", key="c_title")
             st.color_picker("Farbe Daten", key="c_data")
             st.color_picker("Farbe Raster", key="c_grid")
@@ -448,7 +451,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("---")
 
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.7 Beta:**\n- **NEU:** Drei Formate (Story, Post, Landscape).\n- **NEU:** Vektor Wetter-Icons integriert.\n- **NEU:** Bike & Rider Badge hinzugefügt.\n- **NEU:** Auto-Skalierung für dynamische Boxen.")
+    st.info("**v3.1.8 Beta:**\n- **NEU:** Neon-Glow Effekt für Routen! Die Linie leuchtet jetzt wie eine Neonröhre.\n- **NEU:** Live-Counter für geteilte Touren im Header eingebaut.\n- **NEU:** Support-Button in den App-Infos integriert.\n- **FIX:** Fehlerhafte Startbedingungen des Counters behoben.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -547,12 +550,11 @@ if up_gpx:
         if st.session_state.show_speed: items.append(("speed", f"{avg_s:.1f} km/h"))
         items.append(("elev", f"{int(a_gain)} m"))
         
-        # Wetter immer als Letztes
         if st.session_state.show_weather:
             w_icon_key = f"weather_{st.session_state.weather_icon}"
             items.append((w_icon_key, f"{st.session_state.weather_temp}°C"))
             
-        # --- DYNAMISCHE SKALIERUNG DER DATENZEILE ---
+        # DYNAMISCHE SKALIERUNG DER DATENZEILE
         base_scale = 0.85 if len(items) > 3 else 1.0
         gap_factor = 0.04 if len(items) > 3 else 0.06
         
@@ -562,7 +564,6 @@ if up_gpx:
         
         tw_tot = sum([i_s + 10 + draw.textlength(txt, f_d) for _, txt in items]) + gap * (len(items) - 1)
         
-        # Auto-Shrink, falls der Text trotz Reduzierung das Bild verlässt
         if tw_tot > w * 0.95:
             shrink = (w * 0.95) / tw_tot
             f_d = load_font(int(w * 0.045 * st.session_state.size_data * base_scale * shrink))
@@ -584,7 +585,7 @@ if up_gpx:
             if st.session_state.show_bg_date: safe_rect(draw, [30, int(h - bh_b - 80), int(30 + tw + 40), int(h - bh_b - 20)], fill=(0,0,0,160), outline="#FFFFFF", width=2)
             draw.text((30 + (tw+40)//2, int(h-bh_b-50)), st.session_state.tour_date, fill="#FFFFFF", font=f_dt, anchor="mm")
 
-        # --- BIKE & RIDER BADGE (Text-Style 3.1.6) ---
+        # --- BIKE & RIDER BADGE ---
         if st.session_state.show_bike_badge and (st.session_state.bike_name or st.session_state.bike_stats):
             badge_f1 = load_font(int(w * 0.03 * st.session_state.size_badge))
             badge_f2 = load_font(int(w * 0.02 * st.session_state.size_badge))
@@ -622,9 +623,17 @@ if up_gpx:
                 drw_h = mb_h - 2*m_m if aspect > 1 else (mb_w - 2*m_m) * aspect
                 drw_w = drw_h / aspect if aspect > 1 else (mb_w - 2*m_m)
                 off_x, off_y = mb_x + (mb_w - drw_w)//2, mb_y + (mb_h - drw_h)//2; rgb = hex_to_rgba(st.session_state.c_line)
+                
                 for s in pts:
                     m_pts = [(int(off_x + (p[1]-mi_lo)/lo_e*drw_w), int(off_y + drw_h - (p[0]-mi_la)/la_e*drw_h)) for p in s]
-                    if len(m_pts)>1: draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4*st.session_state.size_minibox)), joint="round")
+                    if len(m_pts) > 1:
+                        # ✨ Neon-Glow Logik für Minibox
+                        if st.session_state.neon_glow:
+                            for i in range(4, 0, -1):
+                                gw = int(max(2, int(4 * st.session_state.size_minibox)) * (1 + i * 0.8))
+                                ga = int(255 * (0.2 / i))
+                                draw.line(m_pts, fill=rgb[:3]+(ga,), width=gw, joint="round")
+                        draw.line(m_pts, fill=rgb[:3]+(255,), width=max(2, int(4 * st.session_state.size_minibox)), joint="round")
                 
                 # S/Z für Minibox
                 if st.session_state.show_markers:
@@ -638,7 +647,14 @@ if up_gpx:
                 ssf = 3; ro = Image.new('RGBA', (w*ssf, h*ssf), (0,0,0,0)); rd = ImageDraw.Draw(ro); rgb = hex_to_rgba(st.session_state.c_line)
                 for s in pts:
                     s_pts = [(int((0.15*w + (p[1]-mi_lo)/lo_e*w*0.7) * ssf), int((h*0.75 - (p[0]-mi_la)/la_e*h*0.5) * ssf)) for p in s]
-                    if len(s_pts)>1: rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line*ssf, joint="round")
+                    if len(s_pts) > 1:
+                        # ✨ Neon-Glow Logik für Hauptroute
+                        if st.session_state.neon_glow:
+                            for i in range(4, 0, -1):
+                                gw = int(st.session_state.w_line * ssf * (1 + i * 0.8))
+                                ga = int(255 * (0.15 / i))
+                                rd.line(s_pts, fill=rgb[:3]+(ga,), width=gw, joint="round")
+                        rd.line(s_pts, fill=rgb[:3]+(255,), width=st.session_state.w_line * ssf, joint="round")
                 overlay.paste(ro.resize((w, h), Image.Resampling.LANCZOS), (0,0), ro.resize((w, h), Image.Resampling.LANCZOS))
                 
                 # S/Z für große Route
@@ -670,7 +686,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v317_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v318_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler beim Generieren: {e}")
 
