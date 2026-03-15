@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="GPX Share Pro XXL", 
     page_icon=get_fav_icon(), 
     layout="centered",
-    initial_sidebar_state="expanded" # Sidebar standardmäßig öffnen
+    initial_sidebar_state="collapsed" # <-- HIER: Standardmäßig ausgeblendet!
 )
 
 # --- STRICHLISTE (COUNTER) FUNKTIONEN ---
@@ -68,7 +68,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.9 Beta) ---
+# --- STANDARDWERTE (v3.1.10 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -262,7 +262,7 @@ def get_logo_path():
 
 # --- SIDEBAR EINSTELLUNGEN ---
 with st.sidebar:
-    st.markdown("## ⚙️ Einstellungen [v3.1.9 Beta]")
+    st.markdown("## ⚙️ Einstellungen [v3.1.10 Beta]")
     
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalt", "🎨 Design", "🖼️ Bild"])
     
@@ -356,7 +356,6 @@ with st.sidebar:
 
     st.write("---")
     st.button("🔄 Alles zurücksetzen", on_click=reset_parameters, use_container_width=True)
-
 
 # --- APP-HEADER MIT STRICHLISTE (HAUPTBEREICH) ---
 st.markdown(f"""
@@ -635,7 +634,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v319_beta.png", "image/png", use_container_width=True)
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v3110_beta.png", "image/png", use_container_width=True)
             
     except Exception as e: st.error(f"Fehler beim Generieren: {e}")
 
@@ -656,7 +655,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("---")
 
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.9 Beta:**\n- **NEU:** Einstellungen in die Seitenleiste verlegt! Du siehst deine Bild-Anpassungen nun sofort live.\n- **NEU:** Neon-Glow Effekt für Routen! Die Linie leuchtet jetzt wie eine Neonröhre.\n- **NEU:** Live-Counter für geteilte Touren im Header eingebaut.")
+    st.info("**v3.1.10 Beta:**\n- **NEU:** Seitenleiste startet jetzt standardmäßig eingeklappt für mehr Übersicht!\n- **NEU:** Einstellungen in die Seitenleiste verlegt.\n- **NEU:** Neon-Glow Effekt für Routen.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
