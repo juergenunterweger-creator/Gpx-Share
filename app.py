@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="GPX Share Pro XXL", 
     page_icon=get_fav_icon(), 
     layout="centered",
-    initial_sidebar_state="collapsed" # <-- HIER: Standardmäßig ausgeblendet!
+    initial_sidebar_state="collapsed"
 )
 
 # --- STRICHLISTE (COUNTER) FUNKTIONEN ---
@@ -52,23 +52,7 @@ def increment_tour_count():
 
 current_tour_count = get_tour_count()
 
-# --- AGGRESSIVER BRANDING KILLER & ABSTAND-REDUZIERUNG ---
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden !important;}
-            footer {visibility: hidden !important;}
-            header {visibility: hidden !important;}
-            #stDecoration {display:none !important;}
-            [data-testid="stHeader"] {display: none !important;}
-            .stDeployButton {display:none !important;}
-            [data-testid="stToolbar"] {display: none !important;}
-            div.stActionButton {display:none !important;}
-            .main .block-container {padding-top: 0rem !important; padding-bottom: 0rem !important;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
-
-# --- STANDARDWERTE (v3.1.10 Beta) ---
+# --- STANDARDWERTE (v3.1.11 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -262,7 +246,7 @@ def get_logo_path():
 
 # --- SIDEBAR EINSTELLUNGEN ---
 with st.sidebar:
-    st.markdown("## ⚙️ Einstellungen [v3.1.10 Beta]")
+    st.markdown("## ⚙️ Einstellungen [v3.1.11 Beta]")
     
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalt", "🎨 Design", "🖼️ Bild"])
     
@@ -634,7 +618,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v3110_beta.png", "image/png", use_container_width=True)
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v3111_beta.png", "image/png", use_container_width=True)
             
     except Exception as e: st.error(f"Fehler beim Generieren: {e}")
 
@@ -655,7 +639,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("---")
 
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.10 Beta:**\n- **NEU:** Seitenleiste startet jetzt standardmäßig eingeklappt für mehr Übersicht!\n- **NEU:** Einstellungen in die Seitenleiste verlegt.\n- **NEU:** Neon-Glow Effekt für Routen.")
+    st.info("**v3.1.11 Beta:**\n- **FIX:** Aggressiven Branding-Killer entfernt, damit das Aufklapp-Menü für die Seitenleiste wieder sichtbar ist.\n- **NEU:** Einstellungen in die Seitenleiste verlegt, startet jetzt standardmäßig eingeklappt.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
