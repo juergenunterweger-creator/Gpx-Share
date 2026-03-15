@@ -70,7 +70,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- STANDARDWERTE (v3.1.8 Beta) ---
+# --- STANDARDWERTE (v3.1.9 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -305,7 +305,8 @@ st.markdown(f'''
 c_up1, c_up2 = st.columns(2)
 with c_up1:
     st.markdown("### 📍 1. GPX Datei")
-    up_gpx = st.file_uploader("GPX Upload", label_visibility="collapsed", key="gpx_uploader")
+    # FIX FÜR iOS SAFARI: type=["gpx", "xml", "txt"] zwingt das iPhone, die Dateien klickbar zu machen
+    up_gpx = st.file_uploader("GPX Upload", type=["gpx", "xml", "txt"], label_visibility="collapsed", key="gpx_uploader")
     if up_gpx:
         if st.session_state.last_gpx_file != up_gpx.name:
             st.session_state.last_gpx_file = up_gpx.name
@@ -331,7 +332,7 @@ with c_up2:
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
 # --- EINSTELLUNGEN ---
-with st.expander("⚙️ Einstellungen [v3.1.8 Beta]", expanded=False): 
+with st.expander("⚙️ Einstellungen [v3.1.9 Beta]", expanded=False): 
     tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
     
     with tab_inhalt:
@@ -644,7 +645,7 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v318_beta.png", "image/png")
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v319_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler beim Generieren: {e}")
 
@@ -667,7 +668,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("---")
 
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.8 Beta:**\n- **NEU:** Neon-Glow Effekt für Routen! Die Linie leuchtet jetzt wie eine Neonröhre.\n- **NEU:** Live-Counter für geteilte Touren im Header eingebaut.\n- **NEU:** Support-Button in den App-Infos integriert.\n- **FIX:** Fehlerhafte Startbedingungen des Counters behoben.")
+    st.info("**v3.1.9 Beta:**\n- **FIX:** GPX-Dateien sind am iPhone (iOS) wieder anwählbar.\n- **NEU:** Neon-Glow Effekt für Routen! Die Linie leuchtet jetzt wie eine Neonröhre.\n- **NEU:** Live-Counter für geteilte Touren im Header eingebaut.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
