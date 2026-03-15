@@ -15,8 +15,7 @@ def get_fav_icon():
 st.set_page_config(
     page_title="GPX Share Pro XXL", 
     page_icon=get_fav_icon(), 
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
 # --- STRICHLISTE (COUNTER) FUNKTIONEN ---
@@ -28,11 +27,13 @@ def get_tour_count():
         try:
             with open(COUNTER_FILE, "r") as f:
                 saved_count = int(f.read().strip())
+                # Nur den gespeicherten Wert nehmen, wenn er größer als 50 ist
                 if saved_count > 50:
                     count = saved_count
         except:
             pass
             
+    # Falls der Wert (neu) auf 50 gesetzt wurde, direkt in die Datei schreiben
     try:
         with open(COUNTER_FILE, "w") as f:
             f.write(str(count))
@@ -50,9 +51,26 @@ def increment_tour_count():
         pass
     return count
 
+# Globale Variable für den aktuellen Stand
 current_tour_count = get_tour_count()
 
-# --- STANDARDWERTE (v3.1.11 Beta) ---
+# --- AGGRESSIVER BRANDING KILLER & ABSTAND-REDUZIERUNG ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden !important;}
+            footer {visibility: hidden !important;}
+            header {visibility: hidden !important;}
+            #stDecoration {display:none !important;}
+            [data-testid="stHeader"] {display: none !important;}
+            .stDeployButton {display:none !important;}
+            [data-testid="stToolbar"] {display: none !important;}
+            div.stActionButton {display:none !important;}
+            .main .block-container {padding-top: 0rem !important; padding-bottom: 0rem !important;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# --- STANDARDWERTE (v3.1.8 Beta) ---
 DEFAULTS = {
     "canvas_format": "Story (9:16)",
     "tour_title": "Meine Tour",
@@ -244,104 +262,7 @@ def get_logo_path():
         if os.path.exists(name): return name
     return None
 
-# --- SIDEBAR EINSTELLUNGEN ---
-with st.sidebar:
-    st.markdown("## ⚙️ Einstellungen [v3.1.11 Beta]")
-    
-    tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalt", "🎨 Design", "🖼️ Bild"])
-    
-    with tab_inhalt:
-        st.write("**📝 Tour Details**")
-        st.text_input("Tour Name", key="tour_title")
-        st.text_input("Datum", key="tour_date")
-        st.checkbox("Datum im Bild", key="show_date")
-        st.text_area("Eigener Kommentar", key="custom_text")
-        
-        st.write("---")
-        st.write("**☀️ Wetter Widget**")
-        st.checkbox("Wetter anzeigen", key="show_weather")
-        if st.session_state.show_weather:
-            st.selectbox("Wetter Typ", ["☀️ Sonnig", "⛅ Bewölkt", "🌧️ Regen", "❄️ Schnee", "🌩️ Gewitter", "🌫️ Nebel"], key="weather_icon")
-            st.text_input("Temperatur", key="weather_temp")
-
-        st.write("---")
-        st.write("**✅ Ein- / Ausblenden**")
-        st.checkbox("Start/Ziel (S/Z)", key="show_markers")
-        st.checkbox("Ø Geschwindigkeit", key="show_speed")
-        st.checkbox("Höhenprofil", key="show_profile")
-        st.checkbox("Route in Bild anzeigen", key="show_route")
-        st.checkbox("Minibox (Karte)", key="show_minibox")
-        st.checkbox("App Logo (Im Bild)", key="show_logo")
-        if st.session_state.show_logo:
-            st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], key="logo_type")
-        
-        st.write("---")
-        st.write("**🏍️ Bike & Rider Badge**")
-        st.checkbox("Badge einblenden", key="show_bike_badge")
-        if st.session_state.show_bike_badge:
-            st.text_input("Bike / Fahrzeug", key="bike_name")
-            st.text_input("Nerd-Stats (z.B. Max Schräglage)", key="bike_stats")
-
-    with tab_design:
-        st.write("**📐 Format & Canvas**")
-        st.radio("Seitenverhältnis wählen:", ["Story (9:16)", "Post (1:1)", "Landscape (16:9)"], key="canvas_format")
-        
-        st.write("---")
-        st.write("**🎨 Farben & Style**")
-        st.color_picker("Routenfarbe", key="c_line")
-        st.number_input("Routenstärke", 1, 20, key="w_line")
-        st.checkbox("✨ Neon-Glow Effekt (Route)", key="neon_glow")
-        st.color_picker("Farbe Titel", key="c_title")
-        st.color_picker("Farbe Daten", key="c_data")
-        st.color_picker("Farbe Raster", key="c_grid")
-        st.color_picker("Farbe Kommentar", key="c_custom_text")
-        
-        st.write("---")
-        st.write("**🔠 Größen (Skalierung)**")
-        st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
-        st.number_input("Größe Daten", 0.5, 4.0, key="size_data", step=0.1)
-        st.number_input("Größe Raster-Text", 0.5, 2.0, key="size_grid", step=0.1)
-        st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1)
-        st.number_input("Größe Kommentar", 0.5, 5.0, key="size_custom_text", step=0.1)
-        st.number_input("Größe Bike Badge", 0.5, 3.0, key="size_badge", step=0.1)
-    
-        st.write("---")
-        st.write("**🔲 Box-Hintergründe**")
-        st.checkbox("Top-Bereich", key="show_bg_top")
-        st.checkbox("Datum-Box", key="show_bg_date")
-        st.checkbox("Unten (Profil)", key="show_bg_bottom")
-        st.checkbox("Minibox", key="show_bg_minibox")
-        st.checkbox("Kommentar-Box", key="show_bg_custom_text")
-
-    with tab_bild:
-        st.write("**🖼️ Hintergrund**")
-        st.number_input("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity", step=5)
-        st.checkbox("🖤 Schwarz-Weiß Filter", key="img_bw")
-        
-        st.write("---")
-        st.write("**🔍 Zoom & Position Foto**")
-        st.number_input("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
-        st.number_input("↔️ Links/Rechts (Foto)", -1500, 1500, key="img_offset_x", step=10)
-        st.number_input("↕️ Oben/Unten (Foto)", -1500, 1500, key="img_offset_y", step=10)
-        
-        st.write("---")
-        st.write("**📏 Story Ränder (Nur 9:16)**")
-        st.checkbox("Ränder aktivieren", key="story_margins_active")
-        if st.session_state.story_margins_active:
-            st.number_input("Oben (px)", 0, 500, key="margin_top", step=10)
-            st.number_input("Unten (px)", 0, 500, key="margin_bottom", step=10)
-            
-        st.write("---")
-        st.write("**💬 Position Elemente**")
-        st.number_input("↔️ X Kommentar", 0, 3000, key="pos_x_custom_text", step=10)
-        st.number_input("↕️ Y Kommentar", 0, 3000, key="pos_y_custom_text", step=10)
-        st.number_input("↔️ X Minibox", 0, 3000, key="pos_x_minibox", step=10)
-        st.number_input("↕️ Y Minibox", 0, 3000, key="pos_y_minibox", step=10)
-
-    st.write("---")
-    st.button("🔄 Alles zurücksetzen", on_click=reset_parameters, use_container_width=True)
-
-# --- APP-HEADER MIT STRICHLISTE (HAUPTBEREICH) ---
+# --- APP-HEADER MIT STRICHLISTE ---
 st.markdown(f"""
 <style>
 .stApp {{ background-color: #ffffff; color: #000000; }} 
@@ -380,7 +301,7 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# --- UPLOADS (HAUPTBEREICH) ---
+# --- UPLOADS ---
 c_up1, c_up2 = st.columns(2)
 with c_up1:
     st.markdown("### 📍 1. GPX Datei")
@@ -409,9 +330,113 @@ with c_up2:
     st.markdown("### 📸 2. Foto")
     up_img = st.file_uploader("Foto Upload", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="img_uploader")
 
+# --- EINSTELLUNGEN ---
+with st.expander("⚙️ Einstellungen [v3.1.8 Beta]", expanded=False): 
+    tab_inhalt, tab_design, tab_bild = st.tabs(["📝 Inhalte", "🎨 Design", "🖼️ Bildanpassung"])
+    
+    with tab_inhalt:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**📝 Tour Details**")
+            st.text_input("Tour Name", key="tour_title")
+            st.text_input("Datum", key="tour_date")
+            st.checkbox("Datum im Bild", key="show_date")
+            st.text_area("Eigener Kommentar", key="custom_text")
+            
+            st.write("---")
+            st.write("**☀️ Wetter Widget**")
+            st.checkbox("Wetter anzeigen", key="show_weather")
+            if st.session_state.show_weather:
+                col_w1, col_w2 = st.columns(2)
+                with col_w1: st.selectbox("Wetter Typ", ["☀️ Sonnig", "⛅ Bewölkt", "🌧️ Regen", "❄️ Schnee", "🌩️ Gewitter", "🌫️ Nebel"], key="weather_icon")
+                with col_w2: st.text_input("Temperatur", key="weather_temp")
+
+        with c2:
+            st.write("**✅ Ein- / Ausblenden**")
+            st.checkbox("Start/Ziel (S/Z)", key="show_markers")
+            st.checkbox("Ø Geschwindigkeit", key="show_speed")
+            st.checkbox("Höhenprofil", key="show_profile")
+            st.checkbox("Route in Bild anzeigen", key="show_route")
+            st.checkbox("Minibox (Karte)", key="show_minibox")
+            st.checkbox("App Logo (Im Bild)", key="show_logo")
+            st.radio("Logoart", ["Grafisches logo", "Smartes Logo"], horizontal=True, key="logo_type")
+            
+            st.write("---")
+            st.write("**🏍️ Bike & Rider Badge**")
+            st.checkbox("Badge einblenden", key="show_bike_badge")
+            if st.session_state.show_bike_badge:
+                st.text_input("Bike / Fahrzeug", key="bike_name")
+                st.text_input("Nerd-Stats (z.B. Max Schräglage)", key="bike_stats")
+
+    with tab_design:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**📐 Format & Canvas**")
+            st.radio("Seitenverhältnis wählen:", ["Story (9:16)", "Post (1:1)", "Landscape (16:9)"], key="canvas_format")
+            
+            st.write("---")
+            st.write("**🎨 Farben & Style**")
+            col_c1, col_c2 = st.columns(2)
+            with col_c1: st.color_picker("Routenfarbe", key="c_line")
+            with col_c2: st.number_input("Routenstärke", 1, 20, key="w_line")
+            st.checkbox("✨ Neon-Glow Effekt (Route)", key="neon_glow")
+            
+            st.color_picker("Farbe Titel", key="c_title")
+            st.color_picker("Farbe Daten", key="c_data")
+            st.color_picker("Farbe Raster", key="c_grid")
+            st.color_picker("Farbe Kommentar", key="c_custom_text")
+            
+        with c2:
+            st.write("**🔠 Größen (Skalierung)**")
+            st.number_input("Größe Titel", 0.5, 4.0, key="size_title", step=0.1)
+            st.number_input("Größe Daten", 0.5, 4.0, key="size_data", step=0.1)
+            st.number_input("Größe Raster-Text", 0.5, 2.0, key="size_grid", step=0.1)
+            st.number_input("Größe Minibox", 0.5, 2.0, key="size_minibox", step=0.1)
+            st.number_input("Größe Kommentar", 0.5, 5.0, key="size_custom_text", step=0.1)
+            st.number_input("Größe Bike Badge", 0.5, 3.0, key="size_badge", step=0.1)
+        
+        st.write("---")
+        st.write("**🔲 Box-Hintergründe**")
+        cb1, cb2, cb3 = st.columns(3)
+        with cb1: 
+            st.checkbox("Top-Bereich", key="show_bg_top")
+            st.checkbox("Datum-Box", key="show_bg_date")
+        with cb2: 
+            st.checkbox("Unten (Profil)", key="show_bg_bottom")
+            st.checkbox("Minibox", key="show_bg_minibox")
+        with cb3:
+            st.checkbox("Kommentar-Box", key="show_bg_custom_text")
+
+    with tab_bild:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.write("**🖼️ Hintergrund**")
+            st.number_input("Hintergrund Dimmer (%)", 0, 100, key="bg_opacity", step=5)
+            st.checkbox("🖤 Schwarz-Weiß Filter", key="img_bw")
+            st.write("---")
+            st.write("**🔍 Zoom & Position Foto**")
+            st.number_input("🔍 Zoom (%)", 10, 500, key="img_zoom", step=10)
+            st.number_input("↔️ Links/Rechts (Foto)", -1500, 1500, key="img_offset_x", step=10)
+            st.number_input("↕️ Oben/Unten (Foto)", -1500, 1500, key="img_offset_y", step=10)
+        with c2:
+            st.write("**📏 Story Ränder (Nur 9:16)**")
+            st.checkbox("Ränder aktivieren", key="story_margins_active")
+            if st.session_state.story_margins_active:
+                st.number_input("Oben (px)", 0, 500, key="margin_top", step=10)
+                st.number_input("Unten (px)", 0, 500, key="margin_bottom", step=10)
+            st.write("---")
+            st.write("**💬 Position Elemente**")
+            st.number_input("↔️ X Kommentar", 0, 3000, key="pos_x_custom_text", step=10)
+            st.number_input("↕️ Y Kommentar", 0, 3000, key="pos_y_custom_text", step=10)
+            st.number_input("↔️ X Minibox", 0, 3000, key="pos_x_minibox", step=10)
+            st.number_input("↕️ Y Minibox", 0, 3000, key="pos_y_minibox", step=10)
+
+    st.write("---")
+    st.button("🔄 Alles zurücksetzen", on_click=reset_parameters)
+
 st.divider()
 
-# --- BILDERZEUGUNG (HAUPTBEREICH) ---
+# --- BILDERZEUGUNG ---
 if up_gpx:
     try:
         gpx = gpxpy.parse(io.BytesIO(up_gpx.getvalue()))
@@ -487,6 +512,7 @@ if up_gpx:
         if st.session_state.show_speed: items.append(("speed", f"{avg_s:.1f} km/h"))
         items.append(("elev", f"{int(a_gain)} m"))
         
+        # Wetter immer als Letztes
         if st.session_state.show_weather:
             w_icon_key = f"weather_{st.session_state.weather_icon}"
             items.append((w_icon_key, f"{st.session_state.weather_temp}°C"))
@@ -618,11 +644,13 @@ if up_gpx:
 
         st.image(st_image_display, use_container_width=True)
         buf = io.BytesIO(); final_download.save(buf, format="PNG")
-        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v3111_beta.png", "image/png", use_container_width=True)
+        st.download_button("🚀 BILD SPEICHERN", buf.getvalue(), "tour_v318_beta.png", "image/png")
             
     except Exception as e: st.error(f"Fehler beim Generieren: {e}")
 
-# --- INFO REITER (MIT SUPPORT) ---
+# --- INFO & FOOTER BEREICH GANZ UNTEN ---
+st.markdown("---")
+
 with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     if st.session_state.logo_type == "Smartes Logo":
         menu_logo = Image.new('RGBA', (400, 100), (30, 30, 30, 255))
@@ -639,7 +667,7 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     st.markdown("---")
 
     st.markdown("### 📜 Changelog")
-    st.info("**v3.1.11 Beta:**\n- **FIX:** Aggressiven Branding-Killer entfernt, damit das Aufklapp-Menü für die Seitenleiste wieder sichtbar ist.\n- **NEU:** Einstellungen in die Seitenleiste verlegt, startet jetzt standardmäßig eingeklappt.")
+    st.info("**v3.1.8 Beta:**\n- **NEU:** Neon-Glow Effekt für Routen! Die Linie leuchtet jetzt wie eine Neonröhre.\n- **NEU:** Live-Counter für geteilte Touren im Header eingebaut.\n- **NEU:** Support-Button in den App-Infos integriert.\n- **FIX:** Fehlerhafte Startbedingungen des Counters behoben.")
     st.markdown("---")
     
     st.markdown("**Copyright: Jürgen Unterweger**")
@@ -649,7 +677,6 @@ with st.expander("ℹ️ Über GPX Share Pro", expanded=False):
     share_link = "whatsapp://send?text=" + raw_msg.replace(" ", "%20")
     st.markdown(f'<a href="{share_link}" style="display: block; width: 100%; padding: 10px; background-color: #25D366; color: white; text-align: center; text-decoration: none; border-radius: 5px; font-weight: bold;">🚀 App empfehlen (WhatsApp)</a>', unsafe_allow_html=True)
 
-# --- APP INSTALLIEREN REITER ---
 with st.expander("📲 App installieren", expanded=False):
     st.markdown("### Hol dir GPX Share Pro auf dein Handy!")
     col_ios, col_android, col_firefox = st.columns(3)
@@ -660,8 +687,6 @@ with st.expander("📲 App installieren", expanded=False):
     with col_firefox:
         st.markdown("**🦊 Firefox (Android)**\n1. Tippe auf die **drei Punkte** ⋮\n2. Wähle **'Installieren'** oder 'Zum Startbildschirm'")
 
-# --- IMPRESSUM FOOTER GANZ UNTEN ---
-st.markdown("---")
 with st.expander("⚖️ Impressum & Datenschutz", expanded=False):
     st.markdown("""
     **Impressum (Informationspflicht lt. § 5 ECG):** Jürgen Unterweger  
